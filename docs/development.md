@@ -327,12 +327,21 @@ Python側が常に正の状態を持ち、`resync` で再送できる設計を�
 - [x] ~~ぴったり賞の採否をイベント責任者に確認~~ → **不採用**（2026-07-23）。`--perfect-bonus` は付けない
 - [x] ~~チームの人数と問題数の対応を確認~~ → **5問固定・司会が回答者を指名**（2026-07-24）。実装変更なし
 - [ ] `uv run python -m suzuleague.questions` の出力をScratch側リストに再取り込み
-- [ ] `SUZULEAGUE_PROJECT_ID` を本番プロジェクトIDに設定
+- [ ] `SUZULEAGUE_PROJECT_ID=1364239598` を司会PCに設定（本番プロジェクトID。受領済み）
 - [ ] `SUZULEAGUE_CLOUD_HOST=wss://suzuleague-cloud.onrender.com` を司会PCに設定し、
       **Scratch側の `?cloud_host=` と一致していることを確認**（片方だけだと無言で繋がらない）
 - [ ] **Scratch側との結合テスト**（シミュレータではなく実物と繋ぐ。ここが最大の未知数）
 - [ ] チーム名が確定したら `teams.json` を作成（`--teams teams.json`）
-- [ ] 問題を差し替えた場合は観客ページを再生成してデプロイ
+- [ ] **観客ページを本番room IDで再生成してデプロイ**（2026-07-25時点で本番配信中の
+      ページは `suzuleague-dev` のまま。**差し替えないと観客の画面に何も出ない**）
+
+      ```bash
+      uv run python -m suzuleague.audience --room-id 1364239598 \
+        -o ../cloud-server/public/suzuleague.html
+      ```
+
+      デプロイ後は `curl -s https://suzuleague-cloud.onrender.com/suzuleague.html | grep 'var ROOM'`
+      で `1364239598` になっていることを確認する。問題を差し替えたときも同様に再生成が要る
       （問題文がページに埋め込まれているため）
 - [ ] 観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行・印刷
 - [ ] Render 無料枠の残インスタンス時間を確認（アカウント全体で月750時間の共有）
