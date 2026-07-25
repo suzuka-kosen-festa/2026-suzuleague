@@ -90,7 +90,7 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 
 | 設定 | 方法 | デフォルト |
 |---|---|---|
-| 接続先ルームID | `--project-id` または環境変数 `SUZULEAGUE_PROJECT_ID` | `suzuleague-dev`（開発用） |
+| 接続先ルームID | `--project-id` または環境変数 `SUZULEAGUE_PROJECT_ID` | `suzuleague-dev`（開発用）。**本番は `1364239598`** |
 | 接続先cloudサーバ | `--cloud-host` または環境変数 `SUZULEAGUE_CLOUD_HOST` | `wss://clouddata.turbowarp.org`（公開サーバ） |
 | チーム構成 | `--teams teams.json` または環境変数 `SUZULEAGUE_TEAMS` | 「チーム1」〜「チーム4」 |
 | ぴったり賞 | `uv run suzuleague --perfect-bonus 10` | 無効（0）。**本番は不採用なので付けない** |
@@ -100,8 +100,10 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 `suzuleague.cloud`（スモークテスト）/ `loadtest` のすべてで共通に効く。
 
 ルームIDについて: TurboWarp cloudは任意の文字列IDで「部屋」を作れる。
-開発中は `suzuleague-dev` を使い、**本番はScratch担当がリミックスした
-プロジェクトのID**に切り替える（Scratch側は本物のプロジェクトIDでしか繋げないため）。
+開発中は `suzuleague-dev` を使い、**本番はScratch担当が用意した
+プロジェクトのID `1364239598`**に切り替える（Scratch側は本物のプロジェクトIDでしか繋げないため）。
+本番プロジェクト: <https://scratch.mit.edu/projects/1364239598/>（TurboWarpで開くときは
+末尾に `?cloud_host=wss://suzuleague-cloud.onrender.com` を必ず付ける）。
 
 ### チーム名・メンバーを設定する
 

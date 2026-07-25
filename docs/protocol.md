@@ -13,7 +13,8 @@ Scratch担当向けの共有仕様です。バックエンド（Python/scratchat
 - クラウド変数に入れられるのは**数値のみ**
 - TurboWarpのクラウド変数は**全員が切断すると値が消える**
   - Python側に `resync`（全状態の再送）機能があるので、Scratch側をリロードしたら司会PCで `resync` してもらえばOK
-- 開発中のルームID: `suzuleague-dev`（本番はリミックス後のScratchプロジェクトIDに変更予定。
+- ルームID: 開発中は `suzuleague-dev`、**本番は `1364239598`**
+  （Scratch担当のプロジェクト <https://scratch.mit.edu/projects/1364239598/> のID。
   Python側は環境変数 `SUZULEAGUE_PROJECT_ID` で切替可能）
 
 ### ⚠ URLに `?cloud_host=` を必ず付ける
