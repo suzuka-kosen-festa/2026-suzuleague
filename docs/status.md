@@ -4,11 +4,11 @@
 設計の説明は [architecture.md](./architecture.md)、開発手順は [development.md](./development.md) を参照。
 
 課題の全量と最新状況は
-[GitHub Issues](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues)
+[GitHub Issues](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues)
 で管理している。このドキュメントは節目ごとの棚卸しとして更新する。
 
 技術的な背景を知らない人には
-[しくみの図解](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/blob/main/docs/explainer.html)
+[しくみの図解](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/2026-suzuleague/blob/main/docs/explainer.html)
 （[docs/explainer.html](./explainer.html)）を先に渡すとよい。
 
 ## スケジュール
@@ -110,19 +110,33 @@ Scratch担当から本番プロジェクト
 
 ### A. 自分で完結する（ブロッカーなし・今すぐやる）
 
+**現在このカテゴリは空**。2026-08-06 に最後の1件（観客ページのroom ID差し替え）が
+片付いたため、**残りはすべて相手の都合が絡むもの**になった。
+
 | 優先度 | 内容 | 備考 |
 |---|---|---|
-| **P0** | **観客ページを本番room IDで再生成してデプロイ** | 本番配信中のページは **`suzuleague-dev` のまま**（2026-07-25確認）。差し替えないと**当日観客の画面に何も出ない**。[手順](./development.md#リリース本番投入チェックリスト) |
+| ~~P0~~ | ~~観客ページを本番room IDで再生成してデプロイ~~ | ✅ **完了**（2026-08-06。下記） |
+
+#### 観客ページのroom ID差し替え（完了・2026-08-06）
+
+本番配信中のページが開発用の `suzuleague-dev` を向いたままだった問題を解消した。
+
+- `uv run python -m suzuleague.audience --room-id 1364239598` で再生成し、
+  cloud-server の `public/suzuleague.html` を差し替えて push
+- 差分は **`var ROOM` の1行のみ**（問題文20問は既に本番データが埋め込まれていた）
+- Render の自動デプロイが **push から約90秒**で反映
+- <https://suzuleague-cloud.onrender.com/suzuleague.html> が `1364239598` を
+  返すことを `curl` で実確認
 
 観客ページは cloud-server（別リポジトリ）の `public/` に置いて配信しているため、
-差し替えにはそちらへのデプロイが要る。
+**問題を差し替えたときは同じ手順での再デプロイが要る**（問題文がページに埋め込まれている）。
 
 ### B. 相手と日程を合わせる（最大の未知数）
 
 | 優先度 | 内容 | 相手 |
 |---|---|---|
 | **P0** | **Scratch側とのライブ結合テスト** | Scratch担当 |
-| **P1** | [#21](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/21) リハーサルの日程と当日の運営体制 | イベント責任者・音響 |
+| **P1** | [#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) リハーサルの日程と当日の運営体制 | イベント責任者・音響 |
 
 本番room IDは受領済みで、**Python側から本番ルームへの読み書き往復は確認できた**
 （2026-07-25。状態スナップショット7変数をpushして全て読み戻せた）。
@@ -138,11 +152,11 @@ https://turbowarp.org/1364239598?cloud_host=wss://suzuleague-cloud.onrender.com
 
 ### C. 他者に渡してある（相手の作業待ち）
 
-- [#5](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/5) 本番問題データ:
+- [#5](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/5) 本番問題データ:
   **Python側は投入完了**（20問。実アンケート2種の集計結果）。
   Scratch側の表示リストへの取り込みが残っている
   （`uv run python -m suzuleague.questions` の出力をScratch担当に渡す）
-- [#7](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/7) 観客スマホ参加:
+- [#7](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/7) 観客スマホ参加:
   **観客用ページを実装・デプロイ済み**（<https://suzuleague-cloud.onrender.com/suzuleague.html>）。
   残るのは上記Aのroom ID差し替え、**実機スマホでの確認、QRコードの発行**、
   および「挑戦者に画面を見せない対策」の企画側合意。
@@ -152,17 +166,17 @@ https://turbowarp.org/1364239598?cloud_host=wss://suzuleague-cloud.onrender.com
 
 | 優先度 | Issue | 内容 | いつ |
 |---|---|---|---|
-| P0 | [#16](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/16) | **Render 無料枠の残量確認**（#16 の他の項目は完了済み） | 2026年10月 |
+| P0 | [#16](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/16) | **Render 無料枠の残量確認**（#16 の他の項目は完了済み） | 2026年10月 |
 
 ### 直近で解決したもの
 
-- [#6](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/6)
+- [#6](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/6)
   Scratch 本番プロジェクトの room ID → **`1364239598` を受領**（2026-07-25）。
   Python側から本番ルームへの読み書き往復も確認済み。`SUZULEAGUE_PROJECT_ID` で切替
-- [#20](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/20)
+- [#20](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/20)
   チーム構成 → **5問固定・司会が回答者を指名する**運用に決定（2026-07-24）。
   実装変更は不要だった。チーム名は仮のまま進め、決まり次第JSONで差し替える
-- [#19](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/19)
+- [#19](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/19)
   個人情報 → 伏字化とprivate化の依頼提出をもってクローズ。ただし
   **git履歴には元の記載が残っている**ため、private化の反映は別途確認する
 
@@ -172,7 +186,7 @@ https://turbowarp.org/1364239598?cloud_host=wss://suzuleague-cloud.onrender.com
 flowchart LR
     i10["#10 セルフホスト<br>(完了)"] --> i7["#7 観客スマホ参加"]
     i20["#20 チーム構成<br>(完了)"] --> i5["#5 本番問題データ"]
-    i6["#6 room ID受領<br>(完了)"] --> aud["観客ページの<br>room ID差し替え"]
+    i6["#6 room ID受領<br>(完了)"] --> aud["観客ページの<br>room ID差し替え<br>(完了)"]
     i6 --> integ["Scratch側との<br>ライブ結合テスト"]
     i5 --> integ
     aud --> i7
@@ -184,18 +198,21 @@ flowchart LR
     style i20 fill:#d4edda,stroke:#28a745
     style i6 fill:#d4edda,stroke:#28a745
     style integ fill:#fff3cd,stroke:#d39e00
-    style aud fill:#fff3cd,stroke:#d39e00
+    style aud fill:#d4edda,stroke:#28a745
 ```
 
 ## 進め方の方針
 
 本番room IDが届いたことで、**「投げて待つ」フェーズから「繋いで確かめる」フェーズ**に移った。
 
-1. **観客ページを本番room IDで再生成・デプロイ**（A）。自分だけで完結する
+1. ~~観客ページを本番room IDで再生成・デプロイ~~ → **完了**（2026-08-06）
 2. **Scratch担当と時間を合わせてライブ結合テスト**（B）。ここが最大の未知数で、
    8月末完成を守れるかはこのタイミング次第
 3. **#21 のリハーサル日程を押さえる**（B）。会場と音響の都合があるので早めに
 4. 会場リハーサルで実機・実ネットワークの確認
+
+**自分だけで進められる作業はもう残っていない。** 以降はすべて相手の返事・日程待ちが
+挟まるので、打診を投げるのが遅れるとそのまま完成が遅れる。
 
 ## 未解決の論点
 
@@ -213,7 +230,7 @@ flowchart LR
 | リスク | 影響 | 対応 |
 |---|---|---|
 | **Scratch側の実装が仕様通りか未検証**（2026-07-25にプロジェクト `1364239598`「バックグラウンド連携対応」を受領。中身は未検証） | 結合時に無言の不具合が出れば、8月末完成が守れるか判断できない | ブラウザ実機での結合テストを早めに実施する。シミュレータでの先行検証は済んでいるが、**それは実物と繋がる保証にはならない** |
-| **観客ページのroom IDが `suzuleague-dev` のまま**（2026-07-25確認） | 当日、観客のスマホに何も表示されない。**エラーは出ず、空の部屋に繋がるだけ**なので気づきにくい | 本番IDで再生成してデプロイし、`curl` で `var ROOM` を実確認する（残タスクA） |
+| ~~観客ページのroom IDが `suzuleague-dev` のまま~~ | ~~当日、観客のスマホに何も表示されない~~ | ✅ **解消済み**（2026-08-06）。本番IDで再生成・デプロイし `curl` で実確認した。ただし**問題を差し替えたら再生成が要る**点は残るので、リリースチェックリストで毎回確認する |
 | 結合時に無言の不具合が出る（変数名の綴り違い・型・順序） | 原因究明に時間を取られる | 出やすいパターンを [protocol.md](./protocol.md#繋いだときに出やすい不具合) に一覧化して先に共有した |
 | 会場ネットワークの品質 | 観客参加が成立しない | 会場でのリハーサルが必須。IP制限のないセルフホストに切り替え済み |
 | cloud サーバの単一障害点 | サーバが落ちるとイベント進行が止まる | 司会CLIの `answer` コマンドで代行入力できる。加えて**司会PC上でサーバを動かす手順を実地で確認済み**（[手順](./development.md#本番サーバが落ちたときの代替手段)） |
