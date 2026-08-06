@@ -7,8 +7,8 @@
 必要なのは [uv](https://docs.astral.sh/uv/) のみ（Python本体もuvが自動で用意する）。
 
 ```bash
-git clone https://github.com/inouekoshi/snctfes2026-suzuleague.git
-cd snctfes2026-suzuleague
+git clone https://github.com/suzuka-kosen-festa/2026-suzuleague.git
+cd 2026-suzuleague
 uv sync
 uv run pytest   # 動作確認（全テストが通ればOK）
 ```
@@ -35,7 +35,7 @@ uv run pytest   # 動作確認（全テストが通ればOK）
 **更新後に必ずスモークテストとE2Eを通す**こと（ユニットテストは通信層を見ていない）。
 
 自動更新ツール（Renovate）は入れていない。理由は
-[#8](https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/issues/8) を参照。
+[#8](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/8) を参照。
 
 ## 動作確認の方法（3段階）
 
@@ -332,17 +332,21 @@ Python側が常に正の状態を持ち、`resync` で再送できる設計を�
       **Scratch側の `?cloud_host=` と一致していることを確認**（片方だけだと無言で繋がらない）
 - [ ] **Scratch側との結合テスト**（シミュレータではなく実物と繋ぐ。ここが最大の未知数）
 - [ ] チーム名が確定したら `teams.json` を作成（`--teams teams.json`）
-- [ ] **観客ページを本番room IDで再生成してデプロイ**（2026-07-25時点で本番配信中の
-      ページは `suzuleague-dev` のまま。**差し替えないと観客の画面に何も出ない**）
+- [x] ~~**観客ページを本番room IDで再生成してデプロイ**~~ → **完了**（2026-08-06）。
+      本番配信中のページが `1364239598` を向いていることを `curl` で実確認済み
+
+      **問題を差し替えたときは再生成が必要**（問題文がページに埋め込まれているため）。
+      手順は以下。
 
       ```bash
       uv run python -m suzuleague.audience --room-id 1364239598 \
         -o ../cloud-server/public/suzuleague.html
       ```
 
-      デプロイ後は `curl -s https://suzuleague-cloud.onrender.com/suzuleague.html | grep 'var ROOM'`
-      で `1364239598` になっていることを確認する。問題を差し替えたときも同様に再生成が要る
-      （問題文がページに埋め込まれているため）
+      cloud-server（`inouekoshi/cloud-server`）の `master` に push すると Render が
+      自動デプロイする（実測で**push から約90秒**で反映）。デプロイ後は
+      `curl -s https://suzuleague-cloud.onrender.com/suzuleague.html | grep 'var ROOM'`
+      で `1364239598` になっていることを必ず確認する
 - [ ] 観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行・印刷
 - [ ] Render 無料枠の残インスタンス時間を確認（アカウント全体で月750時間の共有）
 - [ ] 会場ネットワークでE2Eリハーサル（企画書のリハーサル項目参照）

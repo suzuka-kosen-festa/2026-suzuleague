@@ -1,4 +1,4 @@
-# snctfes2026-suzuleague
+# 2026-suzuleague
 
 鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」の進行システム（バックエンド）。
 
@@ -16,7 +16,7 @@ Scratch(TurboWarp) <-> TurboWarp cloud <-> Python(scratchattach) [<-> Firestore(
 
 | ドキュメント | 内容 | 対象読者 |
 |---|---|---|
-| [**しくみの図解**](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/snctfes2026-suzuleague/blob/main/docs/explainer.html) | システムの仕組みを図で説明（専門用語なし） | **全員（プログラム未経験でも読める）** |
+| [**しくみの図解**](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/2026-suzuleague/blob/main/docs/explainer.html) | システムの仕組みを図で説明（専門用語なし） | **全員（プログラム未経験でも読める）** |
 | [docs/status.md](docs/status.md) | 進捗状況・残タスク・未解決の論点・リスク | 全員（現状把握） |
 | [docs/architecture.md](docs/architecture.md) | 全体構成・設計判断の理由・レイヤー構造・データフロー | 全員（まず読む） |
 | [docs/game-rules.md](docs/game-rules.md) | ゲームルール・進行ステートの遷移図・採点仕様 | 全員 |
