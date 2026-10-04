@@ -15,7 +15,9 @@ from suzuleague.controller import GameController
 from suzuleague.engine import GameEngine, GameError, State
 from suzuleague.host import (
     HostRelay,
+    TeamCodes,
     build_host_state,
+    build_player_state,
     execute_command,
     http_base_from_cloud_host,
     next_action_label,
@@ -268,3 +270,74 @@ class TestServeLocal:
             assert state["last_command"]["seq"] == body["seq"]
         finally:
             server.shutdown()
+
+
+class TestTeamCodes:
+    def test_four_digits_and_unique(self):
+        values = iter([7, 7, 42, 9999, 123])  # 2回目の7は重複なので引き直す
+        codes = TeamCodes([1, 2, 3, 4], randbelow=lambda n: next(values))
+        assert [codes.for_team(n) for n in (1, 2, 3, 4)] == ["0007", "0042", "9999", "0123"]
+        assert codes.for_team(5) is None
+
+
+class TestPlayerState:
+    def test_never_contains_correct_answer_before_reveal(self):
+        """誰でも見られる状態なので、正解は発表まで入れない。"""
+        engine = GameEngine(
+            question_set=QuestionSet([Question(i + 1, f"Q{i + 1}", 87, "") for i in range(20)])
+        )
+        for target in (State.TEAM_INTRO, State.QUESTION, State.ANSWERING):
+            advance_to(engine, target)
+            assert "87" not in json.dumps(build_player_state(engine))
+        engine.submit_answer(80)
+        engine.advance()
+        assert build_player_state(engine)["result"]["correct"] == 87
+
+    def test_host_state_carries_code_and_player_part(self):
+        engine = make_engine()
+        codes = TeamCodes([1, 2, 3, 4], randbelow=lambda n, it=iter([1, 2, 3, 4]): next(it))
+        assert build_host_state(engine, player_codes=codes)["player_code"] is None
+        advance_to(engine, State.TEAM_INTRO)
+        state = build_host_state(engine, player_codes=codes)
+        assert state["player_code"] == "0001"
+        assert state["player"] == build_player_state(engine)
+
+
+class TestPlayerAnswer:
+    def setup_method(self):
+        self.engine = make_engine()
+        self.codes = TeamCodes([1, 2, 3, 4], randbelow=lambda n, it=iter([1111, 2222, 3333, 4444]): next(it))
+        self.controller = GameController(self.engine)
+        advance_to(self.engine, State.ANSWERING)
+
+    def answer(self, **overrides):
+        command = {"seq": 1, "type": "answer", "value": 45, "source": "player",
+                   "code": "1111", "question_id": 1, **overrides}
+        return execute_command(self.controller, command, self.codes)
+
+    def test_accepted(self):
+        result = self.answer()
+        assert result["ok"] is True
+        assert "出演者" in result["message"]
+        assert self.engine.pending_answer == 45
+
+    def test_other_teams_code_is_rejected(self):
+        assert self.answer(code="2222")["ok"] is False
+        assert self.engine.pending_answer is None
+
+    def test_late_answer_to_previous_question_is_rejected(self):
+        assert self.answer(question_id=99)["ok"] is False
+        assert self.engine.pending_answer is None
+
+    def test_players_cannot_advance(self):
+        result = execute_command(
+            self.controller, {"type": "next", "source": "player", "code": "1111"}, self.codes
+        )
+        assert result["ok"] is False
+        assert self.engine.state is State.ANSWERING
+
+    def test_rejected_without_codes(self):
+        result = execute_command(
+            self.controller, {"type": "answer", "value": 1, "source": "player"}, None
+        )
+        assert result["ok"] is False

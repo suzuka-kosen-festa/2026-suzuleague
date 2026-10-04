@@ -9,6 +9,10 @@
 - HostRelay: Render から操作を取り出して実行し、状態を預け直すスレッド
 - serve_local: Render に届かないときの予備。同じ画面を裏方PC上で直接開く
 
+出演者の回答画面（player.html）も同じ中継に相乗りする。出演者は自分のスマホから
+回答を Render に預け、裏方PCが司会の操作と一緒に取り出す。観客のなりすましを
+防ぐため、チームごとの4桁の合言葉（TeamCodes）を司会者画面に出し、司会が出演者に伝える。
+
 画面の本体は host.html。Render（cloud-server の public/）と serve_local の
 どちらから配信しても動くよう、APIは相対パスで呼んでいる。
 """
@@ -16,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import threading
 import time
 import urllib.error
@@ -32,6 +37,7 @@ from .questions import ROUNDS_PER_TEAM
 
 ENV_HOST_TOKEN = "SUZULEAGUE_HOST_TOKEN"
 HOST_PAGE_PATH = Path(__file__).parent / "host.html"
+PLAYER_PAGE_PATH = Path(__file__).parent / "player.html"
 TOKEN_HEADER = "X-Host-Token"
 
 ANSWERING_STATES = (State.ANSWERING, State.EXHIBITION_ANSWERING)
@@ -48,6 +54,30 @@ def http_base_from_cloud_host(cloud_host: str) -> str:
     if host.startswith(("https://", "http://")):
         return host
     raise ValueError(f"cloudサーバのURLではありません: {cloud_host!r}")
+
+
+# ---- 出演者の合言葉 ------------------------------------------------
+
+
+class TeamCodes:
+    """出演者の回答画面に入力してもらう、チームごとの4桁の合言葉。
+
+    裏方PCを起動するたびに作り直す。司会者画面とCLIに出るので、
+    司会がチームの登場時に出演者へ伝える。
+    """
+
+    def __init__(self, team_numbers: list[int], randbelow: Callable[[int], int] = secrets.randbelow) -> None:
+        self._codes: dict[int, str] = {}
+        used: set[str] = set()
+        for number in team_numbers:
+            code = f"{randbelow(10_000):04d}"
+            while code in used:  # 前のチームの合言葉で次のチームの回答ができないように
+                code = f"{randbelow(10_000):04d}"
+            used.add(code)
+            self._codes[number] = code
+
+    def for_team(self, team_number: int) -> str | None:
+        return self._codes.get(team_number)
 
 
 # ---- 画面に出す状態 ------------------------------------------------
@@ -89,10 +119,76 @@ def _team_status(team) -> str:
     return "クリア"
 
 
+def _team_summary(engine: GameEngine) -> list[dict[str, Any]]:
+    return [
+        {
+            "number": t.number,
+            "name": t.name,
+            "balloons": t.balloons,
+            "finished_rounds": t.finished_rounds,
+            "status": _team_status(t),
+        }
+        for t in engine.teams
+    ]
+
+
+def build_player_state(engine: GameEngine) -> dict[str, Any]:
+    """出演者の回答画面に出す状態。誰でも見られるので、**正解は発表後だけ**入れる。"""
+    snap = engine.snapshot()
+    team = engine.current_team
+    question = engine.current_question
+    result = engine.last_result if engine.state in REVEAL_STATES else None
+    winner = engine.winner() if engine.state is State.FINISHED else None
+    return {
+        "state": int(engine.state),
+        "state_label": STATE_LABELS[engine.state],
+        "team": (
+            {"number": team.number, "name": team.name, "balloons": team.balloons, "failed": team.is_failed}
+            if team
+            else None
+        ),
+        "round": snap.round_no,
+        "rounds_per_team": ROUNDS_PER_TEAM,
+        "question": (
+            {"id": question.id, "text": question.text}
+            if question and engine.state is not State.TEAM_INTRO
+            else None
+        ),
+        "accepting_answer": engine.state in ANSWERING_STATES,
+        "exhibition": engine.state is State.EXHIBITION_ANSWERING,
+        "answer": engine.pending_answer,
+        "result": (
+            {
+                "answer": result.answer,
+                "correct": result.correct,
+                "damage": result.damage,
+                "balloons_after": result.balloons_after,
+                "exhibition": result.exhibition,
+                "perfect": result.is_perfect,
+            }
+            if result
+            else None
+        ),
+        "teams": _team_summary(engine),
+        "finished": engine.state is State.FINISHED,
+        "winner": (
+            {"number": winner.number, "name": winner.name, "balloons": winner.balloons}
+            if winner
+            else None
+        ),
+    }
+
+
 def build_host_state(
-    engine: GameEngine, last_command: dict[str, Any] | None = None
+    engine: GameEngine,
+    last_command: dict[str, Any] | None = None,
+    player_codes: TeamCodes | None = None,
 ) -> dict[str, Any]:
-    """司会者画面に出す状態。正解も含む（画面側で押したときだけ表示する）。"""
+    """司会者画面に出す状態。正解も含む（画面側で押したときだけ表示する）。
+
+    `player` は出演者の回答画面向けの公開用の状態で、Render がそのまま配る。
+    `player_code` は Render が出演者の回答を受け付けるときの照合に使う。
+    """
     snap = engine.snapshot()
     team = engine.current_team
     question = engine.current_question
@@ -142,16 +238,7 @@ def build_host_state(
             if result
             else None
         ),
-        "teams": [
-            {
-                "number": t.number,
-                "name": t.name,
-                "balloons": t.balloons,
-                "finished_rounds": t.finished_rounds,
-                "status": _team_status(t),
-            }
-            for t in engine.teams
-        ],
+        "teams": _team_summary(engine),
         "finished": engine.state is State.FINISHED,
         "winner": (
             {"number": winner.number, "name": winner.name, "balloons": winner.balloons}
@@ -159,20 +246,52 @@ def build_host_state(
             else None
         ),
         "last_command": last_command,
+        "player_code": (
+            player_codes.for_team(team.number)
+            if player_codes and team and engine.state is not State.FINISHED
+            else None
+        ),
+        "player": build_player_state(engine),
     }
 
 
 # ---- 操作の実行 ----------------------------------------------------
 
 
-def execute_command(controller: GameController, command: dict[str, Any]) -> dict[str, Any]:
-    """司会者画面から届いた操作を1つ実行し、結果を返す。
+def _check_player_answer(
+    controller: GameController, command: dict[str, Any], player_codes: TeamCodes | None
+) -> None:
+    """出演者の回答が、いま登壇中のチームの、いまの問題へのものか確かめる。
+
+    Render でも合言葉は照合しているが、問題が切り替わった直後に届いた
+    1つ前の問題への回答などはここで弾く。
+    """
+    engine = controller.engine
+    team = engine.current_team
+    question = engine.current_question
+    if player_codes is None or team is None:
+        raise GameError("出演者の回答を受け付けていません")
+    if command.get("code") != player_codes.for_team(team.number):
+        raise GameError("出演者の合言葉が違うため、回答を受け付けませんでした")
+    if question is None or command.get("question_id") != question.id:
+        raise GameError("前の問題への回答が遅れて届いたため、受け付けませんでした")
+
+
+def execute_command(
+    controller: GameController,
+    command: dict[str, Any],
+    player_codes: TeamCodes | None = None,
+) -> dict[str, Any]:
+    """司会者画面・出演者の回答画面から届いた操作を1つ実行し、結果を返す。
 
     失敗しても例外は投げない。結果は画面に表示して司会に知らせる。
     """
     seq = command.get("seq")
     kind = command.get("type")
+    from_player = command.get("source") == "player"
     try:
+        if from_player and kind != "answer":
+            raise GameError("出演者からは回答しか受け付けません")
         if kind == "next":
             expect = command.get("expect_state")
             if expect is not None and not isinstance(expect, int):
@@ -183,8 +302,15 @@ def execute_command(controller: GameController, command: dict[str, Any]) -> dict
             value = command.get("value")
             if not isinstance(value, int) or isinstance(value, bool):
                 raise GameError("回答は0〜100の整数で入力してください")
-            controller.answer(value)
-            message = f"回答 {value}% を入力しました"
+            with controller.lock:
+                if from_player:
+                    _check_player_answer(controller, command, player_codes)
+                controller.answer(value)
+            message = (
+                f"出演者から回答 {value}% が届きました"
+                if from_player
+                else f"回答 {value}% を入力しました"
+            )
         else:
             raise GameError(f"不明な操作です: {kind!r}")
     except GameError as e:
@@ -241,8 +367,10 @@ class HostRelay:
         on_command: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
         on_status: Callable[[bool, str], None] | None = None,
         clock: Callable[[], float] = time.monotonic,
+        player_codes: TeamCodes | None = None,
     ) -> None:
         self.controller = controller
+        self.player_codes = player_codes
         self.transport = transport
         self.interval = interval
         self.state_interval = state_interval
@@ -268,13 +396,15 @@ class HostRelay:
             if seq <= self._last_seq:
                 continue
             self._last_seq = seq
-            result = execute_command(self.controller, command)
+            result = execute_command(self.controller, command, self.player_codes)
             self._last_command = result
             if self._on_command:
                 self._on_command(command, result)
 
         with self.controller.lock:
-            state = build_host_state(self.controller.engine, self._last_command)
+            state = build_host_state(
+                self.controller.engine, self._last_command, self.player_codes
+            )
         fingerprint = json.dumps(state, sort_keys=True, ensure_ascii=False)
         now = self._clock()
         if (
@@ -322,6 +452,7 @@ def serve_local(
     host: str = "127.0.0.1",
     port: int = 8000,
     on_command: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
+    player_codes: TeamCodes | None = None,
 ) -> ThreadingHTTPServer:
     """司会者画面を裏方PC上で配信する（Render に届かないときの予備）。
 
@@ -355,7 +486,9 @@ def serve_local(
                 self.wfile.write(data)
             elif path == "/api/host/state":
                 with controller.lock:
-                    state = build_host_state(controller.engine, session["last_command"])
+                    state = build_host_state(
+                        controller.engine, session["last_command"], player_codes
+                    )
                 self._send_json(200, {"state": state, "age": 0})
             else:
                 self._send_json(404, {"error": "not found"})
@@ -374,7 +507,8 @@ def serve_local(
                 return
             with session_lock:
                 session["seq"] += 1
-                command = {**body, "seq": session["seq"]}
+                # 予備の画面は司会専用。出演者の回答として扱わない
+                command = {**body, "seq": session["seq"], "source": "host"}
                 result = execute_command(controller, command)
                 session["last_command"] = result
             if on_command:

@@ -25,7 +25,14 @@ from rich.table import Table
 from .cloud import ENV_CLOUD_HOST, CloudBridge, resolve_cloud_host, resolve_project_id
 from .controller import GameController
 from .engine import GameEngine, GameError, State
-from .host import ENV_HOST_TOKEN, HostRelay, HttpTransport, http_base_from_cloud_host, serve_local
+from .host import (
+    ENV_HOST_TOKEN,
+    HostRelay,
+    HttpTransport,
+    TeamCodes,
+    http_base_from_cloud_host,
+    serve_local,
+)
 from .labels import NEXT_HINTS, STATE_LABELS
 from .protocol import ACK_ANIMATION_DONE
 from .teams import ENV_TEAMS, resolve_teams
@@ -47,6 +54,7 @@ class Dashboard:
         self.engine = engine
         self.bridge = bridge
         self.console = Console()
+        self.player_codes = TeamCodes([t.number for t in engine.teams])
         self.controller = GameController(
             engine,
             bridge,
@@ -75,7 +83,8 @@ class Dashboard:
 
     def on_host_command(self, command: dict, result: dict) -> None:
         mark = "[green]●[/]" if result["ok"] else "[yellow]●[/]"
-        self.console.print(f"{mark} 司会者画面: {result['message']}")
+        where = "出演者の回答画面" if command.get("source") == "player" else "司会者画面"
+        self.console.print(f"{mark} {where}: {result['message']}")
         if result["ok"] and command.get("type") == "next":
             self.print_status()
 
@@ -103,6 +112,8 @@ class Dashboard:
                 f"[bold]チーム:[/] {team.number} {team.name}"
                 f"　[bold]バルーン:[/] {team.balloons}{fail}"
             )
+            code = self.player_codes.for_team(team.number)
+            lines.append(f"[bold]出演者の合言葉:[/] [bold cyan]{code}[/]（回答画面に入力してもらう）")
         if question:
             lines.append(f"[bold]第{snap.round_no}問 (ID:{question.id}):[/] {question.text}")
             lines.append(f"[bold]正解:[/] {question.correct}%（司会用・Scratchには発表時のみ送信）")
@@ -275,7 +286,10 @@ def main() -> None:
     relay = start_host_relay(dashboard, None if args.offline else args.cloud_host)
     if args.web:
         serve_local(
-            dashboard.controller, port=args.web_port, on_command=dashboard.on_host_command
+            dashboard.controller,
+            port=args.web_port,
+            on_command=dashboard.on_host_command,
+            player_codes=dashboard.player_codes,
         )
         print(f"司会者画面（予備）: http://localhost:{args.web_port}/host")
 
@@ -301,9 +315,11 @@ def start_host_relay(dashboard: Dashboard, cloud_host: str | None) -> HostRelay 
         HttpTransport(base_url, token),
         on_command=dashboard.on_host_command,
         on_status=dashboard.on_relay_status,
+        player_codes=dashboard.player_codes,
     )
     relay.start()
     print(f"司会者画面（スマホ）: {base_url}/host.html")
+    print(f"出演者の回答画面:     {base_url}/player.html")
     return relay
 
 
