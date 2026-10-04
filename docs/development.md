@@ -86,6 +86,58 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 | `help` / `h` | ヘルプ |
 | `quit` / `exit` | 終了 |
 
+## 司会者画面（スマホで進行を操作する）
+
+司会は手元のスマホで進行を操作する（[users.md](./users.md)）。スマホから裏方PCへは直接つながず、
+**Render の cloud-server を郵便受けにして中継**する。
+
+```
+司会のスマホ ──操作を預ける──▶ Render（/api/host/*） ◀──0.4秒ごとに取りに行く── 裏方PC（Python）
+            ◀──状態を見る────                     ◀──状態を預ける──────────
+```
+
+### 使い方
+
+1. Render のサービスに環境変数 **`HOST_TOKEN`**（合言葉）を設定する。未設定だとAPIは無効（503）
+2. 裏方PCで同じ合言葉を **`SUZULEAGUE_HOST_TOKEN`** に入れてダッシュボードを起動する
+
+   ```bash
+   export SUZULEAGUE_HOST_TOKEN='（合言葉）'
+   uv run suzuleague --web
+   #   司会者画面（スマホ）: https://suzuleague-cloud.onrender.com/host.html
+   #   司会者画面（予備）:   http://localhost:8000/host
+   ```
+
+3. 司会のスマホで `https://suzuleague-cloud.onrender.com/host.html` を開き、合言葉を入力する
+   （スマホに保存されるので次からは聞かれない）
+
+CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchのどこから操作しても、
+同じ `GameController`（`controller.py`）を通るので食い違わない。
+
+### 安全のための仕組み
+
+| 仕組み | 防ぐもの |
+|---|---|
+| 合言葉（`X-Host-Token` ヘッダ。HTTPSで送る） | URLが漏れて進行を乗っ取られる。クラウド変数と違い、他の端末には流れない |
+| 「次へ」に表示中のステートを添える（`expect_state`） | 通信の遅れで「次へ」が二重に届き、2段階進んでしまう |
+| 裏方PCは起動前に溜まっていた操作を捨てる | 再起動直後に古い「次へ」が一気に実行される |
+| 正解は押している間だけ表示 | 司会のスマホを周りに覗かれる |
+
+### Render に届かないとき
+
+`--web` を付けて起動しておけば、裏方PCのブラウザで `http://localhost:8000/host` を開いて
+同じ画面で操作できる（合言葉なし・その場で実行）。CLIでの操作も常に使える。
+
+### 画面を更新する
+
+画面の元ファイルは `src/suzuleague/host.html`。Render へは cloud-server の `public/host.html` に
+コピーして配信している。
+
+```bash
+cp src/suzuleague/host.html ../cloud-server/public/host.html
+cd ../cloud-server && git add public/host.html && git commit -m "司会者画面を更新" && git push
+```
+
 ## 設定
 
 | 設定 | 方法 | デフォルト |
@@ -264,6 +316,7 @@ uv run pytest -k exhibition   # 絞り込み例
 |---|---|
 | `tests/test_engine.py` | 状態遷移・採点境界値（ぴったり/0到達）・エキシビション移行・優勝判定・入力検証 |
 | `tests/test_protocol.py` | Snapshot→クラウド変数のエンコード、受信値のパース（"45.0"等の揺れ・範囲外） |
+| `tests/test_host.py` | 司会者画面：表示用の状態、操作の実行（二重押し・不正値）、Render中継（起動前の操作を捨てる）、予備サーバの往復 |
 
 cloud通信層（`cloud.py`）は実サーバ依存のためユニットテスト対象外。
 変更したら上記スモークテスト＋E2Eで確認すること。
@@ -348,14 +401,17 @@ Python側が常に正の状態を持ち、`resync` で再送できる設計を�
       `curl -s https://suzuleague-cloud.onrender.com/suzuleague.html | grep 'var ROOM'`
       で `1364239598` になっていることを必ず確認する
 - [ ] 観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行・印刷
-- [ ] Render 無料枠の残インスタンス時間を確認（アカウント全体で月750時間の共有）
+- [x] ~~Render 無料枠の残インスタンス時間を確認~~ → **0.08 / 750時間**（2026-10-04。#16）
+- [ ] Render に `HOST_TOKEN`、裏方PCに `SUZULEAGUE_HOST_TOKEN` を同じ値で設定（司会者画面の合言葉）
+- [ ] 司会のスマホで司会者画面を開き、合言葉を入力して「PCと接続中」になることを確認
 - [ ] 会場ネットワークでE2Eリハーサル（企画書のリハーサル項目参照）
 
 ### 当日（開演前）
 
 - [ ] **開演30分前** に <https://suzuleague-cloud.onrender.com> をブラウザで開く
       （15分無通信でスピンダウンする。実測での復帰は22.8秒、公称は約1分）
-- [ ] ダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
+- [ ] ダッシュボードを `--web` 付きで起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
+- [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
 - [ ] ステージ画面を `?cloud_host=` 付きURLで開き、`resync` で表示が復帰することを確認
 - [ ] 進行不能時の代替手段を確認（`answer` コマンドでの代行入力、`resync`、
       [バックアップ手順](#本番サーバが落ちたときの代替手段)）
@@ -364,7 +420,7 @@ Python側が常に正の状態を持ち、`resync` で再送できる設計を�
 
 - 設計判断の理由: [architecture.md](./architecture.md#主要な設計判断とその理由)
 - 通信は cloud 変数、本番は**セルフホストのサーバ**（2026-07-23 デプロイ済み）
-- UIは**CLIのまま本番へ**。Web UIは作らない（[理由](./architecture.md#4-ダッシュボードはまずcli)）
+- ~~UIは**CLIのまま本番へ**。Web UIは作らない~~ → 2026-10 デモ会の指摘を受けて、**司会がスマホで操作する司会者画面を追加**。CLIは予備として残す
 - **観客スマホ参加は本番スコープに含む**（企画書・司会台本に組み込み済みのため。
   当初は次フェーズ送りとしていたが2026-07-22に格上げ）。回答は端末内で自己採点し
   サーバへ送らない方式（2026-07-23決定）

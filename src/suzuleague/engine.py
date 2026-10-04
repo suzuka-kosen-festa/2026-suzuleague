@@ -95,6 +95,11 @@ class GameEngine:
         return self._last_result
 
     @property
+    def pending_answer(self) -> int | None:
+        """回答受付中に届いている回答（未確定）。届いていなければNone。"""
+        return self._pending_answer
+
+    @property
     def in_exhibition(self) -> bool:
         """現在チームがゲームオーバー済みで、残りをエキシビションで行う状態か。"""
         team = self.current_team
