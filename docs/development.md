@@ -130,13 +130,8 @@ CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchの�
 
 ### 画面を更新する
 
-画面の元ファイルは `src/suzuleague/host.html`。Render へは cloud-server の `public/host.html` に
-コピーして配信している。
-
-```bash
-cp src/suzuleague/host.html ../cloud-server/public/host.html
-cd ../cloud-server && git add public/host.html && git commit -m "司会者画面を更新" && git push
-```
+画面の元ファイルは `src/suzuleague/host.html`。Render へは cloud-server の `public/host.html` として
+配信している。書き出しは観客ページと一緒に `publish` コマンドで行う（[観客用ページを更新する](#観客用ページを更新する)）。
 
 ## 設定
 
@@ -238,22 +233,28 @@ uv run python -m suzuleague.loadtest --cloud-host ws://localhost:9080 --ramp 10,
 
 ### 観客用ページを更新する
 
-観客がスマホから開く画面は cloud サーバの `public/` から配信している。
-**問題文がページに埋め込まれているので、問題を差し替えたら必ず再生成する。**
+観客ページと司会者画面は cloud サーバ（[inouekoshi/cloud-server](https://github.com/inouekoshi/cloud-server)）の
+`public/` から配信している。**観客ページには問題文が埋め込まれているので、問題を差し替えたら必ず書き出し直す。**
+
+書き出しと本番との照合は `publish` コマンドにまとめてある。手でコピーしない。
 
 ```bash
-# fork した cloud-server が隣にある前提
-uv run python -m suzuleague.audience -o ../cloud-server/public/suzuleague.html
+# 1. 書き出す（隣に cloud-server がクローンしてある前提。場所が違えば --server-dir）
+uv run python -m suzuleague.publish --room-id 1364239598
 
-cd ../cloud-server
-git add public/suzuleague.html && git commit -m "観客ページを更新" && git push
-#   → Render が自動でデプロイする（数分）
+# 2. cloud-server で差分を確認してブランチを切り、PRを作る
+cd ../cloud-server && git switch -c update-pages && git add public && git commit -m "画面を更新" && git push -u origin update-pages
+#   → master にマージすると Render が自動でデプロイする（約90秒）
+
+# 3. 本番の画面が手元から作ったものと一致するか確かめる
+uv run python -m suzuleague.publish --room-id 1364239598 --check
 ```
 
-生成物には**正解値を含めない**（先に見えてしまうため）。
-これは `tests/test_audience.py` で自動確認している。
+- 接続先が開発用ルーム（`suzuleague-dev`）のままだと書き出しを拒否する（観客のスマホに何も映らなくなるため）
+- 生成物には**正解値を含めない**（先に見えてしまうため）。`tests/test_audience.py` で自動確認している
+- 2つのリポジトリに分かれているのは経緯によるもので、デモ後に1つにまとめる（[#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45)）
 
-接続先: <https://suzuleague-cloud.onrender.com/suzuleague.html>
+接続先: <https://suzuleague-cloud.onrender.com/suzuleague.html>・<https://suzuleague-cloud.onrender.com/host.html>
 
 ### 本番サーバが落ちたときの代替手段
 
@@ -316,6 +317,7 @@ uv run pytest -k exhibition   # 絞り込み例
 |---|---|
 | `tests/test_engine.py` | 状態遷移・採点境界値（ぴったり/0到達）・エキシビション移行・優勝判定・入力検証 |
 | `tests/test_protocol.py` | Snapshot→クラウド変数のエンコード、受信値のパース（"45.0"等の揺れ・範囲外） |
+| `tests/test_publish.py` | 画面の書き出し（変わったファイルだけ報告）・本番との照合・開発用ルームでの書き出し拒否 |
 | `tests/test_host.py` | 司会者画面：表示用の状態、操作の実行（二重押し・不正値）、Render中継（起動前の操作を捨てる）、予備サーバの往復 |
 
 cloud通信層（`cloud.py`）は実サーバ依存のためユニットテスト対象外。
@@ -400,6 +402,7 @@ Python側が常に正の状態を持ち、`resync` で再送できる設計を�
       自動デプロイする（実測で**push から約90秒**で反映）。デプロイ後は
       `curl -s https://suzuleague-cloud.onrender.com/suzuleague.html | grep 'var ROOM'`
       で `1364239598` になっていることを必ず確認する
+- [ ] `uv run python -m suzuleague.publish --room-id 1364239598 --check` で、本番の画面が最新であることを確認
 - [ ] 観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行・印刷
 - [x] ~~Render 無料枠の残インスタンス時間を確認~~ → **0.08 / 750時間**（2026-10-04。#16）
 - [ ] Render に `HOST_TOKEN`、裏方PCに `SUZULEAGUE_HOST_TOKEN` を同じ値で設定（司会者画面の合言葉）

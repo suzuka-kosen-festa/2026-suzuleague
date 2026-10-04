@@ -117,8 +117,11 @@ cloud サーバは**新規接続時に現在の変数値をまとめて送る**�
 問題文はページに埋め込まれるため、**問題を差し替えたら再生成が必要**。
 
 ```bash
-uv run python -m suzuleague.audience -o ../cloud-server/public/suzuleague.html
+uv run python -m suzuleague.publish --room-id 1364239598          # 書き出し（司会者画面も一緒に）
+uv run python -m suzuleague.publish --room-id 1364239598 --check  # 本番と照合
 ```
+
+手順の詳細は [development.md](./development.md#観客用ページを更新する)。
 
 正解値は埋め込まない（先に見えてしまうため）。この点は
 `tests/test_audience.py` で自動確認している。

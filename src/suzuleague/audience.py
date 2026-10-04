@@ -8,9 +8,10 @@ P2S_* を受け取る。そのため進行は自動的に同期する
 生成物は cloud-server の `public/` に置く。cloud-server は public/ を
 そのまま静的配信するので、**サーバを増やさずに観客ページを配れる**。
 
-    uv run python -m suzuleague.audience -o ../cloud-server/public/suzuleague.html
-
 問題を差し替えたら必ず再生成すること（問題文がページに埋め込まれているため）。
+書き出しは司会者画面と一緒に publish.py で行う:
+
+    uv run python -m suzuleague.publish --room-id 1364239598
 """
 
 from __future__ import annotations
