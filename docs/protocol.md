@@ -3,6 +3,10 @@
 Scratch担当向けの共有仕様です。バックエンド（Python/scratchattach）とScratchプロジェクトは
 **TurboWarpのクラウド変数**でやり取りします。
 
+> **2026-10-04 追記**: 大画面を使わず全員が自分のスマホで見る方針になり、出演者の回答・司会の操作・
+> 観客の成績はクラウド変数ではなく **HTTPS API** で送るようになった（[後述](#https-apiスマホの画面と裏方pc)）。
+> クラウド変数の仕様（この文書の大半）は変わっていない。Scratch画面の使い方は相談中（#41）。
+
 > 全体像は [architecture.md](./architecture.md)、ステートの詳しい意味と遷移図は
 > [game-rules.md](./game-rules.md) を参照。
 
@@ -12,7 +16,7 @@ Scratch担当向けの共有仕様です。バックエンド（Python/scratchat
   - 観客・出演者はScratchアカウント不要（本家scratch.mit.eduのクラウド変数はログイン必須のため使わない）
 - クラウド変数に入れられるのは**数値のみ**
 - TurboWarpのクラウド変数は**全員が切断すると値が消える**
-  - Python側に `resync`（全状態の再送）機能があるので、Scratch側をリロードしたら司会PCで `resync` してもらえばOK
+  - Python側に `resync`（全状態の再送）機能があるので、Scratch側をリロードしたら裏方PCで `resync` してもらえばOK
 - ルームID: 開発中は `suzuleague-dev`、**本番は `1364239598`**
   （Scratch担当のプロジェクト <https://scratch.mit.edu/projects/1364239598/> のID。
   Python側は環境変数 `SUZULEAGUE_PROJECT_ID` で切替可能）
@@ -75,7 +79,7 @@ Python側は専用サーバという別々の部屋に入ってしまい、互�
 | 7 | 回答受付（エキシビション） | 3と同じだが**採点なし**であることを表示 |
 | 8 | 全体結果 | 表彰式画面 |
 
-- ステート遷移はすべて司会PC（Pythonダッシュボード）の `next` 操作で進みます
+- ステート遷移はすべて裏方PC（Python）が進めます。操作するのは司会者画面の「次へ」（またはCLIの `next`）です
 - ゲームオーバー（バルーン0）になったチームの残り問題は、自動的にステート7（エキシビション）で出題されます
 
 ## 観客用クライアント
@@ -83,7 +87,7 @@ Python側は専用サーバという別々の部屋に入ってしまい、互�
 観客がスマホから参加する画面（`https://suzuleague-cloud.onrender.com/suzuleague.html`）も、
 **ステージ画面とまったく同じ変数を受け取る**。
 クラウド変数は同じ部屋の全クライアントへのブロードキャストなので、
-司会PCが状態を書き換えれば**ステージも観客も同じタイミングで次の問題に進む**。
+裏方PCが状態を書き換えれば**ステージも観客も同じタイミングで次の問題に進む**。
 同期のための追加の仕組みは要らない。
 
 満たすべき条件は3つだけ。
@@ -101,16 +105,40 @@ Python側は専用サーバという別々の部屋に入ってしまい、互�
 `☁ S2P_ANSWER` は挑戦者の回答を入れる場所なので、観客が書き込むと
 **挑戦者の回答として採点されてしまう**。
 
-観客の回答は**その端末の中だけで採点**する（正解発表時に届く `P2S_CORRECT` と
-自分の回答の差でバルーンを減らす）。サーバへは送らないので、
-観客が何人いても通信量は増えない。
-
-将来この方針を変えて集計を出す場合は、`S2P_*` とは別の変数を新設すること。
+観客の回答は**その端末の中で採点**する（正解発表時に届く `P2S_CORRECT` と
+自分の回答の差でバルーンを減らす）。観客ランキングのための成績（誤差の合計）は、
+クラウド変数ではなく HTTPS API（`/api/score`）で送る（[後述](#https-apiスマホの画面と裏方pc)）。
 
 ### 途中から参加した観客
 
 cloud サーバは新規接続時に現在の変数値をまとめて送るため、
 イベントの途中でQRコードを読んだ観客も、接続した瞬間に現在の問題から参加できる。
+
+## HTTPS API（スマホの画面と裏方PC）
+
+クラウド変数は誰でも書き込めて、値が全員に流れる。そのため「特定の人だけが送るもの」は
+cloud サーバ（Render）の HTTPS API で受け付ける。実装は
+[inouekoshi/cloud-server](https://github.com/inouekoshi/cloud-server) の `src/hostApi.js`・`src/rankingApi.js`。
+
+| メソッド・パス | 誰が | 認証 | 内容 |
+|---|---|---|---|
+| `POST /api/host/command` | 司会者画面 | `X-Host-Token` | 操作を預ける。`{"type":"next","expect_state":2}` / `{"type":"answer","value":45}` |
+| `GET /api/host/command?after=N` | 裏方PC | `X-Host-Token` | 預かった操作のうち `seq > N` のもの。`{"latest":N,"commands":[...]}` |
+| `POST /api/host/state` | 裏方PC | `X-Host-Token` | 進行の状態を預ける（`host.py` の `build_host_state`） |
+| `GET /api/host/state` | 司会者画面 | `X-Host-Token` | 状態と、裏方PCから最後に届いてからの秒数（`age`） |
+| `GET /api/host/ranking` ・ `POST /api/host/ranking/hide` ・ `POST /api/host/ranking/reset` | 司会者画面 | `X-Host-Token` | 観客ランキングの一覧・名前の非表示・リセット |
+| `POST /api/player/answer` | 出演者の回答画面 | 4桁の合言葉（本文の `code`） | `{"code":"4821","value":45,"question_id":7}`。回答受付中・同じ問題のときだけ受け付ける |
+| `GET /api/player/state` | 回答画面・観客ページ | なし | 公開用の状態。**正解は発表後にしか含まない** |
+| `POST /api/score` | 観客ページ | なし | `{"id","name","error_sum","answered","last_question"}` |
+| `GET /api/ranking?id=&limit=` | 観客ページ・回答画面 | なし | 上位と参加人数、自分の順位 |
+
+- `X-Host-Token` は Render の環境変数 `HOST_TOKEN` と裏方PCの `SUZULEAGUE_HOST_TOKEN` に同じ値を入れる。未設定ならAPIは503
+- 出演者の合言葉は裏方PCがチームごとに発行し、`/api/host/state` の `player_code` で司会者画面に出す。
+  間違いが1分に30回続くと30秒間すべて受け付けない
+- 出演者の回答も、司会の「次へ」と同じ郵便受け（`/api/host/command` の取り出し）で裏方PCに届く。
+  裏方PCは合言葉と問題番号をもう一度確かめてから回答として受け付ける
+
+Scratch 画面から回答する場合は、これまでどおり `☁ S2P_ANSWER` を使う（どちらから来ても同じ扱い）。
 
 ## 問題文の扱い（ID参照方式）
 
@@ -165,5 +193,5 @@ Python側とScratch側を初めて繋ぐときは、**エラーが出ないま�
 | 回答がPython側に届かない | `S2P_ANSWER` → `S2P_SEQ` の**順序**。SEQを先に書くと取りこぼす |
 | 数値がおかしい | Scratch側から文字列として送られていないか |
 
-司会PCのダッシュボードには受信した回答が表示されるので、
-**どちらまで届いているかは司会PCの画面で切り分けられる**。
+裏方PCのダッシュボードには受信した回答が表示されるので、
+**どちらまで届いているかは裏方PCの画面で切り分けられる**。

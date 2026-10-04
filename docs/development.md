@@ -225,7 +225,7 @@ uv run suzuleague --teams teams.json
 接続先はコード変更なしで差し替えられる。
 
 ```bash
-# 本番（セルフホスト。この形で司会PCの環境変数に入れておく）
+# 本番（セルフホスト。この形で裏方PCの環境変数に入れておく）
 export SUZULEAGUE_CLOUD_HOST=wss://suzuleague-cloud.onrender.com
 uv run suzuleague
 
@@ -301,7 +301,7 @@ uv run python -m suzuleague.publish --room-id 1364239598 --check
 
 ### 本番サーバが落ちたときの代替手段
 
-Render のサーバが当日不調だった場合、司会PC上でサーバを動かして
+Render のサーバが当日不調だった場合、裏方PC上でサーバを動かして
 [Cloudflare Quick Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/)
 で外部公開する。アカウント登録不要・無料・WebSocketは既定で通る。
 
@@ -311,8 +311,8 @@ Render のサーバが当日不調だった場合、司会PC上でサーバを�
 # 事前に入れておく（当日その場では入れられない）
 brew install cloudflared
 
-# 1. 司会PCで cloud-server を起動（fork のディレクトリにて）
-MAX_CLIENTS=300 npm start
+# 1. 裏方PCで cloud-server を起動（fork のディレクトリにて。合言葉も Render と同じものを入れる）
+MAX_CLIENTS=300 HOST_TOKEN='（合言葉）' npm start
 
 # 2. 別ターミナルでトンネルを張る
 cloudflared tunnel --url http://localhost:9080
@@ -326,8 +326,10 @@ cloudflared tunnel --url http://localhost:9080
 uv run suzuleague --cloud-host https://xxxx-xxxx.trycloudflare.com
 ```
 
-観客ページも同じトンネルから配信される
-（`https://xxxx-xxxx.trycloudflare.com/suzuleague.html`）。
+**3つの画面とAPIも同じトンネルから配信される**（`/suzuleague.html`・`/host.html`・`/player.html`）。
+ただし**URLが変わるので、印刷したQRは使えない**。新しいURLを司会・出演者に伝え、
+観客にはその場でQRを作って見せる（`docs/development.md` の「QRコード」の手順でURLを差し替える）。
+観客ランキングはサーバごとに別なので、切り替えた時点からの集計になる。
 
 実測（2026-07-23）:
 
@@ -342,11 +344,11 @@ uv run suzuleague --cloud-host https://xxxx-xxxx.trycloudflare.com
 - **同時200リクエストの上限**があり、観客参加には余裕がない。最終手段と考える
 - **URLは起動のたびに変わる**。Scratch側に渡し直す必要があるので、
   切り替えるならステージ画面のリロードもセットになる
-- 司会PCのネットワークが落ちると全滅する（Renderなら司会PCと独立している）
+- 裏方PCのネットワークが落ちると全滅する（Renderなら裏方PCと独立している）
 - `cloudflared` は**事前にインストールしておくこと**。
   当日ネットワークが不調な状況で `brew install` はできない
 
-観客参加を諦めて司会PCとステージ画面だけ繋ぐなら、
+観客参加を諦めて裏方PCとステージ画面だけ繋ぐなら、
 同一LAN内の `ws://192.168.x.x:9080` でも動く（TurboWarpをローカル配信する場合に限る）。
 
 ## テスト
@@ -440,8 +442,8 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 - [x] ~~ぴったり賞の採否をイベント責任者に確認~~ → **不採用**（2026-07-23）。`--perfect-bonus` は付けない
 - [x] ~~チームの人数と問題数の対応を確認~~ → **5問固定・司会が回答者を指名**（2026-07-24）。実装変更なし
 - [ ] `uv run python -m suzuleague.questions` の出力をScratch側リストに再取り込み
-- [ ] `SUZULEAGUE_PROJECT_ID=1364239598` を司会PCに設定（本番プロジェクトID。受領済み）
-- [ ] `SUZULEAGUE_CLOUD_HOST=wss://suzuleague-cloud.onrender.com` を司会PCに設定し、
+- [ ] `SUZULEAGUE_PROJECT_ID=1364239598` を裏方PCに設定（本番プロジェクトID。受領済み）
+- [ ] `SUZULEAGUE_CLOUD_HOST=wss://suzuleague-cloud.onrender.com` を裏方PCに設定し、
       **Scratch側の `?cloud_host=` と一致していることを確認**（片方だけだと無言で繋がらない）
 - [ ] **Scratch側との結合テスト**（シミュレータではなく実物と繋ぐ。ここが最大の未知数）
 - [ ] チーム名が確定したら `teams.json` を作成（`--teams teams.json`）

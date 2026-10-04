@@ -92,8 +92,9 @@ Scratch画面の扱い                     ████░░░░░░░░�
 |---|---|---|
 | M2 | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | cloud-server を Org のリポジトリにまとめる（Org オーナーの承認が要る） |
 | M2 | [#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47) | チーム名と登場順を確定して `teams.json` を作る（イベント担当に確認） |
+| M2 | [#48](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/48) | イベント担当に問題表の修正・アンケートの締め切り・台本への合言葉の一言を依頼 |
 | M3 | [#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) | リハーサルの日程・会場Wi-Fiでの確認・裏方PCの置き場所 |
-| M4 | — | 10/28 コード凍結、10/31〜11/1 本番 |
+| M4 | [#49](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/49) | 本番前の最終準備（合言葉の作り直し・10/28 コード凍結・当日チェックリスト）。本番は10/31〜11/1 |
 
 ## 完了していること
 
