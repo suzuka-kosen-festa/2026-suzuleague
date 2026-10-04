@@ -365,9 +365,14 @@ uv run pytest -k exhibition   # 絞り込み例
 | `tests/test_protocol.py` | Snapshot→クラウド変数のエンコード、受信値のパース（"45.0"等の揺れ・範囲外） |
 | `tests/test_publish.py` | 画面の書き出し（変わったファイルだけ報告）・本番との照合・開発用ルームでの書き出し拒否 |
 | `tests/test_host.py` | 司会者画面・出演者の回答画面：表示用の状態（発表前に正解を含まない）、操作の実行（二重押し・不正値・他チームの合言葉・遅れて届いた回答）、Render中継、予備サーバの往復 |
+| `tests/test_audience.py` | 観客ページの生成（正解を埋め込まない・ルームIDと問題文の埋め込み） |
+| `tests/test_teams.py` | チーム構成JSONの読み込みと検証 |
+| `tests/test_cloud_host.py` | 接続先サーバの解決、送信用接続からの受信（`CloudReceiver`：複数メッセージ・接続直後のまとめ送りの読み捨て） |
+| `tests/test_dashboard.py` | サーバが寝ているときに起こして接続し直す |
 
-cloud通信層（`cloud.py`）は実サーバ依存のためユニットテスト対象外。
-変更したら上記スモークテスト＋E2Eで確認すること。
+cloud通信層（`cloud.py`）の接続部分は実サーバ依存のためユニットテスト対象外。
+変更したら上記スモークテスト＋E2Eで確認すること。**Scratch → Python の回答の経路は、本物の Scratch
+（TurboWarp で開いた本番プロジェクト）か、生の WebSocket で `S2P_ANSWER` を書いて確かめる**（落とし穴7）。
 
 ## 既知の落とし穴（scratchattach × TurboWarp）
 
@@ -404,9 +409,8 @@ TurboWarp画面の連続リロードで発生しやすい。本番前のリハ�
 ### 4. イベントハンドラの停止漏れでプロセスが終わらない
 
 `cloud.events()` のスレッドは非デーモンなので、終了時に `events.stop()` を
-呼ばないとプロセスが残る。`CloudBridge.disconnect()` /
-`ScratchSimulator.disconnect()` が対応済み。新しくイベントを使うコードを
-書くときは注意。
+呼ばないとプロセスが残る。**今は落とし穴7の理由で `cloud.events()` 自体を使っていない**
+（受信は `CloudReceiver` のデーモンスレッドで行う）。新しく `cloud.events()` を使うコードを書くときは注意。
 
 ### 5. TurboWarp cloudの値は全員切断で消える
 
