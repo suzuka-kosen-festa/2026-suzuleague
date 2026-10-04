@@ -3,12 +3,12 @@
 鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」の進行システム。
 
 テレビ番組「ネプリーグ」の「パーセントバルーン」をベースにしたクイズイベント。
-**プロジェクターは使わず、司会・出演者・観客が全員自分のスマホで見る。**
+**プロジェクターは使わない。** 司会と観客は自分のスマホ、出演者はステージに置いた端末の Scratch 画面で見る。
 進行の中心は裏方PCで動く Python で、スマホの画面とは Render 上の cloud サーバを介してやり取りする。
 
 ```
 司会のスマホ（司会者画面）   ─操作─┐
-出演者のスマホ（回答画面）   ─回答─┼─▶ cloud サーバ（Render）◀─▶ 裏方PC（Python：進行・採点）
+ステージの端末（Scratch画面）─回答─┼─▶ cloud サーバ（Render）◀─▶ 裏方PC（Python：進行・採点）
 観客のスマホ（観客ページ）   ─成績─┘     │
                 ◀──── 進行の配信（クラウド変数）──┘
 ```
@@ -16,7 +16,8 @@
 | 画面 | URL | 使う人 |
 |---|---|---|
 | 観客ページ | <https://suzuleague-cloud.onrender.com/suzuleague.html>（QR: [docs/qr/](docs/qr/)） | 観客 |
-| 出演者の回答画面 | <https://suzuleague-cloud.onrender.com/player.html> | ステージの出演者（4桁の合言葉が要る） |
+| Scratch画面（出演者用） | <https://turbowarp.org/1364239598?cloud_host=wss://suzuleague-cloud.onrender.com> | ステージの出演者（数字キーで回答） |
+| 出演者の回答画面（予備） | <https://suzuleague-cloud.onrender.com/player.html> | Scratch が使えないときの出演者（4桁の合言葉が要る） |
 | 司会者画面 | <https://suzuleague-cloud.onrender.com/host.html> | 司会（合言葉が要る） |
 
 ## ドキュメント
@@ -86,6 +87,6 @@ uv run suzuleague --offline --web
 - このリポジトリ: Python / scratchattach / uv と、スマホの画面（HTML）
 - cloud サーバ: [inouekoshi/cloud-server](https://github.com/inouekoshi/cloud-server)（TurboWarp の cloud-server のフォーク。Render で稼働。
   デモ後にこのリポジトリへまとめる予定 → [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45)）
-- Scratch側: 別担当者が開発（本番プロジェクト [`1364239598`](https://scratch.mit.edu/projects/1364239598/)。使い方は相談中 → [#41](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/41)）
+- Scratch側: 別担当者が開発（本番プロジェクト [`1364239598`](https://scratch.mit.edu/projects/1364239598/)。出演者の手元の端末で使う → [#41](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/41)）
 - 作業は main に直接コミットして push する（cloud-server の master への push は即本番デプロイ）
 - 連絡・相談はDiscordで随時
