@@ -663,7 +663,7 @@
     <h1>スズリーグは<br><em>3つの部品</em>でできている</h1>
     <p class="lede">
       みんなが手に持つスマホの画面、裏方に置く1台のパソコン、そのあいだをつなぐ「インターネット上の黒板と郵便受け」。
-      プロジェクターは使わず、司会も出演者も観客も、自分のスマホで見ます。
+      プロジェクターは使わず、司会と観客は自分のスマホで、出演者はステージに置いた端末のScratch画面で見ます。
       このシステムがどう動いているのかを、プログラムを知らない人向けに順番に説明します。
     </p>
     <div class="facts">
@@ -716,7 +716,7 @@
           <div class="node">
             <span class="role">手元</span>
             <span class="name">みんなのスマホ</span>
-            <span class="what">司会者画面・出演者の回答画面・観客ページの3種類。問題文や残りバルーンを出す表示係で、自分では何も判断しない。</span>
+            <span class="what">司会者画面・観客ページ、そして出演者用のScratch画面。問題文や残りバルーンを出す表示係で、自分では何も判断しない。</span>
           </div>
 
           <div class="link" aria-hidden="true"></div>
@@ -737,8 +737,8 @@
         </div>
 
         <div class="triad-foot">
-          <span class="tag">相談中</span>
-          <span>Scratch担当が作ったステージ画面も、同じ黒板につなげばそのまま動く。大画面を使わなくなったので、どう活かすかを相談している。</span>
+          <span class="tag">決定</span>
+          <span>Scratch担当が作ったステージ画面は、ステージに置く端末で出演者だけが見る。出演者はその数字キーで答え、答えは黒板を通って裏方のパソコンに届く。</span>
         </div>
       </div>
       <figcaption>
@@ -750,7 +750,7 @@
         <h3>全員のスマホが自動的に足並みをそろえる</h3>
         <p>
           黒板の書き換えは、見ている全員に<strong>同時に伝わります</strong>。
-          司会が「次へ」を押すと、出演者のスマホも観客のスマホも同じタイミングで次の問題に切り替わります。
+          司会が「次へ」を押すと、出演者のScratch画面も観客のスマホも同じタイミングで次の問題に切り替わります。
           だれかだけ先に進むということは起きません。
         </p>
         <p>
@@ -782,14 +782,13 @@
 
         <h3>操作と答えは、合言葉付きで郵便受けに預ける</h3>
         <p>
-          黒板はだれでも書き込めて、書いた内容が全員に見えてしまいます。そこで、司会の「次へ」や出演者の答えのように
-          <strong>決まった人だけが送るもの</strong>は、黒板ではなく郵便受けに預けます。
+          黒板はだれでも書き込めて、書いた内容が全員に見えてしまいます。そこで、司会の「次へ」のように
+          <strong>決まった人だけが送るもの</strong>は、黒板ではなく郵便受けに預けます（出演者の答えだけは、Scratch画面の作りに合わせて黒板で受け取ります）。
           裏方のパソコンが0.4秒ごとに取りに行き、受け取った操作を実行します。
         </p>
         <p>
-          司会者画面は<strong>合言葉</strong>がないと使えません。出演者の回答画面は、
-          チームが登場するたびに変わる<strong>4桁の合言葉</strong>を司会が伝え、それを入れた人だけが答えられます。
-          観客がなりすまして答えを送ることはできません。
+          司会者画面は<strong>合言葉</strong>がないと使えません。Scratch画面が使えないときのために、
+          出演者がスマホから答える予備の画面も用意しています。こちらはチームが登場するたびに変わる<strong>4桁の合言葉</strong>を司会が伝え、それを入れた人だけが答えられます。
         </p>
       </div>
     </figure>
@@ -919,7 +918,7 @@
           </div>
           <div class="step" data-who="stage">
             <span class="who">出演者</span>
-            <span class="act">回答画面の数字キーで%を入れて送る（4桁の合言葉付き）
+            <span class="act">Scratch画面の数字キーで%を入れて決定する
               <span class="sub">観客も同時に、自分のスマホで答えを決める</span></span>
           </div>
           <div class="step" data-who="auto">
@@ -992,7 +991,7 @@
             </tr>
             <tr>
               <td class="tool">Scratch / TurboWarp</td>
-              <td>ステージ画面（使い方を相談中）</td>
+              <td>出演者用の画面と回答の入力</td>
               <td class="why">Scratch担当が作りやすい。TurboWarpで開くとログイン不要のまま黒板につながる</td>
             </tr>
             <tr>
@@ -1189,7 +1188,7 @@
             <span class="prog-state">公開ずみ</span>
           </div>
           <div class="prog-row">
-            <span class="prog-name">出演者の回答画面</span>
+            <span class="prog-name">出演者の回答画面（予備）</span>
             <span class="prog-track"><span class="prog-fill" style="width:90%"></span></span>
             <span class="prog-state">公開ずみ</span>
           </div>
@@ -1199,9 +1198,9 @@
             <span class="prog-state">公開ずみ</span>
           </div>
           <div class="prog-row">
-            <span class="prog-name">ステージ画面（Scratch）の使い方</span>
-            <span class="prog-track"><span class="prog-fill" style="width:30%"></span></span>
-            <span class="prog-state">相談中</span>
+            <span class="prog-name">出演者用のScratch画面</span>
+            <span class="prog-track"><span class="prog-fill" style="width:80%"></span></span>
+            <span class="prog-state">実機確認待ち</span>
           </div>
           <div class="prog-row">
             <span class="prog-name">当日の体制とリハーサル</span>
@@ -1232,7 +1231,6 @@
 
       <h3>まだ決まっていないこと</h3>
       <ul class="plain">
-        <li><strong>ステージ画面（Scratch）をどう使うか</strong> ─ 大画面を使わなくなったため、Scratch担当と相談しています。</li>
         <li><strong>リハーサルの日程</strong> ─ 会場のWi-Fiでつながるかは、会場でしか確かめられません。</li>
         <li><strong>チーム名と登場順</strong> ─ 決まりしだい設定ファイルを書き換えるだけなので、直前でも間に合います。</li>
         <li><strong>裏方のパソコンの番をする人</strong> ─ 進行は司会がスマホで操作しますが、パソコンが動いているかを見る人が1人いると安心です。</li>
@@ -1240,7 +1238,7 @@
 
       <h3>決まったこと</h3>
       <ul class="plain">
-        <li><strong>プロジェクターは使わず、全員が自分のスマホで見る</strong>（10月4日決定）</li>
+        <li><strong>プロジェクターは使わない</strong>（10月4日決定）。司会と観客はスマホ、出演者はステージに置いた端末のScratch画面で見て、その数字キーで答える</li>
         <li><strong>進行は司会がスマホで操作する</strong>。台本は紙で持ち、画面には出さない</li>
         <li><strong>観客ランキングを作る</strong>。20問のズレの合計が少ない人が上位。答えなかった問題は1問50として数える</li>
         <li><strong>1チーム5問は変えない</strong>（7月24日決定） ─ 人数の少ないチームは1人が2〜3問答えます。誰が答えるかは<strong>当日その場で司会が指名</strong>します。</li>
