@@ -128,6 +128,77 @@ def fetch_all_vars(
     return values
 
 
+class CloudReceiver:
+    """送信用の接続をそのまま読み、届いた変数の更新を渡す。ping にも応答する。
+
+    scratchattach の受信（`cloud.events()`）は使わない。理由は2つ。
+
+    1. **自前サーバを指定しても、受信用の接続が公開サーバにつながる**。
+       scratchattach 2.2.1 の `WebSocketEventStream` は、`TwCloud` を作り直すときに
+       `cloud_host` を引き継がない（`CustomCloud` のサブクラスでないため）。
+       そのため Render に切り替えた 2026-07-23 以降、Scratch からの回答
+       （`S2P_ANSWER`）は**一度も Python に届いていなかった**（2026-10-04 に本番の
+       Scratch プロジェクトとの結合で発見）。
+    2. 送信用の接続は何も読まないと ping に応答できず、1〜2分ごとにサーバに切られ、
+       直後の送信が黙って失われる（websocket-client は recv() したときにしか pong を返さない）。
+
+    そこで送信用の接続を読み続け、ping に応答しつつ `set` を取り出す。
+    接続した直後に届く「今の値のまとめ送り」は古い回答を含むので読み捨てる。
+    scratchattach が再接続して接続が入れ替わったときも同じ扱いにする。
+    """
+
+    INITIAL_DUMP_SECONDS = 0.5
+
+    def __init__(
+        self,
+        cloud: sa.TwCloud,
+        on_set: Callable[[str, object], None],
+        stop: threading.Event,
+    ) -> None:
+        self.cloud = cloud
+        self.on_set = on_set
+        self._stop = stop
+
+    def start(self) -> None:
+        threading.Thread(target=self._run, name="cloud-receiver", daemon=True).start()
+
+    def handle_lines(self, raw: str, *, skip: bool) -> None:
+        """受信した1フレーム（改行区切りで複数メッセージのことがある）を処理する。"""
+        for line in str(raw).split("\n"):
+            if not line or skip:
+                continue
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if data.get("method") != "set":
+                continue
+            name = str(data.get("name", "")).removeprefix("☁ ")
+            self.on_set(name, data.get("value"))
+
+    def _run(self) -> None:
+        current = None
+        skip_until = 0.0
+        while not self._stop.is_set():
+            ws = getattr(self.cloud, "websocket", None)
+            sock = getattr(ws, "sock", None)
+            if ws is None or sock is None or not ws.connected:
+                self._stop.wait(1.0)  # 再接続中
+                continue
+            if ws is not current:  # 新しい接続（最初の接続・再接続）
+                current = ws
+                skip_until = time.monotonic() + self.INITIAL_DUMP_SECONDS
+            try:
+                # 読めるものが届いたときだけ recv する（フレームの途中で
+                # タイムアウトして受信状態が壊れないように）
+                readable, _, _ = select.select([sock], [], [], 1.0)
+                if readable:
+                    raw = ws.recv()  # ping ならこの中で pong を返す
+                    self.handle_lines(raw, skip=time.monotonic() < skip_until)
+            except (websocket.WebSocketException, OSError, ValueError):
+                self._stop.wait(1.0)  # 切断時は scratchattach の再接続に任せる
+
+
 class CloudBridge:
     """TurboWarp cloudへの接続と、プロトコル変数の読み書きを担当する。"""
 
@@ -146,7 +217,7 @@ class CloudBridge:
         self.on_ack = on_ack
         self.on_error = on_error or (lambda msg: print(f"[cloud] {msg}"))
         self.cloud: sa.TwCloud | None = None
-        self._events = None
+        self._receiver: CloudReceiver | None = None
         self._seq = 0
         self._last_snapshot: Snapshot | None = None
         self._heartbeat_thread: threading.Thread | None = None
@@ -161,23 +232,13 @@ class CloudBridge:
             contact="https://github.com/InoueKoshi",
             cloud_host=self.cloud_host,
         )
-        self._events = self.cloud.events()
-
-        @self._events.event
-        def on_set(activity) -> None:  # activity: CloudActivity
-            self._handle_set(activity.name, activity.value)
-
-        self._events.start(thread=True)
+        self.cloud.connect()  # scratchattach は最初の送信まで接続しないので、先につないでおく
+        self._receiver = CloudReceiver(self.cloud, self._handle_set, self._stop)
+        self._receiver.start()
         self._start_heartbeat()
-        self._start_pong_reader()
 
     def disconnect(self) -> None:
         self._stop.set()
-        if self._events is not None:
-            try:
-                self._events.stop()
-            except Exception:
-                pass
         if self.cloud is not None:
             try:
                 self.cloud.disconnect()
@@ -194,35 +255,6 @@ class CloudBridge:
 
         self._heartbeat_thread = threading.Thread(target=beat, daemon=True)
         self._heartbeat_thread.start()
-
-    def _start_pong_reader(self) -> None:
-        """送信用の接続に届くものを読み捨て、サーバの ping に応答する。
-
-        scratchattach の送信用接続は送るだけで何も読まない。cloud-server は
-        60秒ごとに ping を送り、次の ping までに pong がない接続を切る。
-        websocket-client は recv() したときにしか pong を返さないため、
-        読まないままだと1〜2分ごとに接続を切られ、切られた直後に送った
-        変数が**黙って失われる**（2026-10-04 に E2E で再現。観客ページの
-        進行が止まった）。ここで読み続けて pong を返させる。
-        """
-
-        def read() -> None:
-            while not self._stop.is_set():
-                ws = getattr(self.cloud, "websocket", None)
-                sock = getattr(ws, "sock", None)
-                if ws is None or sock is None or not ws.connected:
-                    self._stop.wait(1.0)  # 再接続中
-                    continue
-                try:
-                    # 読めるものが届いたときだけ recv する（フレームの途中で
-                    # タイムアウトして受信状態が壊れないように）
-                    readable, _, _ = select.select([sock], [], [], 1.0)
-                    if readable:
-                        ws.recv()  # ping ならこの中で pong を返す。set などは読み捨て
-                except (websocket.WebSocketException, OSError, ValueError):
-                    self._stop.wait(1.0)  # 切断時は scratchattach の再接続に任せる
-
-        threading.Thread(target=read, name="cloud-pong-reader", daemon=True).start()
 
     # ---- 送信 ----------------------------------------------------
 

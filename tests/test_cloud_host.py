@@ -64,3 +64,36 @@ class TestNormalizeCloudHost:
     def test_empty_rejected(self):
         with pytest.raises(ValueError, match="空"):
             normalize_cloud_host("   ")
+
+
+class TestCloudReceiver:
+    """送信用の接続から変数の更新を取り出す処理（ネットワーク不要）。"""
+
+    def make(self):
+        import threading
+
+        from suzuleague.cloud import CloudReceiver
+
+        got = []
+        receiver = CloudReceiver(None, lambda n, v: got.append((n, v)), threading.Event())
+        return receiver, got
+
+    def test_parses_multiple_messages_in_one_frame(self):
+        receiver, got = self.make()
+        frame = (
+            '{"method":"set","name":"☁ S2P_ANSWER","value":55}\n'
+            '{"method":"set","name":"☁ S2P_SEQ","value":3}'
+        )
+        receiver.handle_lines(frame, skip=False)
+        assert got == [("S2P_ANSWER", 55), ("S2P_SEQ", 3)]
+
+    def test_initial_dump_is_skipped(self):
+        """接続直後のまとめ送りには古い回答が入っているので使わない。"""
+        receiver, got = self.make()
+        receiver.handle_lines('{"method":"set","name":"☁ S2P_ANSWER","value":66}', skip=True)
+        assert got == []
+
+    def test_ignores_other_messages_and_garbage(self):
+        receiver, got = self.make()
+        receiver.handle_lines('{"method":"rename","name":"☁ A"}\nnot json\n', skip=False)
+        assert got == []

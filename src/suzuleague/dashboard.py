@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import urllib.error
+import urllib.request
 
 from rich.console import Console
 from rich.panel import Panel
@@ -278,7 +280,7 @@ def main() -> None:
         dashboard_holder.append(dashboard)
         print(f"cloudサーバに接続中... (project_id={project_id})")
         print(f"  接続先: {bridge.cloud_host}")
-        bridge.connect()
+        connect_with_wake(bridge)
         bridge.push(engine.snapshot())  # 初期状態を送信
     else:
         dashboard = Dashboard(engine, None)
@@ -298,6 +300,36 @@ def main() -> None:
     finally:
         if relay:
             relay.stop()
+
+
+def wake_server(base_url: str, timeout: float = 90.0) -> bool:
+    """寝ているサーバを起こす。HTTPで1回開けば起き上がる（Render 無料枠は復帰に数十秒）。"""
+    try:
+        with urllib.request.urlopen(base_url + "/", timeout=timeout) as res:
+            res.read(1)
+        return True
+    except (urllib.error.URLError, OSError):
+        return False
+
+
+def connect_with_wake(bridge: CloudBridge, attempts: int = 3) -> None:
+    """接続に失敗したらサーバを起こしてやり直す。
+
+    Render 無料枠は15分無通信で眠り、眠っているとWebSocketの接続が
+    タイムアウトする（scratchattach の待ち時間は3秒）。開演前に起こし忘れても
+    ダッシュボードが落ちないよう、起こしてから接続し直す。
+    """
+    base_url = http_base_from_cloud_host(bridge.cloud_host)
+    for attempt in range(1, attempts + 1):
+        try:
+            bridge.connect()
+            return
+        except Exception as e:  # scratchattach は接続失敗で様々な例外を投げる
+            if attempt == attempts:
+                raise
+            print(f"  接続できませんでした（{type(e).__name__}）。サーバを起こしています…（最大90秒）")
+            woke = wake_server(base_url)
+            print("  サーバが応答しました。接続し直します" if woke else "  サーバの応答がありません。もう一度試します")
 
 
 def start_host_relay(dashboard: Dashboard, cloud_host: str | None) -> HostRelay | None:

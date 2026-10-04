@@ -25,6 +25,7 @@ import scratchattach as sa
 from . import protocol
 from .cloud import (
     ENV_CLOUD_HOST,
+    CloudReceiver,
     fetch_all_vars,
     resolve_cloud_host,
     resolve_project_id,
@@ -52,7 +53,7 @@ class ScratchSimulator:
         self.auto_delay = auto_delay
         self.questions = QuestionSet()  # Scratch側が持つ問題文リストの代わり
         self.cloud: sa.TwCloud | None = None
-        self._events = None
+        self._stop = threading.Event()
         self._p2s: dict[str, str] = {}  # 受信したP2S変数のキャッシュ
         self._s2p_seq = 0
         self._lock = threading.Lock()
@@ -74,13 +75,9 @@ class ScratchSimulator:
             contact="https://github.com/InoueKoshi",
             cloud_host=self.cloud_host,
         )
-        self._events = self.cloud.events()
-
-        @self._events.event
-        def on_set(activity) -> None:
-            self._handle_set(activity.name, str(activity.value))
-
-        self._events.start(thread=True)
+        self.cloud.connect()
+        # scratchattach の受信は自前サーバに対応していないので、送信用の接続を読む（cloud.py 参照）
+        CloudReceiver(self.cloud, lambda name, value: self._handle_set(name, str(value)), self._stop).start()
         if self._p2s:
             self._render()
 
@@ -212,11 +209,7 @@ class ScratchSimulator:
         print("終了しました")
 
     def disconnect(self) -> None:
-        if self._events is not None:
-            try:
-                self._events.stop()  # イベントスレッドを止めないとプロセスが残る
-            except Exception:
-                pass
+        self._stop.set()
         if self.cloud is not None:
             try:
                 self.cloud.disconnect()

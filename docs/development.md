@@ -428,6 +428,20 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 **scratchattach を更新したり、接続の作り方を変えたりしたら、3分以上つないで
 サーバログに `no pong` が出ないことを必ず確認する。**
 
+### 7. scratchattach の受信は、自前サーバを指定しても公開サーバにつながる
+
+`cloud.events()`（`CloudEvents`）は受信用に接続を作り直すが、`TwCloud` のときは
+`cloud_host` を引き継がず、**TurboWarp の公開サーバ**（`wss://clouddata.turbowarp.org`）につながる
+（scratchattach 2.2.1。`TwCloud` が `CustomCloud` のサブクラスでないため）。
+
+そのため Render に切り替えた 2026-07-23 以降、**Scratch からの回答（`S2P_ANSWER`）は一度も Python に届いていなかった**。
+エラーは出ない。2026-10-04 に本物の Scratch プロジェクトと結合して発見した。
+
+`CloudBridge` は `cloud.events()` を使わず、送信用の接続を読む `CloudReceiver` で受信している
+（落とし穴6の ping 応答も兼ねる）。修正後、TurboWarp で開いた本番の Scratch プロジェクトから
+数字キーの回答が Python に届くことを確認した。**Scratch → Python の経路は、シミュレータではなく
+本物の Scratch か、生の WebSocket で `S2P_ANSWER` を書いて確かめること**。
+
 ## 通信仕様を変更するとき
 
 1. `src/suzuleague/protocol.py` の変数定義・エンコードを変更
