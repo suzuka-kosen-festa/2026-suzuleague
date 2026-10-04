@@ -19,6 +19,7 @@ Scratch(TurboWarp) <-> TurboWarp cloud <-> Python(scratchattach) [<-> Firestore(
 | [**しくみの図解**](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/2026-suzuleague/blob/main/docs/explainer.html) | システムの仕組みを図で説明（専門用語なし） | **全員（プログラム未経験でも読める）** |
 | [docs/status.md](docs/status.md) | 進捗状況・残タスク・未解決の論点・リスク | 全員（現状把握） |
 | [docs/users.md](docs/users.md) | 使う人（司会・出演者・観客など）と、それぞれが見る画面 | 全員（画面や機能を足す前に読む） |
+| [docs/demo/README.md](docs/demo/README.md) | 10/7デモの段取り（端末・準備・本編・困ったとき） | デモをする人 |
 | [docs/architecture.md](docs/architecture.md) | 全体構成・設計判断の理由・レイヤー構造・データフロー | 全員（まず読む） |
 | [docs/game-rules.md](docs/game-rules.md) | ゲームルール・進行ステートの遷移図・採点仕様 | 全員 |
 | [docs/protocol.md](docs/protocol.md) | Scratch⇔Python間のクラウド変数の通信仕様 | Scratch担当・バックエンド担当 |
