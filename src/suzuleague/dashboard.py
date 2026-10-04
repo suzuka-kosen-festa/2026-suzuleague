@@ -4,6 +4,10 @@
     uv run suzuleague                     # TurboWarp cloudに接続して進行
     uv run suzuleague --offline           # cloud接続なしでロジックのみ確認
     uv run suzuleague --project-id <ID>   # 接続先ルームの指定
+    uv run suzuleague --web               # 司会者画面の予備を http://localhost:8000/host で開く
+
+環境変数 SUZULEAGUE_HOST_TOKEN（合言葉）を設定しておくと、司会がスマホの
+司会者画面（Render の /host.html）から進行を操作できる（host.py 参照）。
 
 進行は next (n) で1段階ずつ進む。回答はScratch側からも、
 answer <0-100> (a) でこちらからも入力できる。
@@ -12,41 +16,19 @@ answer <0-100> (a) でこちらからも入力できる。
 from __future__ import annotations
 
 import argparse
-import threading
+import os
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from .cloud import ENV_CLOUD_HOST, CloudBridge, resolve_project_id
+from .cloud import ENV_CLOUD_HOST, CloudBridge, resolve_cloud_host, resolve_project_id
+from .controller import GameController
 from .engine import GameEngine, GameError, State
+from .host import ENV_HOST_TOKEN, HostRelay, HttpTransport, http_base_from_cloud_host, serve_local
+from .labels import NEXT_HINTS, STATE_LABELS
 from .protocol import ACK_ANIMATION_DONE
 from .teams import ENV_TEAMS, resolve_teams
-
-STATE_LABELS = {
-    State.IDLE: "待機",
-    State.TEAM_INTRO: "チーム紹介",
-    State.QUESTION: "出題",
-    State.ANSWERING: "回答受付",
-    State.REVEAL: "正解発表",
-    State.ROUND_RESULT: "ラウンド結果",
-    State.TEAM_RESULT: "チーム結果",
-    State.EXHIBITION_ANSWERING: "回答受付(エキシビション)",
-    State.FINISHED: "全体結果",
-}
-
-# 各ステートで「next」が何をするかの案内
-NEXT_HINTS = {
-    State.IDLE: "next でチーム登場",
-    State.TEAM_INTRO: "next で出題へ",
-    State.QUESTION: "next で回答受付開始（シンキングタイム）",
-    State.ANSWERING: "回答を受けてから next で正解発表",
-    State.EXHIBITION_ANSWERING: "回答を受けてから next で正解発表",
-    State.REVEAL: "next でラウンド結果へ",
-    State.ROUND_RESULT: "next で次の問題（5問目終了後はチーム結果）へ",
-    State.TEAM_RESULT: "next で次のチーム（最終チーム後は全体結果）へ",
-    State.FINISHED: "ゲーム終了",
-}
 
 HELP_TEXT = """\
 コマンド一覧:
@@ -65,17 +47,22 @@ class Dashboard:
         self.engine = engine
         self.bridge = bridge
         self.console = Console()
-        self._lock = threading.Lock()  # engineへのアクセス保護（イベントスレッド対策）
+        self.controller = GameController(
+            engine,
+            bridge,
+            on_push_error=lambda e: self.console.print(
+                f"[red]cloud送信失敗: {e}（resyncで再送できます）[/]"
+            ),
+        )
 
     # ---- cloudイベント（イベントスレッドから呼ばれる） ----------
 
     def on_cloud_answer(self, percent: int) -> None:
-        with self._lock:
-            try:
-                self.engine.submit_answer(percent)
-            except GameError as e:
-                self.console.print(f"[yellow]Scratchからの回答を無視: {e}[/]")
-                return
+        try:
+            self.controller.answer(percent)
+        except GameError as e:
+            self.console.print(f"[yellow]Scratchからの回答を無視: {e}[/]")
+            return
         self.console.print(
             f"[bold cyan]● Scratchから回答を受信: {percent}%[/] → next で正解発表"
         )
@@ -85,6 +72,21 @@ class Dashboard:
             self.console.print("[cyan]● Scratch: アニメーション完了[/]")
         else:
             self.console.print(f"[cyan]● Scratch: ACK({code})[/]")
+
+    def on_host_command(self, command: dict, result: dict) -> None:
+        mark = "[green]●[/]" if result["ok"] else "[yellow]●[/]"
+        self.console.print(f"{mark} 司会者画面: {result['message']}")
+        if result["ok"] and command.get("type") == "next":
+            self.print_status()
+
+    def on_relay_status(self, healthy: bool, detail: str) -> None:
+        if healthy:
+            self.console.print("[cyan]● 司会者画面（スマホ）と中継がつながりました[/]")
+        else:
+            self.console.print(
+                f"[red]● 司会者画面（スマホ）との中継が切れました: {detail}[/]"
+                "（自動で再接続します。急ぐときは --web の予備画面かCLIで操作）"
+            )
 
     # ---- 表示 ----------------------------------------------------
 
@@ -152,22 +154,12 @@ class Dashboard:
 
     # ---- 操作 ----------------------------------------------------
 
-    def push_state(self) -> None:
-        if self.bridge is None:
-            return
-        try:
-            self.bridge.push(self.engine.snapshot())
-        except Exception as e:
-            self.console.print(f"[red]cloud送信失敗: {e}（resyncで再送できます）[/]")
-
     def do_advance(self) -> None:
-        with self._lock:
-            try:
-                self.engine.advance()
-            except GameError as e:
-                self.console.print(f"[yellow]{e}[/]")
-                return
-        self.push_state()
+        try:
+            self.controller.advance()
+        except GameError as e:
+            self.console.print(f"[yellow]{e}[/]")
+            return
         self.print_status()
         if self.engine.state is State.FINISHED:
             self.print_teams()
@@ -178,12 +170,11 @@ class Dashboard:
         except ValueError:
             self.console.print("[yellow]使い方: answer <0-100>[/]")
             return
-        with self._lock:
-            try:
-                self.engine.submit_answer(percent)
-            except GameError as e:
-                self.console.print(f"[yellow]{e}[/]")
-                return
+        try:
+            self.controller.answer(percent)
+        except GameError as e:
+            self.console.print(f"[yellow]{e}[/]")
+            return
         self.console.print(f"回答 {percent}% を受け付けました → next で正解発表")
 
     # ---- メインループ --------------------------------------------
@@ -240,6 +231,12 @@ def main() -> None:
         help=f"チーム構成JSONのパス (環境変数 {ENV_TEAMS} でも指定可。書式は teams.example.json)",
     )
     parser.add_argument(
+        "--web",
+        action="store_true",
+        help="司会者画面を裏方PC上でも開く（http://localhost:8000/host。Renderに届かないときの予備）",
+    )
+    parser.add_argument("--web-port", type=int, default=8000, help="--web の待ち受けポート")
+    parser.add_argument(
         "--perfect-bonus",
         type=int,
         default=0,
@@ -275,7 +272,39 @@ def main() -> None:
     else:
         dashboard = Dashboard(engine, None)
 
-    dashboard.run()
+    relay = start_host_relay(dashboard, None if args.offline else args.cloud_host)
+    if args.web:
+        serve_local(
+            dashboard.controller, port=args.web_port, on_command=dashboard.on_host_command
+        )
+        print(f"司会者画面（予備）: http://localhost:{args.web_port}/host")
+
+    try:
+        dashboard.run()
+    finally:
+        if relay:
+            relay.stop()
+
+
+def start_host_relay(dashboard: Dashboard, cloud_host: str | None) -> HostRelay | None:
+    """合言葉が設定されていれば、Render 経由の司会者画面を有効にする。"""
+    token = os.environ.get(ENV_HOST_TOKEN, "").strip()
+    if not token:
+        print(f"司会者画面（スマホ）: 無効（環境変数 {ENV_HOST_TOKEN} が未設定）")
+        return None
+    if dashboard.bridge is None:
+        print("司会者画面（スマホ）: 無効（オフラインモード）")
+        return None
+    base_url = http_base_from_cloud_host(resolve_cloud_host(cloud_host))
+    relay = HostRelay(
+        dashboard.controller,
+        HttpTransport(base_url, token),
+        on_command=dashboard.on_host_command,
+        on_status=dashboard.on_relay_status,
+    )
+    relay.start()
+    print(f"司会者画面（スマホ）: {base_url}/host.html")
+    return relay
 
 
 if __name__ == "__main__":
