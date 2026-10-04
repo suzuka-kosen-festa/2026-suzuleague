@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>スズリーグ QRコード（印刷用）</title>
+<!--
+  クラス委員が掲げる観客用QRと、出演者用QRの印刷用ページ（A4縦・1枚ずつ）。
+  ブラウザで開いて印刷する（余白なし・背景のグラフィックを印刷、を推奨）。
+  QRの画像は同じフォルダの audience.svg / player.svg。
+  作り直すときは docs/development.md の「QRコード」を参照。
+-->
+<style>
+  @page { size: A4 portrait; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    color: #111;
+    background: #fff;
+  }
+  .sheet {
+    height: 273mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    page-break-after: always;
+    break-after: page;
+  }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .brand { font-size: 14mm; font-weight: 800; letter-spacing: .06em; margin: 0; }
+  .lead { font-size: 9mm; font-weight: 700; margin: 6mm 0 8mm; }
+  .qr { width: 150mm; height: 150mm; }
+  .steps { font-size: 6mm; line-height: 1.7; margin-top: 8mm; }
+  .url { font-family: ui-monospace, Menlo, monospace; font-size: 4.2mm; color: #444; margin-top: 6mm; }
+  .note { font-size: 4.5mm; color: #555; margin-top: 4mm; }
+  .player .lead { color: #be185d; }
+  @media screen {
+    body { background: #e5e7eb; padding: 16px; }
+    .sheet { width: 186mm; margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  }
+</style>
+</head>
+<body>
+
+<section class="sheet">
+  <p class="brand">スズリーグ</p>
+  <p class="lead">スマホで読み取って、いっしょに挑戦！</p>
+  <img class="qr" src="audience.svg" alt="観客用ページのQRコード">
+  <div class="steps">
+    出演者と同じ問題に、あなたのスマホから答えられます<br>
+    ログイン不要・アプリのインストール不要
+  </div>
+  <div class="url">https://suzuleague-cloud.onrender.com/suzuleague.html</div>
+</section>
+
+<section class="sheet player">
+  <p class="brand">スズリーグ</p>
+  <p class="lead">出演者の回答用</p>
+  <img class="qr" src="player.svg" alt="出演者の回答画面のQRコード">
+  <div class="steps">
+    ステージに上がったら、このQRを読み取ってください<br>
+    司会が伝える<b>4桁の合言葉</b>を入れると回答できます
+  </div>
+  <div class="url">https://suzuleague-cloud.onrender.com/player.html</div>
+  <div class="note">※ 控室・ステージ袖に置く用。観客には見せない</div>
+</section>
+
+</body>
+</html>

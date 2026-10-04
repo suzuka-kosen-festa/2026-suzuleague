@@ -146,6 +146,26 @@ CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchの�
 - **リハーサルの後は、司会者画面の「ランキングをリセット」で消してから本番に臨む**
 - 成績は端末の自己申告なので改ざんは防げない（文化祭のおまけ要素と割り切っている）
 
+### QRコード
+
+`docs/qr/` に置いてある。印刷するときは `docs/qr/print.html` をブラウザで開いて印刷する（A4縦・2枚）。
+
+| ファイル | 読み取ると開く画面 | 使い方 |
+|---|---|---|
+| `audience.png` / `.svg` | 観客ページ | クラス委員が掲げる・各室長に送る |
+| `player.png` / `.svg` | 出演者の回答画面 | 控室・ステージ袖に置く（観客には見せない） |
+
+URLを変えたら作り直す（依存に足さず、その場でだけ `qrcode` を使う）。
+
+```bash
+uv run --no-project --with "qrcode[pil]" python -c "
+import qrcode, qrcode.image.svg as s
+for n, u in {'audience': 'https://suzuleague-cloud.onrender.com/suzuleague.html',
+             'player': 'https://suzuleague-cloud.onrender.com/player.html'}.items():
+    qrcode.make(u, box_size=20, border=4).save(f'docs/qr/{n}.png')
+    qrcode.make(u, image_factory=s.SvgPathImage).save(f'docs/qr/{n}.svg')"
+```
+
 ### Render に届かないとき
 
 `--web` を付けて起動しておけば、裏方PCのブラウザで `http://localhost:8000/host` を開いて
