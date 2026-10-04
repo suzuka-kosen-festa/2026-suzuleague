@@ -36,7 +36,7 @@
 |---|---|---|
 | 視聴者参加画面 | ✅ 実装済み（デモで見せていなかった） | <https://suzuleague-cloud.onrender.com/suzuleague.html> を見せる。QRとスマホ実機確認は [#31](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/31) |
 | スマホ用のUI | ✅ 実装済み（同上） | 同上 |
-| 司会者画面 | ❌ 未着手（CLIのみ） | 操作 [#33](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/33)・カンペ [#34](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/34) |
+| 司会者画面 | ❌ 未着手（CLIのみ） | [#33](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/33)。**進行操作が必須**、問題の確認はあるとよい。台本（カンペ）は出さない（[#34](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/34) は不要と決まりクローズ） |
 | リザルト画面（優勝者に景品の案内） | ❌ 未着手 | [#35](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/35)・観客ランキング表示 [#38](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/38) |
 | ランキング機能（観客の中での順位） | ❌ 未着手 | 集計API [#36](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/36)・観客ページ側 [#37](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/37) |
 
@@ -57,8 +57,7 @@ Scratch側との結合                     ████████████�
 
 | Issue | 内容 | 優先 | 目安 |
 |---|---|---|---|
-| [#33](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/33) | 司会者画面：Web画面で進行を操作 | P0 | 0.5日 |
-| [#34](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/34) | 司会者画面：台本・正解・BGMの合図 | P0 | 0.5日 |
+| [#33](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/33) | 司会者画面：Web画面で進行を操作（＋問題の確認） | P0 | 0.5日 |
 | [#35](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/35) | リザルト画面：チーム順位・優勝・景品の案内 | P0 | 0.5日 |
 | [#36](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/36) | 観客ランキング：cloud-serverに集計API | P1 | 0.5日 |
 | [#37](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/37) | 観客ランキング：ニックネーム・成績送信・自分の順位 | P1 | 0.5日 |
@@ -67,12 +66,11 @@ Scratch側との結合                     ████████████�
 
 ```mermaid
 flowchart LR
-    i33["#33 司会者画面<br>操作"] --> i34["#34 カンペ"]
-    i33 --> i35["#35 リザルト画面"]
+    i33["#33 司会者画面"] --> i35["#35 リザルト画面"]
     i36["#36 集計API<br>(cloud-server)"] --> i37["#37 観客ページ<br>ランキング"]
     i35 --> i38["#38 リザルトに<br>観客ランキング"]
     i36 --> i38
-    i34 --> i31["#31 デモ準備<br>通し動作"]
+    i33 --> i31["#31 デモ準備<br>通し動作"]
     i37 --> i31
     i38 --> i31
     style i36 fill:#fff3cd,stroke:#d39e00
@@ -146,7 +144,6 @@ flowchart LR
 | 当日、司会者画面を操作するのは誰か | 企画書の人員表にシステム担当がいない。司会2人は台本で手が塞がる（#21） |
 | リハーサルの日程 | 企画書で未記入。会場Wi-Fiは会場でしか確かめられない（#21） |
 | 観客ランキングの上位に景品を出すか | 今は出さない前提。出すなら、自己申告のスコアでは不正を防げないので作り直しが要る |
-| QRの印刷 | 企画書は「印刷物なし」だが、クラス委員が掲げるQRは印刷が要る。企画側に確認する |
 
 ## リスク
 
@@ -154,7 +151,7 @@ flowchart LR
 |---|---|---|
 | **10/7まで3日しかない** | デモで画面がそろわない | P0（司会者画面・リザルト画面）を先に仕上げ、P1（観客ランキング）は最後に回す |
 | 観客のニックネームに不適切な語 | プロジェクターに映る | NGワードフィルタで弾く。すり抜けたものは司会者画面から隠す（#39） |
-| 正解の出る司会者画面をプロジェクターに映してしまう | 答えが会場に出る | 画面上部に注意書きを出す。リザルト画面とはURLを分ける |
+| 正解を出す司会者画面をプロジェクターに映してしまう | 答えが会場に出る | 正解は押したときだけ表示する。リザルト画面とはURLを分ける |
 | 会場ネットワークの品質 | 観客参加・ランキングが成立しない | 会場でのリハーサル（M3）で確認する |
 | cloud サーバの単一障害点 | サーバが落ちると進行が止まる | 代替手段は確認済み（[手順](./development.md#本番サーバが落ちたときの代替手段)）。ランキングのデータはサーバ再起動で消えるが、イベント中は HEARTBEAT で起きている |
 | Render 無料枠のスピンダウン（17分放置で復帰に22.8秒） | 開演直後にサーバが応答しない | **開演30分前に必ず起こす**。HEARTBEATを送り続けている間は眠らないことを実測済み |
