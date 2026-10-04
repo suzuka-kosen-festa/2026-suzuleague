@@ -170,6 +170,8 @@ def build_player_state(engine: GameEngine) -> dict[str, Any]:
             else None
         ),
         "teams": _team_summary(engine),
+        # 発表済みの問題数。観客ランキングで未回答の問題を数えるのに使う（cloud-server）
+        "revealed": sum(t.finished_rounds for t in engine.teams),
         "finished": engine.state is State.FINISHED,
         "winner": (
             {"number": winner.number, "name": winner.name, "balloons": winner.balloons}

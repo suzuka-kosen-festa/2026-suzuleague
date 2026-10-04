@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import select
 import ssl
 import threading
 import time
@@ -168,6 +169,7 @@ class CloudBridge:
 
         self._events.start(thread=True)
         self._start_heartbeat()
+        self._start_pong_reader()
 
     def disconnect(self) -> None:
         self._stop.set()
@@ -192,6 +194,35 @@ class CloudBridge:
 
         self._heartbeat_thread = threading.Thread(target=beat, daemon=True)
         self._heartbeat_thread.start()
+
+    def _start_pong_reader(self) -> None:
+        """送信用の接続に届くものを読み捨て、サーバの ping に応答する。
+
+        scratchattach の送信用接続は送るだけで何も読まない。cloud-server は
+        60秒ごとに ping を送り、次の ping までに pong がない接続を切る。
+        websocket-client は recv() したときにしか pong を返さないため、
+        読まないままだと1〜2分ごとに接続を切られ、切られた直後に送った
+        変数が**黙って失われる**（2026-10-04 に E2E で再現。観客ページの
+        進行が止まった）。ここで読み続けて pong を返させる。
+        """
+
+        def read() -> None:
+            while not self._stop.is_set():
+                ws = getattr(self.cloud, "websocket", None)
+                sock = getattr(ws, "sock", None)
+                if ws is None or sock is None or not ws.connected:
+                    self._stop.wait(1.0)  # 再接続中
+                    continue
+                try:
+                    # 読めるものが届いたときだけ recv する（フレームの途中で
+                    # タイムアウトして受信状態が壊れないように）
+                    readable, _, _ = select.select([sock], [], [], 1.0)
+                    if readable:
+                        ws.recv()  # ping ならこの中で pong を返す。set などは読み捨て
+                except (websocket.WebSocketException, OSError, ValueError):
+                    self._stop.wait(1.0)  # 切断時は scratchattach の再接続に任せる
+
+        threading.Thread(target=read, name="cloud-pong-reader", daemon=True).start()
 
     # ---- 送信 ----------------------------------------------------
 

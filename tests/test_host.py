@@ -289,9 +289,11 @@ class TestPlayerState:
         for target in (State.TEAM_INTRO, State.QUESTION, State.ANSWERING):
             advance_to(engine, target)
             assert "87" not in json.dumps(build_player_state(engine))
+        assert build_player_state(engine)["revealed"] == 0
         engine.submit_answer(80)
         engine.advance()
         assert build_player_state(engine)["result"]["correct"] == 87
+        assert build_player_state(engine)["revealed"] == 1
 
     def test_host_state_carries_code_and_player_part(self):
         engine = make_engine()
