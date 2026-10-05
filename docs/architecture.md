@@ -18,7 +18,7 @@
 | 出演者 | **Scratch画面**（ステージに置く端末。TurboWarp で開く） | 問題を見て、数字キーで%を回答する |
 | 出演者（予備） | 出演者の回答画面（`/player.html`） | Scratch の端末が使えないとき、4桁の合言葉を入れてスマホから回答する |
 | 観客 | **観客ページ**（`/suzuleague.html`） | 出演者と同じ問題に答え、端末の中で自己採点する。観客ランキングに参加する |
-| 裏方 | ダッシュボード（PC・ターミナル） | 進行の中心（Python）を動かしておく。予備の操作手段 |
+| 裏方 | `launcher/スズリーグ.app`（PC。ターミナルは使わない） | 進行の中心（Python）を動かしておく。PCのブラウザにも司会者画面が開く（予備の操作手段） |
 
 Scratch 以外の画面は Render 上の cloud サーバ（`https://suzuleague-cloud.onrender.com`）から配信する。
 誰がどの画面をどう使うかの詳細は [users.md](./users.md)。
@@ -35,7 +35,7 @@ Scratch で作ったステージ画面（Scratch担当）は、**出演者の手
 ```mermaid
 flowchart LR
     subgraph backstage["裏方PC"]
-        py["Python（進行の中心）<br>uv run suzuleague --web<br>engine・採点・中継"]
+        py["Python（進行の中心）<br>スズリーグ.app で起動<br>engine・採点・中継"]
     end
     subgraph render["Render（cloud サーバ）<br>suzuleague-cloud.onrender.com"]
         board[("クラウド変数<br>= 共有の黒板<br>P2S_* / S2P_*")]
@@ -172,7 +172,7 @@ sequenceDiagram
 - 「次へ」には**表示中のステート**を添える。通信の遅れで二重に届いても2段階進まない
 - 裏方PCは**起動前に溜まっていた操作を捨てる**。再起動直後に古い「次へ」が一気に流れ込まない
 - 回答画面は誰でも開けるので、送る状態には**正解を発表後にしか入れない**
-- Render に届かないときは、裏方PCのブラウザで同じ司会者画面を開いて操作できる（`--web` → `http://localhost:8000/host`）
+- Render に届かないときは、裏方PCのブラウザで同じ司会者画面を開いて操作できる（`--web` → `http://localhost:8000/host`。`スズリーグ.app` は起動時に自動で開く）
 
 ### 画面の書き出し
 
@@ -225,6 +225,10 @@ Scratch側は行番号=問題IDのリストを持ち、`uv run python -m suzulea
 ロジックと画面を最初から分けていたので、`engine.py` と `cloud.py` はほぼそのまま使えた。
 CLIは予備の操作手段として残している。
 
+2026-10-05 には裏方PCの起動もターミナルなしにした（`launcher/スズリーグ.app`）。ダッシュボードは
+`--headless` で入力を待たずに動き、CLIでしかできなかった `resync` も司会者画面のボタンにした。
+終了ボタンは司会者画面に置かず、アプリをもう一度開いて止める（本番中にスマホで誤って押さないため）。
+
 ### 5. 変数は1つずつ送信する（scratchattachのset_vars禁止）
 
 scratchattachの一括送信 `set_vars()` は複数JSONを1つのWebSocketフレームに詰めるが、
@@ -267,7 +271,7 @@ APIとWebSocketは Render に残るので**止まりにくさは変わらない*
 
 ```mermaid
 flowchart TD
-    dash["dashboard.py<br>CLI・起動（UI層）"]
+    dash["dashboard.py<br>起動・CLI（UI層）"]
     hostm["host.py<br>司会者画面・回答画面の中継（UI層）"]
     pub["publish.py<br>画面の書き出し・本番との照合"]
     ctrl["controller.py<br>進行操作の窓口（ロック）"]
@@ -304,7 +308,8 @@ flowchart TD
 | `cloud.py` | クラウド変数の接続。状態push・回答受信・resync・heartbeat・ping応答 | protocol |
 | `controller.py` | 進行操作の窓口。CLI・司会者画面・Scratch・出演者の回答を**同じロックで直列化**し、操作のたびに状態を送る | engine, cloud |
 | `host.py` | 司会者画面・回答画面に出す状態、操作の実行、Render 経由の中継、出演者の合言葉、予備サーバ | controller |
-| `dashboard.py` | 起動とCLI。中継・予備サーバを立ち上げる | controller, host |
+| `dashboard.py` | 起動とCLI。中継・予備サーバを立ち上げる。`--headless` ならCLIなしで動く（`launcher/` のアプリが使う） | controller, host |
+| `labels.py` | ステートの表示名・「次へ」の案内・チームの挑戦状況（CLIと画面で共通） | engine, models |
 | `audience.py` | 観客ページの生成（問題文を埋め込む。正解は埋め込まない） | questions |
 | `publish.py` | 3画面を cloud-server の `public/` に書き出す・本番と照合する | audience, host |
 | `sim_scratch.py` | Scratch側のフリをする開発ツール | cloud, questions |
@@ -347,9 +352,9 @@ sequenceDiagram
 
 | 制約 | 対応 |
 |---|---|
-| クラウド変数は全員切断で値が消える | ダッシュボードの `resync` コマンドで全状態を再送できる |
+| クラウド変数は全員切断で値が消える | 司会者画面の「Scratch に今の状態を送り直す」（CLIの `resync`）で全状態を再送できる |
 | ~~同一IPからの接続頻度制限~~（公開サーバ実測: 連発すると1〜2分接続不可） | **解消済み**。この制限は公開サーバ前段のインフラ由来で、セルフホストには存在しない（ソースで確認） |
-| 裏方PCのPythonが止まる＝進行不能 | 司会者画面に「PCの応答なし」が出る。`HEARTBEAT` 変数（15秒毎更新）でも死活を検知できる |
+| 裏方PCのPythonが止まる＝進行不能 | 司会者画面に「PCの応答なし」が出る。`HEARTBEAT` 変数（15秒毎更新）でも死活を検知できる。**起動し直すと今は進行が最初に戻る**（途中からの再開は [#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51)） |
 | ~~送信用の接続が1〜2分ごとに切られ、直後の送信が黙って消える~~（2026-10-04 E2Eで発見） | **解消済み**。送信用接続を読み続けて ping に応答する（[落とし穴6](./development.md#6-送るだけの接続は12分ごとに切られ直後の送信が黙って消える)） |
 | ~~1部屋あたり128クライアントの上限~~（2026-07-22 実測） | **解消済み**。セルフホストで `MAX_CLIENTS=300` に設定。150接続まで実測確認。詳細は下記 |
 | ~~Scratch からの回答が Python に届かない~~（scratchattach の受信が自前サーバを無視していた。2026-10-04 発見） | **解消済み**。受信を自前の `CloudReceiver` に置き換え（[落とし穴7](./development.md#7-scratchattach-の受信は自前サーバを指定しても公開サーバにつながる)） |

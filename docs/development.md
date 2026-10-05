@@ -521,6 +521,7 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 
 - [ ] **開演30分前** に <https://suzuleague-cloud.onrender.com> をブラウザで開く
       （15分無通信でスピンダウンする。実測での復帰は22.8秒、公称は約1分）
+- [ ] 裏方PCの**スリープを切り**、電源につなぐ（Python が止まると、今は進行が最初に戻る。[#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51)）
 - [ ] `launcher/スズリーグ.app` の「本番」でダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
 - [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
 - [ ] ステージ画面を `?cloud_host=` 付きURLで開き、司会者画面の「Scratch に今の状態を送り直す」で表示が復帰することを確認

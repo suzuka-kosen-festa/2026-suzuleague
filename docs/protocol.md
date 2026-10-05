@@ -17,7 +17,7 @@ Scratch担当向けの共有仕様です。バックエンド（Python/scratchat
   - 観客・出演者はScratchアカウント不要（本家scratch.mit.eduのクラウド変数はログイン必須のため使わない）
 - クラウド変数に入れられるのは**数値のみ**
 - TurboWarpのクラウド変数は**全員が切断すると値が消える**
-  - Python側に `resync`（全状態の再送）機能があるので、Scratch側をリロードしたら裏方PCで `resync` してもらえばOK
+  - Python側に `resync`（全状態の再送）機能があるので、Scratch側をリロードしたら司会者画面の「困ったとき」→「Scratch に今の状態を送り直す」を押してもらえばOK（CLIの `resync` と同じ）
 - ルームID: 開発中は `suzuleague-dev`、**本番は `1364239598`**
   （Scratch担当のプロジェクト <https://scratch.mit.edu/projects/1364239598/> のID。
   Python側は環境変数 `SUZULEAGUE_PROJECT_ID` で切替可能）
