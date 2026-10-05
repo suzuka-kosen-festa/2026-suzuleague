@@ -122,7 +122,7 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 
 どちらも本番の cloud サーバ・ルーム `1364239598` につなぐ。中身は `launcher/launch.sh`。
 
-- 合言葉は初回に聞かれ、`launcher/settings.env`（Git には入らない）に保存される。**合言葉を変えたら、このファイルを消して入れ直す**
+- 合言葉は初回に聞かれ、`launcher/settings.env`（Git には入らない）に保存される。起動のたびに Render の `HOST_TOKEN` と一致するか確かめ、違えば入れ直しを求める（Render 側で合言葉を変えたときも、次の起動で聞かれる）
 - 前のダッシュボードが残っていてポート8000が使われていると、起動前に止まって知らせる
 - 終えるときはダッシュボードの窓で `quit` と打つ
 

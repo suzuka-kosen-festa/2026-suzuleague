@@ -1,7 +1,7 @@
 #!/bin/bash
 # ダッシュボードをダブルクリックで起動する（「デモを起動.command」「本番を起動.command」から呼ばれる）
 #
-#   1. Render を起こす
+#   1. Render を起こし、合言葉が Render と一致するか確かめる
 #   2. 本番の画面が最新か確かめる（publish --check）
 #   3. ダッシュボードを起動し、裏方PCのブラウザで司会者画面を開く
 #
@@ -59,11 +59,7 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # 合言葉（Render の HOST_TOKEN と同じ値）。初回だけ入力して保存する
-if [ -f "$SETTINGS" ]; then
-  # shellcheck source=/dev/null
-  source "$SETTINGS"
-fi
-if [ -z "${SUZULEAGUE_HOST_TOKEN:-}" ]; then
+ask_token() {
   echo "司会者画面の合言葉（Render の HOST_TOKEN と同じもの）を入力してください。"
   read -r -s -p "合言葉: " SUZULEAGUE_HOST_TOKEN
   echo
@@ -72,10 +68,17 @@ if [ -z "${SUZULEAGUE_HOST_TOKEN:-}" ]; then
     pause_and_exit
   fi
   (umask 077 && printf 'SUZULEAGUE_HOST_TOKEN=%q\n' "$SUZULEAGUE_HOST_TOKEN" > "$SETTINGS")
-  echo "→ launcher/settings.env に保存しました（次回から入力不要。合言葉を変えたらこのファイルを消す）"
+  echo "→ launcher/settings.env に保存しました（次回から入力不要）"
   echo
+}
+
+if [ -f "$SETTINGS" ]; then
+  # shellcheck source=/dev/null
+  source "$SETTINGS"
 fi
-export SUZULEAGUE_HOST_TOKEN
+if [ -z "${SUZULEAGUE_HOST_TOKEN:-}" ]; then
+  ask_token
+fi
 
 # 前に起動したダッシュボードが残っていると、予備の司会者画面のポートがぶつかって落ちる
 if lsof -iTCP:"$WEB_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
@@ -84,12 +87,37 @@ if lsof -iTCP:"$WEB_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
   pause_and_exit
 fi
 
-echo "[1/3] Render を起こしています（寝ていると数十秒かかります）…"
+echo "[1/3] Render を起こして、合言葉を確かめています（寝ていると数十秒かかります）…"
 if curl -s -o /dev/null --max-time 90 "$SERVER_URL/"; then
   echo "  ✓ 応答あり"
 else
   echo "  ⚠ 応答がありません。ネットにつながっているか確認してください（このまま続けます）"
 fi
+
+# 合言葉が Render と違うと、スマホの司会者画面が「PCがまだつながっていません」のままになる。
+# 起動前に Render に聞いて確かめ、違えば入れ直してもらう
+while :; do
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+    -H "X-Host-Token: $SUZULEAGUE_HOST_TOKEN" "$SERVER_URL/api/host/state")
+  case "$CODE" in
+    200)
+      echo "  ✓ 合言葉が Render と一致しました"
+      break
+      ;;
+    401)
+      echo "  ✗ 合言葉が Render の HOST_TOKEN と違います。入れ直してください"
+      ask_token
+      ;;
+    503)
+      echo "  ✗ Render に HOST_TOKEN が設定されていません（管理画面の Environment で設定する）"
+      pause_and_exit
+      ;;
+    *)
+      echo "  ⚠ 合言葉を確かめられませんでした（HTTP $CODE）。このまま続けます"
+      break
+      ;;
+  esac
+done
 echo
 
 echo "[2/3] 本番の画面が最新か確かめています…"
