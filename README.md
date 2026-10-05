@@ -56,7 +56,9 @@ uv run suzuleague --offline --web
 
 ダッシュボードで `n`（next）を打つか、司会者画面の「次へ」を押すとゲームが1段階ずつ進む。
 
-本番の cloud サーバにつないでスマホから操作する手順（合言葉の設定など）は
+本番の cloud サーバにつなぐときは、`launcher/デモを起動.command`（本番は `本番を起動.command`）を
+ダブルクリックすれば、コマンドを打たずに起動できる。
+スマホから操作する手順（合言葉の設定など）は
 [docs/development.md の「司会者画面」](docs/development.md#司会者画面スマホで進行を操作する)、
 デモの段取りは [docs/demo/README.md](docs/demo/README.md) を参照。
 
@@ -81,6 +83,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/audience_template.html` | 観客ページ（自己採点・観客ランキング・全体結果） |
 | `src/suzuleague/loadtest.py` | 同時接続数・観客ランキングの一斉送信の負荷テスト（開発用） |
 | `tests/` | ユニットテスト（ネットワーク不要。116件） |
+| `launcher/*.command` | ダブルクリックでダッシュボードを起動する（デモ用・本番用） |
 | `docs/scratch/` | Scratch担当に渡す問題文リストと取り込み手順 |
 | `docs/qr/` | QRコードと印刷用ページ |
 

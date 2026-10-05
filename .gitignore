@@ -18,3 +18,6 @@ questions.txt
 
 # チーム構成（メンバーの氏名を含むためコミットしない。書式は teams.example.json）
 teams.json
+
+# 起動用ファイルが保存する合言葉
+launcher/settings.env

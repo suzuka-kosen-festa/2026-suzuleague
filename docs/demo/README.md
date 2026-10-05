@@ -21,20 +21,19 @@ QRは `docs/qr/print.html` を印刷するか、PCの画面に `docs/qr/audience
 
 ## 準備（開始10分前）
 
-1. **Render を起こす**。ブラウザで <https://suzuleague-cloud.onrender.com> を開く（寝ていると起動に数十秒かかる）
-2. **本番の画面が最新か確かめる**
-   ```bash
-   cd ~/repository/snctfes2026-suzuleague
-   uv run python -m suzuleague.publish --room-id 1364239598 --check
-   ```
-3. **ダッシュボードを起動する**（本番のルームと、デモ用の1チーム構成を使う）
+1. **裏方PCで `launcher/デモを起動.command` をダブルクリックする**。次を順に自動で行う
+   - Render を起こす（寝ていると起動に数十秒かかる）
+   - 本番の画面が最新か確かめる（`publish --check`）
+   - 本番のルーム `1364239598` とデモ用の1チーム構成でダッシュボードを起動する
+   - 裏方PCのブラウザで司会者画面（予備）を開く
+
+   初回だけ合言葉（Render の `HOST_TOKEN` と同じもの）を聞かれる。`launcher/settings.env` に保存され、Git には入らない。
+   ターミナルで打つ場合は次と同じ。
    ```bash
    export SUZULEAGUE_HOST_TOKEN='（Render の HOST_TOKEN と同じ合言葉）'
    uv run suzuleague --cloud-host wss://suzuleague-cloud.onrender.com \
      --project-id 1364239598 --teams docs/demo/teams-demo.json --web
    ```
-   - 観客ページは本番ルーム `1364239598` につながる作りなので、デモでも同じルームを使う
-   - Scratch 画面も同じルーム `1364239598` につながる
 4. 司会役のスマホで司会者画面を開き、合言葉を入れる。「PCと接続中」になればよい
 5. 出演者役の端末で Scratch 画面を開き、緑の旗を押す。ダッシュボードで `resync` を打つと、Scratch 側に今の状態が出る
 6. 司会者画面の「観客ランキング」を開き、**「ランキングをリセット」**を押す（前の試験のデータを消す）
@@ -71,5 +70,5 @@ QRは `docs/qr/print.html` を印刷するか、PCの画面に `docs/qr/audience
 
 ## 終わったら
 
-- ダッシュボードを `quit` で終了する
+- ダッシュボードの窓で `quit` と打って終了する
 - 司会者画面の「ランキングをリセット」でデモのデータを消す

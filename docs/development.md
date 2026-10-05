@@ -99,7 +99,9 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 ### 使い方
 
 1. Render のサービスに環境変数 **`HOST_TOKEN`**（合言葉）を設定する。未設定だとAPIは無効（503）
-2. 裏方PCで同じ合言葉を **`SUZULEAGUE_HOST_TOKEN`** に入れてダッシュボードを起動する
+2. 裏方PCで同じ合言葉を **`SUZULEAGUE_HOST_TOKEN`** に入れてダッシュボードを起動する。
+   `launcher/` の `.command` をダブルクリックすれば、合言葉の入力（初回だけ）・Render の起動・
+   `publish --check`・ブラウザで予備の司会者画面を開くところまで自動で行う（下の「ダブルクリックで起動する」）
 
    ```bash
    export SUZULEAGUE_HOST_TOKEN='（合言葉）'
@@ -110,6 +112,19 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 
 3. 司会のスマホで `https://suzuleague-cloud.onrender.com/host.html` を開き、合言葉を入力する
    （スマホに保存されるので次からは聞かれない）
+
+### ダブルクリックで起動する
+
+| ファイル | 起動するもの |
+|---|---|
+| `launcher/デモを起動.command` | デモ用（`docs/demo/teams-demo.json`、1チーム5問） |
+| `launcher/本番を起動.command` | 本番用（リポジトリ直下の `teams.json`。なければ止まる） |
+
+どちらも本番の cloud サーバ・ルーム `1364239598` につなぐ。中身は `launcher/launch.sh`。
+
+- 合言葉は初回に聞かれ、`launcher/settings.env`（Git には入らない）に保存される。**合言葉を変えたら、このファイルを消して入れ直す**
+- 前のダッシュボードが残っていてポート8000が使われていると、起動前に止まって知らせる
+- 終えるときはダッシュボードの窓で `quit` と打つ
 
 CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchのどこから操作しても、
 同じ `GameController`（`controller.py`）を通るので食い違わない。
@@ -494,7 +509,7 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 
 - [ ] **開演30分前** に <https://suzuleague-cloud.onrender.com> をブラウザで開く
       （15分無通信でスピンダウンする。実測での復帰は22.8秒、公称は約1分）
-- [ ] ダッシュボードを `--web` 付きで起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
+- [ ] `launcher/本番を起動.command` でダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
 - [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
 - [ ] ステージ画面を `?cloud_host=` 付きURLで開き、`resync` で表示が復帰することを確認
 - [ ] 進行不能時の代替手段を確認（`answer` コマンドでの代行入力、`resync`、
