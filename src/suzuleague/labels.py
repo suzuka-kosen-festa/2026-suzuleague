@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from .engine import State
+from .models import Team
+from .questions import ROUNDS_PER_TEAM
 
 STATE_LABELS = {
     State.IDLE: "待機",
@@ -28,3 +30,14 @@ NEXT_HINTS = {
     State.TEAM_RESULT: "next で次のチーム（最終チーム後は全体結果）へ",
     State.FINISHED: "ゲーム終了",
 }
+
+
+def team_status_label(team: Team) -> str:
+    """チームの挑戦状況（司会者画面の「全チームの状況」とCLIの teams で共通）。"""
+    if team.finished_rounds == 0:
+        return "未挑戦"
+    if team.is_failed:
+        return "ゲームオーバー"
+    if team.finished_rounds < ROUNDS_PER_TEAM:
+        return "挑戦中"
+    return "クリア"

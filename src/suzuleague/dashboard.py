@@ -38,8 +38,9 @@ from .host import (
     http_base_from_cloud_host,
     serve_local,
 )
-from .labels import NEXT_HINTS, STATE_LABELS
+from .labels import NEXT_HINTS, STATE_LABELS, team_status_label
 from .protocol import ACK_ANIMATION_DONE
+from .questions import ROUNDS_PER_TEAM
 from .teams import ENV_TEAMS, resolve_teams
 
 HELP_TEXT = """\
@@ -141,20 +142,16 @@ class Dashboard:
         table.add_column("バルーン", justify="right")
         table.add_column("消化", justify="right")
         table.add_column("状態")
+        colors = {"ゲームオーバー": "red", "クリア": "green"}
         for team in self.engine.teams:
-            if team.finished_rounds == 0:
-                status = "未走行"
-            elif team.is_failed:
-                status = "[red]ゲームオーバー[/]"
-            elif team.finished_rounds < 5:
-                status = "挑戦中"
-            else:
-                status = "[green]クリア[/]"
+            status = team_status_label(team)
+            if status in colors:
+                status = f"[{colors[status]}]{status}[/]"
             table.add_row(
                 str(team.number),
                 team.name,
                 str(team.balloons),
-                f"{team.finished_rounds}/5",
+                f"{team.finished_rounds}/{ROUNDS_PER_TEAM}",
                 status,
             )
         self.console.print(table)
@@ -193,6 +190,14 @@ class Dashboard:
             return
         self.console.print(f"回答 {percent}% を受け付けました → next で正解発表")
 
+    def do_resync(self) -> None:
+        try:
+            self.controller.resync()
+        except GameError as e:
+            self.console.print(f"[yellow]{e}[/]")
+            return
+        self.console.print("状態を再送しました")
+
     # ---- メインループ --------------------------------------------
 
     def run(self) -> None:
@@ -218,11 +223,7 @@ class Dashboard:
             elif cmd in ("teams", "t"):
                 self.print_teams()
             elif cmd == "resync":
-                if self.bridge is None:
-                    self.console.print("[yellow]オフラインモードです[/]")
-                else:
-                    self.bridge.resync()
-                    self.console.print("状態を再送しました")
+                self.do_resync()
             elif cmd in ("help", "h"):
                 self.console.print(HELP_TEXT)
             else:

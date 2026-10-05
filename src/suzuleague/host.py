@@ -32,7 +32,8 @@ from typing import Any
 
 from .controller import GameController
 from .engine import GameEngine, GameError, State
-from .labels import STATE_LABELS
+from .labels import STATE_LABELS, team_status_label
+from .models import RoundResult, Team
 from .questions import ROUNDS_PER_TEAM
 
 ENV_HOST_TOKEN = "SUZULEAGUE_HOST_TOKEN"
@@ -109,16 +110,6 @@ def next_action_label(engine: GameEngine) -> str | None:
     return None  # FINISHED
 
 
-def _team_status(team) -> str:
-    if team.finished_rounds == 0:
-        return "未挑戦"
-    if team.is_failed:
-        return "ゲームオーバー"
-    if team.finished_rounds < ROUNDS_PER_TEAM:
-        return "挑戦中"
-    return "クリア"
-
-
 def _team_summary(engine: GameEngine) -> list[dict[str, Any]]:
     return [
         {
@@ -126,58 +117,68 @@ def _team_summary(engine: GameEngine) -> list[dict[str, Any]]:
             "name": t.name,
             "balloons": t.balloons,
             "finished_rounds": t.finished_rounds,
-            "status": _team_status(t),
+            "status": team_status_label(t),
         }
         for t in engine.teams
     ]
 
 
+def _team_info(team: Team | None) -> dict[str, Any] | None:
+    if team is None:
+        return None
+    return {"number": team.number, "name": team.name, "balloons": team.balloons, "failed": team.is_failed}
+
+
+def _shown_result(engine: GameEngine) -> dict[str, Any] | None:
+    """正解発表とラウンド結果の間だけ出す、直前の問題の結果。"""
+    result: RoundResult | None = engine.last_result if engine.state in REVEAL_STATES else None
+    if result is None:
+        return None
+    return {
+        "answer": result.answer,
+        "correct": result.correct,
+        "damage": result.damage,
+        "balloons_after": result.balloons_after,
+        "exhibition": result.exhibition,
+        "perfect": result.is_perfect,
+    }
+
+
+def _winner_info(engine: GameEngine) -> dict[str, Any] | None:
+    winner = engine.winner() if engine.state is State.FINISHED else None
+    if winner is None:
+        return None
+    return {"number": winner.number, "name": winner.name, "balloons": winner.balloons}
+
+
+def _shows_question(engine: GameEngine) -> bool:
+    """チーム紹介の間は、次の問題をまだ出さない。"""
+    return engine.current_question is not None and engine.state is not State.TEAM_INTRO
+
+
 def build_player_state(engine: GameEngine) -> dict[str, Any]:
     """出演者の回答画面に出す状態。誰でも見られるので、**正解は発表後だけ**入れる。"""
-    snap = engine.snapshot()
-    team = engine.current_team
     question = engine.current_question
-    result = engine.last_result if engine.state in REVEAL_STATES else None
-    winner = engine.winner() if engine.state is State.FINISHED else None
     return {
         "state": int(engine.state),
         "state_label": STATE_LABELS[engine.state],
-        "team": (
-            {"number": team.number, "name": team.name, "balloons": team.balloons, "failed": team.is_failed}
-            if team
-            else None
-        ),
-        "round": snap.round_no,
+        "team": _team_info(engine.current_team),
+        "round": engine.snapshot().round_no,
         "rounds_per_team": ROUNDS_PER_TEAM,
         "question": (
             {"id": question.id, "text": question.text}
-            if question and engine.state is not State.TEAM_INTRO
+            if question and _shows_question(engine)
             else None
         ),
         "accepting_answer": engine.state in ANSWERING_STATES,
         "exhibition": engine.state is State.EXHIBITION_ANSWERING,
         "answer": engine.pending_answer,
-        "result": (
-            {
-                "answer": result.answer,
-                "correct": result.correct,
-                "damage": result.damage,
-                "balloons_after": result.balloons_after,
-                "exhibition": result.exhibition,
-                "perfect": result.is_perfect,
-            }
-            if result
-            else None
-        ),
+        "result": _shown_result(engine),
         "teams": _team_summary(engine),
         # 発表済みの問題数。観客ランキングで未回答の問題を数えるのに使う（cloud-server）
         "revealed": sum(t.finished_rounds for t in engine.teams),
         "finished": engine.state is State.FINISHED,
-        "winner": (
-            {"number": winner.number, "name": winner.name, "balloons": winner.balloons}
-            if winner
-            else None
-        ),
+        "winner": _winner_info(engine),
     }
 
 
@@ -191,12 +192,8 @@ def build_host_state(
     `player` は出演者の回答画面向けの公開用の状態で、Render がそのまま配る。
     `player_code` は Render が出演者の回答を受け付けるときの照合に使う。
     """
-    snap = engine.snapshot()
     team = engine.current_team
     question = engine.current_question
-    result = engine.last_result if engine.state in REVEAL_STATES else None
-    winner = engine.winner() if engine.state is State.FINISHED else None
-
     return {
         "state": int(engine.state),
         "state_label": STATE_LABELS[engine.state],
@@ -205,17 +202,8 @@ def build_host_state(
         and engine.pending_answer is None,
         "accepting_answer": engine.state in ANSWERING_STATES,
         "exhibition": engine.state is State.EXHIBITION_ANSWERING,
-        "team": (
-            {
-                "number": team.number,
-                "name": team.name,
-                "balloons": team.balloons,
-                "failed": team.is_failed,
-            }
-            if team
-            else None
-        ),
-        "round": snap.round_no,
+        "team": _team_info(team),
+        "round": engine.snapshot().round_no,
         "rounds_per_team": ROUNDS_PER_TEAM,
         "question": (
             {
@@ -224,29 +212,14 @@ def build_host_state(
                 "source": question.source,
                 "correct": question.correct,
             }
-            if question and engine.state is not State.TEAM_INTRO
+            if question and _shows_question(engine)
             else None
         ),
         "answer": engine.pending_answer,
-        "result": (
-            {
-                "answer": result.answer,
-                "correct": result.correct,
-                "damage": result.damage,
-                "balloons_after": result.balloons_after,
-                "exhibition": result.exhibition,
-                "perfect": result.is_perfect,
-            }
-            if result
-            else None
-        ),
+        "result": _shown_result(engine),
         "teams": _team_summary(engine),
         "finished": engine.state is State.FINISHED,
-        "winner": (
-            {"number": winner.number, "name": winner.name, "balloons": winner.balloons}
-            if winner
-            else None
-        ),
+        "winner": _winner_info(engine),
         "last_command": last_command,
         "player_code": (
             player_codes.for_team(team.number)
@@ -470,25 +443,22 @@ def serve_local(
         def log_message(self, format: str, *args: Any) -> None:
             pass  # CLIの表示を汚さない
 
-        def _send_json(self, status: int, body: Any) -> None:
-            data = json.dumps(body, ensure_ascii=False).encode()
+        def _send(self, status: int, content_type: str, data: bytes) -> None:
             self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Type", content_type)
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
 
+        def _send_json(self, status: int, body: Any) -> None:
+            data = json.dumps(body, ensure_ascii=False).encode()
+            self._send(status, "application/json; charset=utf-8", data)
+
         def do_GET(self) -> None:
             path = self.path.split("?", 1)[0]
             if path in ("/", "/host", "/host.html"):
-                data = HOST_PAGE_PATH.read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
+                self._send(200, "text/html; charset=utf-8", HOST_PAGE_PATH.read_bytes())
             elif path == "/api/host/state":
                 with controller.lock:
                     state = build_host_state(
