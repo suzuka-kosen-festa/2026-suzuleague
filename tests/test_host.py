@@ -181,6 +181,31 @@ class TestExecuteCommand:
         assert result["ok"] is False
         assert engine.pending_answer is None
 
+    def test_resync(self):
+        class RecordingBridge:
+            resynced = 0
+
+            def push(self, snapshot):
+                pass
+
+            def resync(self):
+                self.resynced += 1
+
+        bridge = RecordingBridge()
+        result = execute_command(GameController(make_engine(), bridge), {"type": "resync"})
+        assert result["ok"] is True
+        assert bridge.resynced == 1
+
+    def test_resync_offline_fails_gracefully(self):
+        result = execute_command(GameController(make_engine()), {"type": "resync"})
+        assert result["ok"] is False
+
+    def test_player_cannot_resync(self):
+        result = execute_command(
+            GameController(make_engine()), {"type": "resync", "source": "player"}
+        )
+        assert result["ok"] is False
+
     def test_unknown_command(self):
         result = execute_command(GameController(make_engine()), {"type": "reset"})
         assert result["ok"] is False

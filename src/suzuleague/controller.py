@@ -47,6 +47,15 @@ class GameController:
         with self.lock:
             self.engine.submit_answer(percent)
 
+    def resync(self) -> None:
+        """最後に送った状態を Scratch へ送り直す（Scratch を開き直した後などに使う）。"""
+        if self.bridge is None:
+            raise GameError("オフラインのため送り直せません")
+        try:
+            self.bridge.resync()
+        except Exception as e:  # 通信失敗は画面に出して司会に知らせる
+            raise GameError(f"送り直せませんでした（{type(e).__name__}）") from e
+
     def push_state(self) -> None:
         if self.bridge is None:
             return

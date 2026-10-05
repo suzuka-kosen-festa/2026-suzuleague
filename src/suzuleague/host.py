@@ -313,6 +313,9 @@ def execute_command(
                 if from_player
                 else f"回答 {value}% を入力しました"
             )
+        elif kind == "resync":
+            controller.resync()
+            message = "Scratch に今の状態を送り直しました"
         else:
             raise GameError(f"不明な操作です: {kind!r}")
     except GameError as e:

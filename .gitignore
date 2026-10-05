@@ -21,3 +21,4 @@ teams.json
 
 # 起動用ファイルが保存する合言葉
 launcher/settings.env
+launcher/run/

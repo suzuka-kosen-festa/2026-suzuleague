@@ -1,25 +1,16 @@
 #!/bin/bash
-# ダッシュボードをダブルクリックで起動する（「デモを起動.command」「本番を起動.command」から呼ばれる）
+# ダッシュボードをターミナルで起動する（「デモを起動.command」「本番を起動.command」から呼ばれる）
 #
 #   1. Render を起こし、合言葉が Render と一致するか確かめる
 #   2. 本番の画面が最新か確かめる（publish --check）
 #   3. ダッシュボードを起動し、裏方PCのブラウザで司会者画面を開く
 #
+# ふだんはターミナルを使わない「スズリーグ.app」を使う。こちらはコマンドも打てる予備。
 # 合言葉は launcher/settings.env に保存する（初回に入力。Git には入らない）。
 set -u
 
-MODE="${1:-}"
-LAUNCHER_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(dirname "$LAUNCHER_DIR")"
-SETTINGS="$LAUNCHER_DIR/settings.env"
-
-CLOUD_HOST="wss://suzuleague-cloud.onrender.com"
-SERVER_URL="https://suzuleague-cloud.onrender.com"
-ROOM_ID="1364239598"
-WEB_PORT=8000
-
-# Finder から開くとシェルの設定によっては uv が見つからないため、よくある置き場所を足しておく
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# shellcheck source=common.sh
+source "$(dirname "$0")/common.sh"
 
 # エラーで窓がすぐ閉じると読めないので、Enter を待ってから終える
 pause_and_exit() {
@@ -30,20 +21,10 @@ pause_and_exit() {
 
 cd "$REPO_DIR" || pause_and_exit
 
-case "$MODE" in
-  demo)
-    TEAMS="docs/demo/teams-demo.json"
-    LABEL="デモ（1チーム5問）"
-    ;;
-  production)
-    TEAMS="teams.json"
-    LABEL="本番（teams.json）"
-    ;;
-  *)
-    echo "使い方: launch.sh demo|production"
-    pause_and_exit
-    ;;
-esac
+if ! select_teams "${1:-}"; then
+  echo "使い方: launch.sh demo|production"
+  pause_and_exit
+fi
 
 echo "=== スズリーグ ダッシュボード: $LABEL ==="
 echo
@@ -58,7 +39,6 @@ if ! command -v uv >/dev/null 2>&1; then
   pause_and_exit
 fi
 
-# 合言葉（Render の HOST_TOKEN と同じ値）。初回だけ入力して保存する
 ask_token() {
   echo "司会者画面の合言葉（Render の HOST_TOKEN と同じもの）を入力してください。"
   read -r -s -p "合言葉: " SUZULEAGUE_HOST_TOKEN
@@ -67,38 +47,32 @@ ask_token() {
     echo "✗ 合言葉が空です"
     pause_and_exit
   fi
-  (umask 077 && printf 'SUZULEAGUE_HOST_TOKEN=%q\n' "$SUZULEAGUE_HOST_TOKEN" > "$SETTINGS")
+  save_token
   echo "→ launcher/settings.env に保存しました（次回から入力不要）"
   echo
 }
 
-if [ -f "$SETTINGS" ]; then
-  # shellcheck source=/dev/null
-  source "$SETTINGS"
-fi
-if [ -z "${SUZULEAGUE_HOST_TOKEN:-}" ]; then
+load_token
+if [ -z "$SUZULEAGUE_HOST_TOKEN" ]; then
   ask_token
 fi
 
 # 前に起動したダッシュボードが残っていると、予備の司会者画面のポートがぶつかって落ちる
-if lsof -iTCP:"$WEB_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+if port_in_use; then
   echo "✗ ポート $WEB_PORT が使われています。"
-  echo "  ダッシュボードがすでに起動していないか確認してください（前の窓で quit してから開き直す）"
+  echo "  ダッシュボードがすでに起動していないか確認してください（前の窓で quit するか、スズリーグ.app で終了する）"
   pause_and_exit
 fi
 
 echo "[1/3] Render を起こして、合言葉を確かめています（寝ていると数十秒かかります）…"
-if curl -s -o /dev/null --max-time 90 "$SERVER_URL/"; then
+if wake_render; then
   echo "  ✓ 応答あり"
 else
   echo "  ⚠ 応答がありません。ネットにつながっているか確認してください（このまま続けます）"
 fi
 
-# 合言葉が Render と違うと、スマホの司会者画面が「PCがまだつながっていません」のままになる。
-# 起動前に Render に聞いて確かめ、違えば入れ直してもらう
 while :; do
-  CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
-    -H "X-Host-Token: $SUZULEAGUE_HOST_TOKEN" "$SERVER_URL/api/host/state")
+  CODE=$(token_http_status)
   case "$CODE" in
     200)
       echo "  ✓ 合言葉が Render と一致しました"
@@ -121,7 +95,7 @@ done
 echo
 
 echo "[2/3] 本番の画面が最新か確かめています…"
-if ! uv run python -m suzuleague.publish --room-id "$ROOM_ID" --check; then
+if ! check_pages; then
   echo
   echo "⚠ 本番の画面が手元と違います。古い画面のまま進めると表示がずれることがあります"
   read -r -p "このまま起動するなら Enter（やめるならこの窓を閉じる）" _
@@ -146,11 +120,8 @@ if [ -t 0 ]; then
   OPENER_PID=$!
 fi
 
-uv run suzuleague \
-  --cloud-host "$CLOUD_HOST" \
-  --project-id "$ROOM_ID" \
-  --teams "$TEAMS" \
-  --web --web-port "$WEB_PORT"
+set_dashboard_cmd
+"${DASHBOARD_CMD[@]}"
 STATUS=$?
 
 [ -n "${OPENER_PID:-}" ] && kill "$OPENER_PID" 2>/dev/null

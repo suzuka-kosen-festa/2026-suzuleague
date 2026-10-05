@@ -5,6 +5,7 @@
     uv run suzuleague --offline           # cloud接続なしでロジックのみ確認
     uv run suzuleague --project-id <ID>   # 接続先ルームの指定
     uv run suzuleague --web               # 司会者画面の予備を http://localhost:8000/host で開く
+    uv run suzuleague --web --headless    # 入力を待たずに動かす（launcher のアプリから起動するとき）
 
 環境変数 SUZULEAGUE_HOST_TOKEN（合言葉）を設定しておくと、司会がスマホの
 司会者画面（Render の /host.html）から進行を操作できる（host.py 参照）。
@@ -17,6 +18,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
+import threading
 import urllib.error
 import urllib.request
 
@@ -224,6 +227,24 @@ class Dashboard:
                 self.console.print(HELP_TEXT)
             else:
                 self.console.print(f"[yellow]不明なコマンド: {cmd}（help参照）[/]")
+        self.shutdown()
+
+    def run_headless(self) -> None:
+        """入力を待たずに動かし続け、SIGTERM / SIGINT で終える。
+
+        launcher のアプリはターミナルを開かずに起動するので、操作はすべて
+        司会者画面から行う（Scratch への送り直しも画面のボタンでできる）。
+        """
+        stop = threading.Event()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, lambda *_: stop.set())
+        self.console.print("[bold]スズリーグ 司会ダッシュボード[/]（ターミナルなし。操作は司会者画面から）")
+        self.print_status()
+        while not stop.wait(1.0):
+            pass
+        self.shutdown()
+
+    def shutdown(self) -> None:
         if self.bridge:
             self.bridge.disconnect()
         self.console.print("終了しました")
@@ -249,6 +270,11 @@ def main() -> None:
         help="司会者画面を裏方PC上でも開く（http://localhost:8000/host。Renderに届かないときの予備）",
     )
     parser.add_argument("--web-port", type=int, default=8000, help="--web の待ち受けポート")
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="コマンド入力を待たずに動かす（SIGTERM で終了。launcher のアプリ用）",
+    )
     parser.add_argument(
         "--perfect-bonus",
         type=int,
@@ -296,7 +322,10 @@ def main() -> None:
         print(f"司会者画面（予備）: http://localhost:{args.web_port}/host")
 
     try:
-        dashboard.run()
+        if args.headless:
+            dashboard.run_headless()
+        else:
+            dashboard.run()
     finally:
         if relay:
             relay.stop()
