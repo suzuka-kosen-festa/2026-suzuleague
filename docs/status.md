@@ -68,18 +68,6 @@ Scratch画面（出演者用）               ███████████�
 - 司会者画面は合言葉（`HOST_TOKEN`）、出演者の回答はチームごとの4桁の合言葉で守る
 - 画面の書き出しと本番との照合は `uv run python -m suzuleague.publish`（[手順](./development.md#観客用ページを更新する)）
 
-### 今日（10/4）見つけて直した不具合
-
-| 不具合 | 影響 | 対応 |
-|---|---|---|
-| Python の送信用接続が1〜2分ごとにサーバに切られ、直後の送信が黙って消える | 観客ページ（と Scratch 画面）の進行が途中で止まる | 接続を読み続けて ping に応答するよう修正。全20問のE2Eで再発なし（[落とし穴6](./development.md#6-送るだけの接続は12分ごとに切られ直後の送信が黙って消える)） |
-| 観客ページで、2問目以降も1問目の回答のまま「決定済み」になる | 観客が2問目から答えられない | 問題ごとに回答を持つよう修正 |
-| 観客ページで、正解発表とラウンド結果でバルーンが二重に減る | 観客の残りバルーンが実際より少なく出る | 問題ごとに1回だけ減らすよう修正 |
-| **Scratch からの回答が Python に一度も届いていなかった**（7/23 に Render へ切り替えて以来） | 出演者が Scratch で答えても司会者画面に届かない（本番で代理入力しかできなくなる） | scratchattach の受信が自前サーバを無視して公開サーバにつながっていた。受信を自前の処理に置き換え、**本番の Scratch プロジェクトから回答が届くことを確認**（[落とし穴7](./development.md#7-scratchattach-の受信は自前サーバを指定しても公開サーバにつながる)） |
-| Render が寝ているとダッシュボードが起動時に落ちる | 開演前に起こし忘れると進行を始められない | 接続に失敗したらサーバを起こして接続し直すようにした |
-
-どれも7〜8月の検証では見つからなかったもので、**観客2人・全20問を通しで動かす E2E** と**本物の Scratch プロジェクトとの結合**で初めて出た。
-
 ### 10/6 の実機確認（#31 クローズ）
 
 裏方PCは `スズリーグ.app`、司会者画面はスマホ、出演者は TurboWarp の Scratch 画面、観客はスマホで、デモ構成（1チーム5問）を全体結果まで通した。
@@ -100,26 +88,48 @@ Scratch画面（出演者用）               ███████████�
 | Scratch 画面を開き直したときの `resync` が CLI でしかできなかった | 司会者画面の「困ったとき」→「Scratch に今の状態を送り直す」を追加（本番に反映済み）。ただしチームの途中で開き直した場合は Scratch 側が対応しておらず戻らない（10/6 に判明。[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)） |
 | 図解に「裏方PCを起動し直せば続きから進められる」とあったが、実際は最初に戻る | 図解を実態に合わせて直し、途中から再開できるようにする作業を [#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51) にした |
 
+### 10/4 に見つけて直した不具合
+
+| 不具合 | 影響 | 対応 |
+|---|---|---|
+| Python の送信用接続が1〜2分ごとにサーバに切られ、直後の送信が黙って消える | 観客ページ（と Scratch 画面）の進行が途中で止まる | 接続を読み続けて ping に応答するよう修正。全20問のE2Eで再発なし（[落とし穴6](./development.md#6-送るだけの接続は12分ごとに切られ直後の送信が黙って消える)） |
+| 観客ページで、2問目以降も1問目の回答のまま「決定済み」になる | 観客が2問目から答えられない | 問題ごとに回答を持つよう修正 |
+| 観客ページで、正解発表とラウンド結果でバルーンが二重に減る | 観客の残りバルーンが実際より少なく出る | 問題ごとに1回だけ減らすよう修正 |
+| **Scratch からの回答が Python に一度も届いていなかった**（7/23 に Render へ切り替えて以来） | 出演者が Scratch で答えても司会者画面に届かない（本番で代理入力しかできなくなる） | scratchattach の受信が自前サーバを無視して公開サーバにつながっていた。受信を自前の処理に置き換え、**本番の Scratch プロジェクトから回答が届くことを確認**（[落とし穴7](./development.md#7-scratchattach-の受信は自前サーバを指定しても公開サーバにつながる)） |
+| Render が寝ているとダッシュボードが起動時に落ちる | 開演前に起こし忘れると進行を始められない | 接続に失敗したらサーバを起こして接続し直すようにした |
+
+どれも7〜8月の検証では見つからなかったもので、**観客2人・全20問を通しで動かす E2E** と**本物の Scratch プロジェクトとの結合**で初めて出た。
+
 ## 残っていること
 
-### M1：10/7 デモ
+### 連絡・依頼（相手ごと）
 
-| Issue | 内容 | 担当 |
-|---|---|---|
-| [#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50) | **Scratch の問題文リストが20問すべて古い**。Scratch担当に `docs/scratch/問題文リスト.txt` を取り込んでもらう（このままだと出演者に違う問題が出る） | Scratch担当（依頼は自分） |
-| ~~[#31](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/31)~~ | ~~実機での通し確認~~ → **10/6 に完了**。デモの段取りは [demo/README.md](./demo/README.md) | 自分 |
+| 相手 | 頼むこと | Issue | 期限 |
+|---|---|---|---|
+| **Scratch担当** | 問題文リストの取り込み・変数モニター（`☁ P2S_TEAM`・「回答中」）を隠す | [#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50) | **10/7 デモまで** |
+| Scratch担当 | チームの途中で開き直しても今の画面を出せるようにする。（任意）全体結果の画面 | [#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52) | 10/17 目安 |
+| **イベント担当** | 問題表の修正3か所・アンケートの締め切り・司会への一言（予備の回答画面に切り替えたときの合言葉） | [#48](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/48) | 10/17 |
+| イベント担当 | チーム名と登場順 | [#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47) | 10/17 |
+| イベント担当 | リハーサルの日程・裏方PCの番をする人・裏方PCの置き場所と回線 | [#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) | 早めに |
+| Org のオーナー | Render の GitHub App がこのリポジトリを読めるよう承認（リポジトリ統合） | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | デモの後・リハーサル前 |
 
-### M2 以降
+依頼文の元になる資料: Scratch担当には [scratch/README.md](./scratch/README.md)。
+
+### 自分の作業
 
 | マイルストーン | Issue | 内容 |
 |---|---|---|
-| M2 | [#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52) | **チームの途中で Scratch を開き直すと表示が崩れる**。Scratch担当に、各変数から画面を組み立てるよう修正を依頼する |
+| M1 | [#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50) | Scratch担当が取り込んだら、Scratch API で20問の一致を確かめて閉じる |
 | M2 | [#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51) | **裏方PCの Python を起動し直すと進行が最初に戻る**。状態を保存して途中から再開できるようにする |
-| M2 | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | cloud-server を Org のリポジトリにまとめる（Org オーナーの承認が要る） |
-| M2 | [#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47) | チーム名と登場順を確定して `teams.json` を作る（イベント担当に確認） |
-| M2 | [#48](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/48) | イベント担当に問題表の修正・アンケートの締め切り・台本への合言葉の一言を依頼 |
-| M3 | [#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) | リハーサルの日程・会場Wi-Fiでの確認・裏方PCの置き場所 |
+| M2 | [#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52) | Scratch担当が直したら、実機でチームの途中から開き直して確かめる |
+| M2 | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | cloud-server を Org のリポジトリにまとめる（承認が下りてから） |
+| M2 | [#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47) | チーム名が決まったら `teams.json` を作り、アプリの「本番」で起動を確かめる |
+| M3 | [#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) | 会場リハーサル（会場Wi-Fi・観客の同時接続・アプリの「本番」での起動） |
 | M4 | [#49](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/49) | 本番前の最終準備（合言葉の作り直し・10/28 コード凍結・当日チェックリスト）。本番は10/31〜11/1 |
+
+### 完了（M1）
+
+- ~~[#31](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/31) 実機での通し確認~~ → **10/6 に完了**。デモの段取りは [demo/README.md](./demo/README.md)
 
 ## 完了していること
 
@@ -151,7 +161,9 @@ Scratch画面（出演者用）               ███████████�
 - **進行の配信**: 司会者画面の「次へ」で、Scratch 画面が チーム紹介 → 出題 → 回答受付 と進むことを確認
 - **回答**: Scratch の回答（77%）が裏方PCに届くことを確認。ただしこれは scratchattach の不具合を直した後の話で、
   それまでは一度も届いていなかった（[落とし穴7](./development.md#7-scratchattach-の受信は自前サーバを指定しても公開サーバにつながる)）
+- **実機での通し（2026-10-06）**: 進行・数字キーの回答・正解発表・バルーンの数（裏方PCと一致）・チーム結果（右のバルーンが「獲得ポイント」になる）まで確認
 - **表示用リスト `問題文` は20問すべて古い**（本番問題の差し替え前のまま）。Scratch担当に取り込みを依頼する（[#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50)）
+- **チームの途中で開き直すと表示が崩れる**。Scratch は演出の積み重ねで画面を作っていて、送られてくる変数から画面を組み立て直さないため（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
 - Scratch側の対応ステートは 1〜6。8（全体結果）の画面はない（結果は観客ページと司会者画面で見る）
 - **出演者の手元の端末だけで使い、出演者は数字キーで回答する**と決定（2026-10-04、#41）
 
@@ -180,6 +192,8 @@ Scratch画面（出演者用）               ███████████�
 | リハーサルの日程 | 企画書で未記入。会場Wi-Fiは会場でしか確かめられない（#21） |
 | チーム名・登場順 | 企画書の「参加者から確認すること」。まだ仮の名前（#47） |
 | 裏方PCの置き場所と回線 | 会場Wi-Fiかテザリングか。止まると全員の画面が止まる（#21） |
+| 裏方PCの番をする人 | 未定。アプリを開くだけなのでコマンドの知識は要らない（#21） |
+| Scratch の端末 | ステージに置くPCかタブレットを誰が用意するか。スリープ・自動ロックを切れるもの（#52） |
 | 観客ランキングの上位に景品を出すか | 今は出さない前提。出すなら、自己申告のスコアでは不正を防げないので作り直しが要る |
 
 ## リスク

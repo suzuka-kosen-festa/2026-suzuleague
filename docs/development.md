@@ -488,12 +488,12 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 - [x] ~~本番問題をアンケート集計スプレッドシートから `questions.py` に投入~~ → **完了**（20問＋予備8問）
 - [x] ~~ぴったり賞の採否をイベント責任者に確認~~ → **不採用**（2026-07-23）。`--perfect-bonus` は付けない
 - [x] ~~チームの人数と問題数の対応を確認~~ → **5問固定・司会が回答者を指名**（2026-07-24）。実装変更なし
-- [ ] `uv run python -m suzuleague.questions` の出力をScratch側リストに再取り込み
-- [ ] `SUZULEAGUE_PROJECT_ID=1364239598` を裏方PCに設定（本番プロジェクトID。受領済み）
-- [ ] `SUZULEAGUE_CLOUD_HOST=wss://suzuleague-cloud.onrender.com` を裏方PCに設定し、
-      **Scratch側の `?cloud_host=` と一致していることを確認**（片方だけだと無言で繋がらない）
-- [ ] **Scratch側との結合テスト**（シミュレータではなく実物と繋ぐ。ここが最大の未知数）
-- [ ] チーム名が確定したら `teams.json` を作成（`--teams teams.json`）
+- [ ] Scratch担当に `docs/scratch/問題文リスト.txt` を取り込んでもらい、Scratch API で20問の一致を確かめる（[#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50)。10/6 の実機確認では古いままだった）
+- [ ] Scratch側で、チームの途中で開き直しても表示が崩れないよう直してもらい、実機で確かめる（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
+- [x] ~~本番のルームID・接続先を裏方PCに設定~~ → `launcher/スズリーグ.app` が `1364239598`・`wss://suzuleague-cloud.onrender.com` で起動する（2026-10-05）。
+      Scratch側の `?cloud_host=` と一致していることは 10/6 の実機確認で確認済み
+- [x] ~~**Scratch側との結合テスト**~~ → **完了**。10/4 に自動操作、10/6 に実機で全体結果まで通した（#31）
+- [ ] チーム名が確定したら `teams.json` をリポジトリ直下に作成（アプリの「本番」が読む。[#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47)）
 - [x] ~~**観客ページを本番room IDで再生成してデプロイ**~~ → **完了**（2026-08-06）。
       本番配信中のページが `1364239598` を向いていることを `curl` で実確認済み
 
@@ -510,12 +510,13 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
       `curl -s https://suzuleague-cloud.onrender.com/suzuleague.html | grep 'var ROOM'`
       で `1364239598` になっていることを必ず確認する
 - [ ] `uv run python -m suzuleague.publish --room-id 1364239598 --check` で、本番の画面が最新であることを確認
-- [ ] 観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行・印刷
-- [ ] リハーサルの後、司会者画面の「ランキングをリセット」で観客ランキングを消す
+- [x] ~~観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行~~ → **完了**（2026-10-06）
+- [ ] QRコードを印刷する（`docs/qr/print.html`。クラス委員が掲げる）
+- [ ] リハーサルの後、**スマホの**司会者画面の「ランキングをリセット」で観客ランキングを消す（PCの司会者画面にはこのボタンがない）
 - [x] ~~Render 無料枠の残インスタンス時間を確認~~ → **0.08 / 750時間**（2026-10-04。#16）
-- [ ] Render に `HOST_TOKEN`、裏方PCに `SUZULEAGUE_HOST_TOKEN` を同じ値で設定（司会者画面の合言葉）
-- [ ] 司会のスマホで司会者画面を開き、合言葉を入力して「PCと接続中」になることを確認
-- [ ] 出演者用の端末で `https://turbowarp.org/1364239598?cloud_host=wss://suzuleague-cloud.onrender.com` を開き、数字キーで答えた回答が司会者画面に届くことを確認
+- [ ] 司会者画面の合言葉を作り直す。Render の `HOST_TOKEN` を変え、裏方PCはアプリを開いて入れ直す（[#49](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/49)）
+- [x] ~~司会のスマホで司会者画面を開き、「PCと接続中」になることを確認~~ → **完了**（2026-10-06）。合言葉を作り直したら司会のスマホで入れ直す
+- [x] ~~出演者用の端末で数字キーの回答が司会者画面に届くことを確認~~ → **完了**（2026-10-06）
 - [ ] 会場ネットワークでE2Eリハーサル（企画書のリハーサル項目参照）
 
 ### 当日（開演前）
@@ -527,8 +528,8 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 - [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
 - [ ] ステージ画面を `?cloud_host=` 付きURLで開いて緑の旗を押し、司会者画面の「Scratch に今の状態を送り直す」で「開始までお待ちください」になることを確認
 - [ ] Scratch の端末の**スリープ・自動ロックを切る**。チームの途中で開き直すと、次のチームまで表示が崩れる（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
-- [ ] 進行不能時の代替手段を確認（`answer` コマンドでの代行入力、`resync`、
-      [バックアップ手順](#本番サーバが落ちたときの代替手段)）
+- [ ] 進行不能時の代替手段を確認（司会者画面の「代理入力」、予備の回答画面 `/player.html`、
+      「Scratch に今の状態を送り直す」、PCの司会者画面、[バックアップ手順](#本番サーバが落ちたときの代替手段)）
 
 ## プロジェクトの経緯・意思決定の記録
 
