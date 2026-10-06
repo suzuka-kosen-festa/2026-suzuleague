@@ -48,11 +48,12 @@ case "${1:-}" in
       exit 0
     fi
     wake_render
-    case "$(token_http_status)" in
+    code=$(token_http_status)
+    case "$code" in
       200) echo ok ;;
       401) echo wrong ;;
       503) echo unset ;;
-      *) echo "unknown:$(token_http_status)" ;;
+      *) echo "unknown:$code" ;;
     esac
     ;;
 

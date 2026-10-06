@@ -217,6 +217,9 @@ for n, u in {'audience': 'https://suzuleague-cloud.onrender.com/suzuleague.html'
 | チーム構成 | `--teams teams.json` または環境変数 `SUZULEAGUE_TEAMS` | 「チーム1」〜「チーム4」 |
 | ぴったり賞 | `uv run suzuleague --perfect-bonus 10` | 無効（0）。**本番は不採用なので付けない** |
 | オフライン起動 | `uv run suzuleague --offline` | オンライン |
+| 進行の保存 | `--save-file launcher/run/game-demo.json`（操作のたびに保存） | 保存しない（`スズリーグ.app` は必ず付ける） |
+| 続きから始める | `--resume`（`--save-file` と一緒に使う。付けなければ最初からで、前回分は `.prev` に残る） | 最初から |
+| CLIなしで動かす | `--headless`（SIGTERM で終了。`スズリーグ.app` が使う） | CLIで入力を待つ |
 
 `--cloud-host` / `SUZULEAGUE_CLOUD_HOST` は `suzuleague` / `sim_scratch` /
 `suzuleague.cloud`（スモークテスト）/ `loadtest` のすべてで共通に効く。
@@ -400,6 +403,7 @@ uv run pytest -k exhibition   # 絞り込み例
 | `tests/test_teams.py` | チーム構成JSONの読み込みと検証 |
 | `tests/test_cloud_host.py` | 接続先サーバの解決、送信用接続からの受信（`CloudReceiver`：複数メッセージ・接続直後のまとめ送りの読み捨て） |
 | `tests/test_dashboard.py` | サーバが寝ているときに起こして接続し直す |
+| `tests/test_savefile.py` | 進行の保存と途中からの再開：全4チーム20問のどの瞬間でも読み戻した画面が一致する、チーム構成・問題・バルーンの食い違いを拒む、合言葉の引き継ぎ、続きの説明（アプリのダイアログ用） |
 
 cloud通信層（`cloud.py`）の接続部分は実サーバ依存のためユニットテスト対象外。
 変更したら上記スモークテスト＋E2Eで確認すること。**Scratch → Python の回答の経路は、本物の Scratch
