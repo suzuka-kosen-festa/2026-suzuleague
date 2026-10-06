@@ -17,7 +17,8 @@ Scratch担当向けの共有仕様です。バックエンド（Python/scratchat
   - 観客・出演者はScratchアカウント不要（本家scratch.mit.eduのクラウド変数はログイン必須のため使わない）
 - クラウド変数に入れられるのは**数値のみ**
 - TurboWarpのクラウド変数は**全員が切断すると値が消える**
-  - Python側に `resync`（全状態の再送）機能があるので、Scratch側をリロードしたら司会者画面の「困ったとき」→「Scratch に今の状態を送り直す」を押してもらえばOK（CLIの `resync` と同じ）
+  - Python側に `resync`（全状態の再送）機能があり、Scratch側をリロードしたら司会者画面の「困ったとき」→「Scratch に今の状態を送り直す」で今の状態を送り直せる（CLIの `resync` と同じ）
+  - **Scratch側は、途中の段階（例: チームの3問目の正解発表）をいきなり受けても画面を組み立てられるように作ってください。** 問題番号は `P2S_ROUND`、残りバルーンは `P2S_BALLOONS` から決め、それまでの演出を見ていた前提にしないこと。今の実装はここが未対応で、チームの途中で開き直すと次のチームまで表示が崩れる（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
 - ルームID: 開発中は `suzuleague-dev`、**本番は `1364239598`**
   （Scratch担当のプロジェクト <https://scratch.mit.edu/projects/1364239598/> のID。
   Python側は環境変数 `SUZULEAGUE_PROJECT_ID` で切替可能）
