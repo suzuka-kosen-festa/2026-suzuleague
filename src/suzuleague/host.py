@@ -63,8 +63,8 @@ def http_base_from_cloud_host(cloud_host: str) -> str:
 class TeamCodes:
     """出演者の回答画面に入力してもらう、チームごとの4桁の合言葉。
 
-    裏方PCを起動するたびに作り直す。司会者画面とCLIに出るので、
-    司会がチームの登場時に出演者へ伝える。
+    裏方PCを起動するたびに作り直す（途中から再開したときは保存から戻す）。
+    司会者画面とCLIに出るので、予備の回答画面に切り替えたときに司会が出演者へ伝える。
     """
 
     def __init__(self, team_numbers: list[int], randbelow: Callable[[int], int] = secrets.randbelow) -> None:
@@ -79,6 +79,18 @@ class TeamCodes:
 
     def for_team(self, team_number: int) -> str | None:
         return self._codes.get(team_number)
+
+    def export(self) -> dict[str, str]:
+        return {str(number): code for number, code in self._codes.items()}
+
+    def restore(self, saved: dict[str, str]) -> None:
+        """保存した合言葉に戻す。途中から再開しても、出演者に伝え直さずに済む。"""
+        codes = {int(k): v for k, v in saved.items()}
+        if set(codes) != set(self._codes):
+            raise ValueError("出演者の合言葉のチームが保存時と違います")
+        if not all(isinstance(v, str) and len(v) == 4 and v.isdigit() for v in codes.values()):
+            raise ValueError("出演者の合言葉の形式が正しくありません")
+        self._codes = codes
 
 
 # ---- 画面に出す状態 ------------------------------------------------

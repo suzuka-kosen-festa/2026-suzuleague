@@ -6,7 +6,8 @@
 #   app.sh check-token        → ok / missing / wrong / unset / unknown:<HTTPコード>（Render を起こしてから確かめる）
 #   app.sh save-token         ← 標準入力の合言葉を保存する
 #   app.sh check-pages        → 本番の画面が最新でなければ終了コード1
-#   app.sh start demo|production → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
+#   app.sh resume-info demo|production → none / invalid:<理由> / 前回の続きの説明
+#   app.sh start demo|production [resume] → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
 #   app.sh stop               → 終了させる
 set -u
 
@@ -65,8 +66,14 @@ case "${1:-}" in
     check_pages 2>&1
     ;;
 
+  resume-info)
+    select_teams "${2:-}" || fail "使い方: app.sh resume-info demo|production"
+    [ -f "$TEAMS" ] || { echo none; exit 0; }
+    resume_info
+    ;;
+
   start)
-    select_teams "${2:-}" || fail "使い方: app.sh start demo|production"
+    select_teams "${2:-}" || fail "使い方: app.sh start demo|production [resume]"
     [ -f "$TEAMS" ] || fail "チーム構成 $TEAMS がありません。teams.example.json を元に作ってください。"
     command -v uv >/dev/null 2>&1 || fail "uv が見つかりません。https://docs.astral.sh/uv/ からインストールしてください。"
     running_pid >/dev/null && fail "すでに起動しています。"
@@ -76,7 +83,7 @@ case "${1:-}" in
     mkdir -p "$RUN_DIR"
     [ -f "$LOG_FILE" ] && mv "$LOG_FILE" "$RUN_DIR/dashboard.prev.log"
     # 出力をすべてファイルへ向けて切り離す（つないだままだとアプリが終わるまで待ってしまう）
-    set_dashboard_cmd
+    set_dashboard_cmd "${3:-}"
     PYTHONUNBUFFERED=1 nohup "${DASHBOARD_CMD[@]}" --headless >"$LOG_FILE" 2>&1 </dev/null &
     echo $! >"$PID_FILE"
 

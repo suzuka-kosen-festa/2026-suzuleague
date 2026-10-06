@@ -16,8 +16,10 @@ WEB_PORT="${SUZULEAGUE_LAUNCH_PORT:-8000}"
 # Finder やアプリから開くとシェルの設定が読まれず uv が見つからないため、よくある置き場所を足しておく
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# 引数のモードからチーム構成を決める。知らないモードなら 1 を返す
+# 引数のモードからチーム構成と進行の保存先を決める。知らないモードなら 1 を返す
+# （デモと本番で保存先を分け、デモの続きで本番を始めてしまわないようにする）
 select_teams() {
+  SAVE_FILE="$RUN_DIR/game-$1.json"
   case "$1" in
     demo)
       TEAMS="docs/demo/teams-demo.json"
@@ -66,7 +68,13 @@ check_pages() {
   uv run python -m suzuleague.publish --room-id "$ROOM_ID" --check
 }
 
-# ダッシュボードの起動コマンドを DASHBOARD_CMD に入れる（select_teams の後に呼ぶ）
+# 前回の進行の続きを1行で返す: none / invalid:<理由> / 続きの説明（select_teams の後に呼ぶ）
+resume_info() {
+  uv run python -m suzuleague.savefile --describe "$SAVE_FILE" --teams "$TEAMS"
+}
+
+# ダッシュボードの起動コマンドを DASHBOARD_CMD に入れる（select_teams の後に呼ぶ）。
+# 引数に resume を渡すと、保存した進行の続きから始める
 set_dashboard_cmd() {
   DASHBOARD_CMD=(
     uv run suzuleague
@@ -74,5 +82,9 @@ set_dashboard_cmd() {
     --project-id "$ROOM_ID"
     --teams "$TEAMS"
     --web --web-port "$WEB_PORT"
+    --save-file "$SAVE_FILE"
   )
+  if [ "${1:-}" = resume ]; then
+    DASHBOARD_CMD+=(--resume)
+  fi
 }

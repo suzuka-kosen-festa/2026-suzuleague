@@ -75,6 +75,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/host.py` | 司会者画面・回答画面の中継（Render 経由）・出演者の合言葉・予備サーバ |
 | `src/suzuleague/host.html` / `player.html` | 司会者画面・出演者の回答画面 |
 | `src/suzuleague/publish.py` | 3画面の cloud-server への書き出しと本番との照合 |
+| `src/suzuleague/savefile.py` | 進行の保存と、裏方PCを起動し直したときの途中からの再開 |
 | `src/suzuleague/labels.py` | ステートの表示名（CLIと画面で共通） |
 | `src/suzuleague/dashboard.py` | 起動とCLIダッシュボード（中継・予備サーバも立ち上げる） |
 | `src/suzuleague/sim_scratch.py` | Scratch側シミュレータ（開発用） |
@@ -82,7 +83,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/audience.py` | 観客ページの生成（問題文を埋め込む） |
 | `src/suzuleague/audience_template.html` | 観客ページ（自己採点・観客ランキング・全体結果） |
 | `src/suzuleague/loadtest.py` | 同時接続数・観客ランキングの一斉送信の負荷テスト（開発用） |
-| `tests/` | ユニットテスト（ネットワーク不要。119件） |
+| `tests/` | ユニットテスト（ネットワーク不要。146件） |
 | `launcher/` | ダッシュボードの起動アプリ（`スズリーグ.app`）とターミナル版（`*.command`） |
 | `docs/scratch/` | Scratch担当に渡す問題文リストと取り込み手順 |
 | `docs/qr/` | QRコードと印刷用ページ |

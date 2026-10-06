@@ -6,6 +6,7 @@
     uv run suzuleague --project-id <ID>   # 接続先ルームの指定
     uv run suzuleague --web               # 司会者画面の予備を http://localhost:8000/host で開く
     uv run suzuleague --web --headless    # 入力を待たずに動かす（launcher のアプリから起動するとき）
+    uv run suzuleague --save-file F --resume  # 操作のたびに F へ保存し、F の続きから始める
 
 環境変数 SUZULEAGUE_HOST_TOKEN（合言葉）を設定しておくと、司会がスマホの
 司会者画面（Render の /host.html）から進行を操作できる（host.py 参照）。
@@ -20,6 +21,7 @@ import argparse
 import os
 import signal
 import threading
+from pathlib import Path
 import urllib.error
 import urllib.request
 
@@ -39,6 +41,7 @@ from .host import (
     serve_local,
 )
 from .labels import NEXT_HINTS, STATE_LABELS, team_status_label
+from . import savefile
 from .protocol import ACK_ANIMATION_DONE
 from .questions import ROUNDS_PER_TEAM
 from .teams import ENV_TEAMS, resolve_teams
@@ -277,6 +280,17 @@ def main() -> None:
         help="コマンド入力を待たずに動かす（SIGTERM で終了。launcher のアプリ用）",
     )
     parser.add_argument(
+        "--save-file",
+        type=Path,
+        default=None,
+        help="操作のたびに進行を保存するファイル（裏方PCを起動し直したときに --resume で続きから始める）",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="--save-file の続きから始める（付けなければ最初から。前回の保存は .prev に残す）",
+    )
+    parser.add_argument(
         "--perfect-bonus",
         type=int,
         default=0,
@@ -305,12 +319,14 @@ def main() -> None:
             parser.error(str(e))
         dashboard = Dashboard(engine, bridge)
         dashboard_holder.append(dashboard)
+        setup_save(dashboard, args.save_file, args.resume, parser)
         print(f"cloudサーバに接続中... (project_id={project_id})")
         print(f"  接続先: {bridge.cloud_host}")
         connect_with_wake(bridge)
         bridge.push(engine.snapshot())  # 初期状態を送信
     else:
         dashboard = Dashboard(engine, None)
+        setup_save(dashboard, args.save_file, args.resume, parser)
 
     relay = start_host_relay(dashboard, None if args.offline else args.cloud_host)
     if args.web:
@@ -330,6 +346,47 @@ def main() -> None:
     finally:
         if relay:
             relay.stop()
+
+
+def setup_save(
+    dashboard: Dashboard,
+    path: Path | None,
+    resume: bool,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """続きから始めるなら保存を読み戻し、以降は操作のたびに保存する（#51）。
+
+    cloud へ最初の状態を送る前に呼ぶ（読み戻した状態をそのまま配る）。
+    """
+    if path is None:
+        if resume:
+            parser.error("--resume には --save-file が必要です")
+        return
+    engine = dashboard.engine
+    data = None
+    if resume and path.exists():
+        try:
+            data = savefile.load(path)
+            resumable = savefile.check(data, engine)
+        except ValueError as e:
+            parser.error(f"保存された進行を読めません: {e}（最初から始めるときは --resume を付けない）")
+        if not resumable:  # 始まる前か終わった後。続きから始める意味がない
+            data = None
+    if data is not None:
+        savefile.restore(data, engine, dashboard.player_codes)
+        print(f"前回の続きから再開します: {savefile.describe(engine, str(data.get('saved_at', '')))}")
+    else:
+        prev = savefile.back_up(path)
+        print("最初から始めます" + (f"（前回の進行は {prev} に残しました）" if prev else ""))
+
+    def save() -> None:
+        try:
+            savefile.save(path, engine, dashboard.player_codes)
+        except OSError as e:  # 保存できなくても進行は止めない
+            dashboard.console.print(f"[red]進行を保存できませんでした: {e}[/]")
+
+    dashboard.controller.on_change = save
+    save()
 
 
 def wake_server(base_url: str, timeout: float = 90.0) -> bool:

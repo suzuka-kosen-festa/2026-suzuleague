@@ -102,6 +102,26 @@ if ! check_pages; then
 fi
 echo
 
+# 前回の進行が残っていれば、続きから始めるか聞く（裏方PCを起動し直したとき。#51）
+RESUME=""
+INFO=$(resume_info)
+case "$INFO" in
+  none) ;;
+  invalid:*)
+    echo "⚠ 前回の進行を読めませんでした（${INFO#invalid:}）。最初から始めます"
+    echo
+    ;;
+  *)
+    echo "前回の続きがあります: $INFO"
+    read -r -p "続きから始めますか？ [Y/n]（本番の開演前は n で最初から）: " ANSWER
+    case "$ANSWER" in
+      n|N|no|NO) echo "→ 最初から始めます（前回の進行は残しておきます）" ;;
+      *) RESUME=resume; echo "→ 続きから始めます" ;;
+    esac
+    echo
+    ;;
+esac
+
 echo "[3/3] ダッシュボードを起動します。終えるときは quit と打ってください"
 echo
 
@@ -120,7 +140,7 @@ if [ -t 0 ]; then
   OPENER_PID=$!
 fi
 
-set_dashboard_cmd
+set_dashboard_cmd "$RESUME"
 "${DASHBOARD_CMD[@]}"
 STATUS=$?
 

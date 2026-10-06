@@ -309,6 +309,7 @@ flowchart TD
 | `controller.py` | 進行操作の窓口。CLI・司会者画面・Scratch・出演者の回答を**同じロックで直列化**し、操作のたびに状態を送る | engine, cloud |
 | `host.py` | 司会者画面・回答画面に出す状態、操作の実行、Render 経由の中継、出演者の合言葉、予備サーバ | controller |
 | `dashboard.py` | 起動とCLI。中継・予備サーバを立ち上げる。`--headless` ならCLIなしで動く（`launcher/` のアプリが使う） | controller, host |
+| `savefile.py` | 進行の保存と、途中からの再開（保存した状態を今のチーム構成・問題と照合してから読み戻す） | engine, host |
 | `labels.py` | ステートの表示名・「次へ」の案内・チームの挑戦状況（CLIと画面で共通） | engine, models |
 | `audience.py` | 観客ページの生成（問題文を埋め込む。正解は埋め込まない） | questions |
 | `publish.py` | 3画面を cloud-server の `public/` に書き出す・本番と照合する | audience, host |
@@ -354,7 +355,7 @@ sequenceDiagram
 |---|---|
 | クラウド変数は全員切断で値が消える | 司会者画面の「Scratch に今の状態を送り直す」（CLIの `resync`）で全状態を再送できる。ただし今の Scratch 側は、チームの途中の状態をいきなり受けると画面を組み立てられない（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)） |
 | ~~同一IPからの接続頻度制限~~（公開サーバ実測: 連発すると1〜2分接続不可） | **解消済み**。この制限は公開サーバ前段のインフラ由来で、セルフホストには存在しない（ソースで確認） |
-| 裏方PCのPythonが止まる＝進行不能 | 司会者画面に「PCの応答なし」が出る。`HEARTBEAT` 変数（15秒毎更新）でも死活を検知できる。**起動し直すと今は進行が最初に戻る**（途中からの再開は [#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51)） |
+| 裏方PCのPythonが止まる＝進行不能 | 司会者画面に「PCの応答なし」が出る。`HEARTBEAT` 変数（15秒毎更新）でも死活を検知できる。進行は操作のたびに `launcher/run/game-*.json` に保存しているので、**アプリを開き直して「続きから」を選べば落ちる前の状態から再開できる**（[#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51)） |
 | ~~送信用の接続が1〜2分ごとに切られ、直後の送信が黙って消える~~（2026-10-04 E2Eで発見） | **解消済み**。送信用接続を読み続けて ping に応答する（[落とし穴6](./development.md#6-送るだけの接続は12分ごとに切られ直後の送信が黙って消える)） |
 | ~~1部屋あたり128クライアントの上限~~（2026-07-22 実測） | **解消済み**。セルフホストで `MAX_CLIENTS=300` に設定。150接続まで実測確認。詳細は下記 |
 | ~~Scratch からの回答が Python に届かない~~（scratchattach の受信が自前サーバを無視していた。2026-10-04 発見） | **解消済み**。受信を自前の `CloudReceiver` に置き換え（[落とし穴7](./development.md#7-scratchattach-の受信は自前サーバを指定しても公開サーバにつながる)） |

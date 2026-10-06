@@ -8,8 +8,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import IntEnum
+from typing import Any
 
 from .models import Question, RoundResult, Team
 from .questions import ROUNDS_PER_TEAM, QuestionSet
@@ -225,3 +226,80 @@ class GameEngine:
             self.state = State.FINISHED
         else:
             self._next_team()
+
+    # ---- 保存と復元 ---------------------------------------------
+    # 進行の状態は裏方PCのメモリにしかないため、起動し直すと最初に戻ってしまう。
+    # 操作のたびに書き出しておき、起動時に読み戻して途中から再開する（#51）。
+
+    def export_state(self) -> dict[str, Any]:
+        """進行の状態をJSONにできる形で返す。"""
+        return {
+            "state": int(self.state),
+            "team_idx": self._team_idx,
+            "round_no": self._round_no,
+            "pending_answer": self._pending_answer,
+            "teams": [
+                {
+                    "number": t.number,
+                    "name": t.name,
+                    "balloons": t.balloons,
+                    "results": [asdict(r) for r in t.results],
+                }
+                for t in self.teams
+            ],
+        }
+
+    def restore_state(self, data: dict[str, Any]) -> None:
+        """export_state() の内容を読み戻す。
+
+        チーム構成や問題が保存時と違うと、別のゲームの続きを始めてしまうので
+        ValueError にする。途中で失敗しても、エンジンの状態は変えない。
+        """
+        try:
+            state = State(data["state"])
+            team_idx = int(data["team_idx"])
+            round_no = int(data["round_no"])
+            pending = data["pending_answer"]
+            saved_teams = list(data["teams"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError(f"保存された進行の形式が正しくありません（{e}）") from e
+
+        if [(t.get("number"), t.get("name")) for t in saved_teams] != [
+            (t.number, t.name) for t in self.teams
+        ]:
+            raise ValueError("チーム構成が保存時と違います（teams.json を確かめてください）")
+        if not -1 <= team_idx < len(self.teams):
+            raise ValueError(f"チームの位置が正しくありません: {team_idx}")
+        if not 0 <= round_no <= ROUNDS_PER_TEAM:
+            raise ValueError(f"問題の番号が正しくありません: {round_no}")
+        if pending is not None and not (isinstance(pending, int) and 0 <= pending <= 100):
+            raise ValueError(f"届いていた回答が正しくありません: {pending!r}")
+
+        restored: list[tuple[int, list[RoundResult]]] = []
+        for team, saved in zip(self.teams, saved_teams, strict=True):
+            questions = self.question_set.for_team(team.number)
+            try:
+                results = [RoundResult(**r) for r in saved["results"]]
+                balloons = int(saved["balloons"])
+            except (KeyError, TypeError, ValueError) as e:
+                raise ValueError(f"チーム{team.number}の結果を読めません（{e}）") from e
+            if len(results) > ROUNDS_PER_TEAM:
+                raise ValueError(f"チーム{team.number}の結果が多すぎます")
+            for i, r in enumerate(results):
+                if r.round_no != i + 1 or r.question_id != questions[i].id:
+                    raise ValueError("問題が保存時と違います（questions.py が変わった）")
+            if results and balloons != results[-1].balloons_after:
+                raise ValueError(f"チーム{team.number}の残りバルーンが結果と合いません")
+            restored.append((balloons, results))
+
+        for team, (balloons, results) in zip(self.teams, restored, strict=True):
+            team.balloons = balloons
+            team.results = results
+        self.state = state
+        self._team_idx = team_idx
+        self._round_no = round_no
+        self._pending_answer = pending
+        # 直前の結果は「今のチームの最後の結果」と同じ（チームが替わると消える）
+        team = self.current_team
+        self._last_result = team.results[-1] if team and team.results else None
+

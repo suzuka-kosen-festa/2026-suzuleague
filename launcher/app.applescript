@@ -33,6 +33,7 @@ on main(sh)
 	else
 		set mode to "demo"
 	end if
+	set resumeArg to askResume(sh, mode)
 
 	set progress total steps to 3
 	set progress completed steps to 0
@@ -49,12 +50,32 @@ on main(sh)
 
 	set progress completed steps to 2
 	set progress description to "ダッシュボードを起動しています…"
-	do shell script sh & " start " & mode
+	do shell script sh & " start " & mode & resumeArg
 	set progress completed steps to 3
 
 	open location localHostURL
-	display dialog "起動しました。" & return & return & "司会のスマホ: " & phoneHostURL & return & "このPC: ブラウザで開いた司会者画面" & return & return & "終えるときは、このアプリをもう一度開いてください。" buttons {"OK"} default button "OK" with title appTitle
+	if resumeArg is "" then
+		set startedMsg to "起動しました（最初から）。"
+	else
+		set startedMsg to "起動しました（前回の続きから）。"
+	end if
+	display dialog startedMsg & return & return & "司会のスマホ: " & phoneHostURL & return & "このPC: ブラウザで開いた司会者画面" & return & return & "終えるときは、このアプリをもう一度開いてください。" buttons {"OK"} default button "OK" with title appTitle
 end main
+
+-- 前回の進行が残っていれば、続きから始めるか聞く（裏方PCを起動し直したとき）。
+-- 続きからなら " resume" を、最初からなら "" を返す
+on askResume(sh, mode)
+	set info to do shell script sh & " resume-info " & mode
+	if info is "none" then return ""
+	if info starts with "invalid:" then
+		display dialog "前回の進行を読めませんでした（" & (text 9 thru -1 of info) & "）。最初から始めます。" buttons {"キャンセル", "OK"} default button "OK" cancel button "キャンセル" with icon caution with title appTitle
+		return ""
+	end if
+	set choice to button returned of (display dialog "前回の続きがあります。" & return & return & info & return & return & "本番の開演前（リハーサルの後など）は「最初から」を選んでください。" buttons {"キャンセル", "最初から", "続きから"} default button "続きから" cancel button "キャンセル" with title appTitle)
+	if choice is "続きから" then return " resume"
+	display dialog "最初から始めます。前回の進行は消えます（念のため1つ前の分だけ残します）。" buttons {"キャンセル", "最初から始める"} default button "最初から始める" cancel button "キャンセル" with icon caution with title appTitle
+	return ""
+end askResume
 
 -- 合言葉が Render と一致するまで聞き直す
 on checkToken(sh)
