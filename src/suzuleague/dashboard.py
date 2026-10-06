@@ -298,6 +298,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.resume and args.save_file is None:
+        parser.error("--resume には --save-file が必要です")
     try:
         teams = resolve_teams(args.teams)
     except ValueError as e:
@@ -305,28 +307,33 @@ def main() -> None:
 
     engine = GameEngine(teams=teams, perfect_bonus=args.perfect_bonus)
     bridge = None
+    holder: list[Dashboard] = []  # cloud の受信コールバックからダッシュボードを参照する
     if not args.offline:
         project_id = resolve_project_id(args.project_id)
-        dashboard_holder: list[Dashboard] = []
         try:
             bridge = CloudBridge(
                 project_id,
                 cloud_host=args.cloud_host,
-                on_answer=lambda pct: dashboard_holder[0].on_cloud_answer(pct),
-                on_ack=lambda code: dashboard_holder[0].on_cloud_ack(code),
+                on_answer=lambda pct: holder[0].on_cloud_answer(pct),
+                on_ack=lambda code: holder[0].on_cloud_ack(code),
             )
         except ValueError as e:
             parser.error(str(e))
-        dashboard = Dashboard(engine, bridge)
-        dashboard_holder.append(dashboard)
-        setup_save(dashboard, args.save_file, args.resume, parser)
+    dashboard = Dashboard(engine, bridge)
+    holder.append(dashboard)
+
+    # 続きから始めるなら、cloud へ最初の状態を送る前に読み戻す（読み戻した状態をそのまま配る）
+    if args.save_file is not None:
+        try:
+            setup_save(dashboard, args.save_file, args.resume)
+        except ValueError as e:
+            parser.error(f"保存された進行を読めません: {e}（最初から始めるときは --resume を付けない）")
+
+    if bridge is not None:
         print(f"cloudサーバに接続中... (project_id={project_id})")
         print(f"  接続先: {bridge.cloud_host}")
         connect_with_wake(bridge)
         bridge.push(engine.snapshot())  # 初期状態を送信
-    else:
-        dashboard = Dashboard(engine, None)
-        setup_save(dashboard, args.save_file, args.resume, parser)
 
     relay = start_host_relay(dashboard, None if args.offline else args.cloud_host)
     if args.web:
@@ -348,29 +355,16 @@ def main() -> None:
             relay.stop()
 
 
-def setup_save(
-    dashboard: Dashboard,
-    path: Path | None,
-    resume: bool,
-    parser: argparse.ArgumentParser,
-) -> None:
+def setup_save(dashboard: Dashboard, path: Path, resume: bool) -> None:
     """続きから始めるなら保存を読み戻し、以降は操作のたびに保存する（#51）。
 
-    cloud へ最初の状態を送る前に呼ぶ（読み戻した状態をそのまま配る）。
+    保存が今のチーム構成・問題で読めなければ ValueError（エンジンには触らない）。
     """
-    if path is None:
-        if resume:
-            parser.error("--resume には --save-file が必要です")
-        return
     engine = dashboard.engine
     data = None
     if resume and path.exists():
-        try:
-            data = savefile.load(path)
-            resumable = savefile.check(data, engine)
-        except ValueError as e:
-            parser.error(f"保存された進行を読めません: {e}（最初から始めるときは --resume を付けない）")
-        if not resumable:  # 始まる前か終わった後。続きから始める意味がない
+        data = savefile.load(path)
+        if not savefile.check(data, engine):  # 始まる前か終わった後。続きから始める意味がない
             data = None
     if data is not None:
         savefile.restore(data, engine, dashboard.player_codes)

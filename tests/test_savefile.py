@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import random
 
@@ -226,13 +225,11 @@ class TestController:
 
 
 class TestSetupSave:
-    parser = argparse.ArgumentParser()
-
     def test_fresh_start_backs_up_and_saves_on_change(self, tmp_path):
         path = tmp_path / "game.json"
         path.write_text("old")
         dashboard = Dashboard(GameEngine(), None)
-        setup_save(dashboard, path, False, self.parser)
+        setup_save(dashboard, path, False)
         assert (tmp_path / "game.prev.json").read_text() == "old"
         dashboard.controller.advance()
         assert savefile.load(path)["game"]["state"] == int(State.TEAM_INTRO)
@@ -240,18 +237,18 @@ class TestSetupSave:
     def test_resume(self, tmp_path):
         path = tmp_path / "game.json"
         first = Dashboard(GameEngine(), None)
-        setup_save(first, path, False, self.parser)
+        setup_save(first, path, False)
         for _ in range(3):
             first.controller.advance()
         first.controller.answer(77)
 
         second = Dashboard(GameEngine(), None)
-        setup_save(second, path, True, self.parser)
+        setup_save(second, path, True)
         assert second.engine.state is State.ANSWERING
         assert second.engine.pending_answer == 77
         assert second.player_codes.for_team(1) == first.player_codes.for_team(1)
 
     def test_resume_without_file_starts_fresh(self, tmp_path):
         dashboard = Dashboard(GameEngine(), None)
-        setup_save(dashboard, tmp_path / "game.json", True, self.parser)
+        setup_save(dashboard, tmp_path / "game.json", True)
         assert dashboard.engine.state is State.IDLE
