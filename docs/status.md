@@ -108,12 +108,12 @@ Scratch画面（出演者用）               ███████████�
 |---|---|---|---|
 | **Scratch担当** | 問題文リストの取り込み・変数モニター（`☁ P2S_TEAM`・「回答中」）を隠す | [#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50) | **10/7 デモまで** |
 | Scratch担当 | チームの途中で開き直しても今の画面を出せるようにする。（任意）全体結果の画面 | [#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52) | 10/17 目安 |
-| **イベント担当** | 問題表の修正3か所・アンケートの締め切り・司会への一言（予備の回答画面に切り替えたときの合言葉） | [#48](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/48) | 10/17 |
+| **イベント担当** | 問題表の修正3か所・アンケートの締め切り・司会への一言（予備の回答画面に切り替えたときの合言葉） | Discord（[#48](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/48) はクローズ） | 10/17 |
 | イベント担当 | チーム名と登場順 | [#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47) | 10/17 |
-| イベント担当 | リハーサルの日程・裏方PCの番をする人・裏方PCの置き場所と回線 | [#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) | 早めに |
+| イベント担当 | リハーサルの日程・裏方PCの番をする人・裏方PCの置き場所と回線 | Discord（[#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) はクローズ） | 早めに |
 | Org のオーナー | Render の GitHub App がこのリポジトリを読めるよう承認（リポジトリ統合） | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | デモの後・リハーサル前 |
 
-依頼文の元になる資料: Scratch担当には [scratch/README.md](./scratch/README.md)。
+依頼文の元になる資料: Scratch担当には [scratch/README.md](./scratch/README.md)。イベント担当とのやり取りは GitHub の外（Discord）で進める（2026-10-07 に #48・#21 をクローズ）。
 
 ### 自分の作業
 
@@ -123,7 +123,7 @@ Scratch画面（出演者用）               ███████████�
 | M2 | [#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52) | Scratch担当が直したら、実機でチームの途中から開き直して確かめる |
 | M2 | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | cloud-server を Org のリポジトリにまとめる（承認が下りてから） |
 | M2 | [#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47) | チーム名が決まったら `teams.json` を作り、アプリの「本番」で起動を確かめる |
-| M3 | [#21](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/21) | 会場リハーサル（会場Wi-Fi・観客の同時接続・アプリの「本番」での起動） |
+| M3 | — | 会場リハーサル（会場Wi-Fi・観客の同時接続・アプリの「本番」での起動・「続きから」の練習）。確認項目は [リリースチェックリスト](./development.md#リリース本番投入チェックリスト) |
 | M4 | [#49](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/49) | 本番前の最終準備（合言葉の作り直し・10/28 コード凍結・当日チェックリスト）。本番は10/31〜11/1 |
 
 ### 完了
@@ -190,10 +190,10 @@ Scratch画面（出演者用）               ███████████�
 
 | 論点 | 状況 |
 |---|---|
-| リハーサルの日程 | 企画書で未記入。会場Wi-Fiは会場でしか確かめられない（#21） |
+| リハーサルの日程 | 企画書で未記入。会場Wi-Fiは会場でしか確かめられない（イベント担当に確認中） |
 | チーム名・登場順 | 企画書の「参加者から確認すること」。まだ仮の名前（#47） |
-| 裏方PCの置き場所と回線 | 会場Wi-Fiかテザリングか。止まると全員の画面が止まる（#21） |
-| 裏方PCの番をする人 | 未定。アプリを開くだけなのでコマンドの知識は要らない（#21） |
+| 裏方PCの置き場所と回線 | 会場Wi-Fiかテザリングか。止まると全員の画面が止まる（イベント担当に確認中） |
+| 裏方PCの番をする人 | 未定。アプリを開くだけなのでコマンドの知識は要らない（イベント担当に確認中） |
 | Scratch の端末 | ステージに置くPCかタブレットを誰が用意するか。スリープ・自動ロックを切れるもの（#52） |
 | 観客ランキングの上位に景品を出すか | 今は出さない前提。出すなら、自己申告のスコアでは不正を防げないので作り直しが要る |
 
