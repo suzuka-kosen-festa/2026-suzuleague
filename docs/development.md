@@ -236,9 +236,11 @@ for n, u in {'audience': 'https://suzuleague-cloud.onrender.com/suzuleague.html'
 リポジトリには含めず、JSONファイルを外から渡す（`teams.json` は .gitignore 済み）。
 
 ```bash
-cp teams.example.json teams.json   # 中身を本番の値に書き換える
-uv run suzuleague --teams teams.json
+cp teams.example.json teams.json   # リポジトリ直下に置き、中身を本番の値に書き換える
 ```
+
+`launcher/スズリーグ.app` で「本番」を選ぶと、この `teams.json` を読んで起動する（CLI なら `uv run suzuleague --teams teams.json`）。
+保存した進行はチーム構成と照合するので、`teams.json` を書き換えた後は前回の続きが「読めませんでした」になり、最初から始まる。
 
 書式:
 

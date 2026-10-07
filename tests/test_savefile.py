@@ -20,8 +20,16 @@ def fixed_codes(engine: GameEngine, seed: int = 0) -> TeamCodes:
     return TeamCodes([t.number for t in engine.teams], randbelow=rng.randrange)
 
 
+def step(engine: GameEngine, answer) -> None:
+    """1手進める。回答待ちなら answer() の値で答え、それ以外は「次へ」。"""
+    if engine.state in (State.ANSWERING, State.EXHIBITION_ANSWERING) and engine.pending_answer is None:
+        engine.submit_answer(answer())
+    else:
+        engine.advance()
+
+
 def play_steps(seed: int = 1):
-    """全4チーム20問を1手ずつ進め、各手のあとのエンジンを返す。
+    """全4チーム20問を1手ずつ進め、各手のあとのエンジンを返す（毎回同じエンジン）。
 
     大きく外す回答を混ぜて、ゲームオーバー→エキシビションも通るようにする。
     """
@@ -29,11 +37,13 @@ def play_steps(seed: int = 1):
     engine = GameEngine()
     yield engine
     while engine.state is not State.FINISHED:
-        if engine.state in (State.ANSWERING, State.EXHIBITION_ANSWERING) and engine.pending_answer is None:
-            engine.submit_answer(rng.choice([0, 100, 100, 50, engine.current_question.correct]))
-        else:
-            engine.advance()
+        step(engine, lambda: rng.choice([0, 100, 100, 50, engine.current_question.correct]))
         yield engine
+
+
+def play_to_end(seed: int = 1) -> GameEngine:
+    *_, final = play_steps(seed)
+    return final
 
 
 def restored_copy(engine: GameEngine) -> GameEngine:
@@ -59,23 +69,17 @@ class TestEngineRoundTrip:
 
     def test_game_continues_identically_after_restore(self):
         """途中から再開して最後まで進めても、結果が変わらない。"""
-        steps = list(play_steps(seed=3))
-        midway = None
-        for engine in play_steps(seed=3):
-            if engine.state is State.ANSWERING and engine.current_team.number == 2:
-                midway = restored_copy(engine)
-                break
-        assert midway is not None
-        final = steps[-1]
+        final = play_to_end(seed=3)
+        midway = next(
+            restored_copy(e)
+            for e in play_steps(seed=3)
+            if e.state is State.ANSWERING and e.current_team.number == 2
+        )
         # 途中までに出した回答の続きを、同じ順に入れて最後まで進める
         answers = [r.answer for t in final.teams for r in t.results]
-        done = sum(t.finished_rounds for t in midway.teams)
-        answers = iter(answers[done:])
+        rest = iter(answers[sum(t.finished_rounds for t in midway.teams):])
         while midway.state is not State.FINISHED:
-            if midway.state in (State.ANSWERING, State.EXHIBITION_ANSWERING) and midway.pending_answer is None:
-                midway.submit_answer(next(answers))
-            else:
-                midway.advance()
+            step(midway, lambda: next(rest))
         assert [t.balloons for t in midway.teams] == [t.balloons for t in final.teams]
         assert midway.winner() == final.winner()
 
@@ -180,9 +184,8 @@ class TestSaveFile:
         assert engine.state is State.IDLE
 
     def test_idle_and_finished_are_not_resumable(self):
-        steps = list(play_steps())
-        assert not savefile.is_resumable(steps[0])
-        assert not savefile.is_resumable(steps[-1])
+        assert not savefile.is_resumable(GameEngine())
+        assert not savefile.is_resumable(play_to_end())
 
 
 class TestDescribeCommand:
@@ -203,7 +206,7 @@ class TestDescribeCommand:
         assert out.startswith("チーム1 チーム1・1問目・回答受付")
 
     def test_finished_is_none(self, tmp_path, capsys):
-        final = list(play_steps())[-1]
+        final = play_to_end()
         path = tmp_path / "game.json"
         savefile.save(path, final, fixed_codes(final))
         assert self.run(capsys, "--describe", str(path)) == "none"
