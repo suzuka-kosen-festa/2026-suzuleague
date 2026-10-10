@@ -497,7 +497,7 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 - [x] ~~本番問題をアンケート集計スプレッドシートから `questions.py` に投入~~ → **完了**（20問＋予備8問）
 - [x] ~~ぴったり賞の採否をイベント責任者に確認~~ → **不採用**（2026-07-23）。`--perfect-bonus` は付けない
 - [x] ~~チームの人数と問題数の対応を確認~~ → **5問固定・司会が回答者を指名**（2026-07-24）。実装変更なし
-- [ ] Scratch の問題の画像（スプライト「問題」のコスチューム `1-1`〜`4-5`）が20問すべて正しいことを Scratch API で確かめる（[#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50)。10/8 の確認では17問が一致し、3か所が直し待ち）
+- [x] ~~Scratch の問題の画像（スプライト「問題」のコスチューム `1-1`〜`4-5`）が20問すべて正しいことを Scratch API で確かめる~~ → **完了**（2026-10-10、[#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50)）。問題を差し替えたらもう一度確かめる
 - [ ] Scratch側で、チームの途中で開き直しても表示が崩れないよう直してもらい、実機で確かめる（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
 - [x] ~~本番のルームID・接続先を裏方PCに設定~~ → `launcher/スズリーグ.app` が `1364239598`・`wss://suzuleague-cloud.onrender.com` で起動する（2026-10-05）。
       Scratch側の `?cloud_host=` と一致していることは 10/6 の実機確認で確認済み
