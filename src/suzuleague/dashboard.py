@@ -30,7 +30,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from .cloud import ENV_CLOUD_HOST, CloudBridge, resolve_cloud_host, resolve_project_id
-from .controller import GameController
+from .controller import MIN_ADVANCE_INTERVAL, GameController
 from .engine import GameEngine, GameError, State
 from .host import (
     ENV_HOST_TOKEN,
@@ -59,7 +59,12 @@ HELP_TEXT = """\
 
 
 class Dashboard:
-    def __init__(self, engine: GameEngine, bridge: CloudBridge | None) -> None:
+    def __init__(
+        self,
+        engine: GameEngine,
+        bridge: CloudBridge | None,
+        min_advance_interval: float = MIN_ADVANCE_INTERVAL,
+    ) -> None:
         self.engine = engine
         self.bridge = bridge
         self.console = Console()
@@ -70,6 +75,7 @@ class Dashboard:
             on_push_error=lambda e: self.console.print(
                 f"[red]cloud送信失敗: {e}（resyncで再送できます）[/]"
             ),
+            min_advance_interval=min_advance_interval,
         )
 
     # ---- cloudイベント（イベントスレッドから呼ばれる） ----------

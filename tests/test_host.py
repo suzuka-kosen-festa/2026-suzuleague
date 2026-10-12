@@ -228,6 +228,26 @@ class TestController:
         with pytest.raises(GameError):
             controller.advance(expect_state=3)
 
+    def test_rejects_advance_right_after_previous_one(self):
+        now = [100.0]
+        controller = GameController(
+            make_engine(), min_advance_interval=1.0, clock=lambda: now[0]
+        )
+        controller.advance()
+        now[0] += 0.2  # 続けて押された
+        with pytest.raises(GameError):
+            controller.advance()
+        assert controller.engine.state is State.TEAM_INTRO  # 進んでいない
+        now[0] += 1.0  # 取り消されたあと、待ってから押し直せば進む
+        controller.advance()
+        assert controller.engine.state is State.QUESTION
+
+    def test_no_interval_by_default(self):
+        controller = GameController(make_engine())
+        controller.advance()
+        controller.advance()
+        assert controller.engine.state is State.QUESTION
+
 
 class TestHostRelay:
     def test_commands_queued_before_start_are_skipped(self):

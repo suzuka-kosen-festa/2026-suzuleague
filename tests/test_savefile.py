@@ -239,7 +239,7 @@ class TestSetupSave:
 
     def test_resume(self, tmp_path):
         path = tmp_path / "game.json"
-        first = Dashboard(GameEngine(), None)
+        first = Dashboard(GameEngine(), None, min_advance_interval=0)  # 続けて進める
         setup_save(first, path, False)
         for _ in range(3):
             first.controller.advance()

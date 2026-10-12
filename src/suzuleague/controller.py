@@ -8,10 +8,18 @@ CLIダッシュボード・司会者画面（スマホ）・Scratchからの回�
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 
 from .cloud import CloudBridge
 from .engine import GameEngine, GameError, State
+
+
+# 本番で「次へ」を受け付ける最短の間隔（秒）。これより短い間隔で続けて届いた分は取り消す。
+# Scratch は P2S_SEQ の変化を1コマ（約0.03秒）ごとに見ているだけなので、2つのステートが
+# ほぼ同時に届くと後のほうしか処理せず、間のステート（正解発表など）の演出が飛ぶ
+# （2026-10-12 の実機テストで発生し、手元で再現）。押し間違いで2段階進むのも防ぐ。
+MIN_ADVANCE_INTERVAL = 1.0
 
 
 class GameController:
@@ -21,6 +29,8 @@ class GameController:
         bridge: CloudBridge | None = None,
         on_push_error: Callable[[Exception], None] | None = None,
         on_change: Callable[[], None] | None = None,
+        min_advance_interval: float = 0.0,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.engine = engine
         self.bridge = bridge
@@ -28,6 +38,9 @@ class GameController:
         self._on_push_error = on_push_error
         # 進行や回答が変わるたびに呼ぶ（状態の保存に使う。ロックを持ったまま呼ぶ）
         self.on_change = on_change
+        self._min_advance_interval = min_advance_interval
+        self._clock = clock
+        self._last_advance: float | None = None
 
     def advance(self, expect_state: int | None = None) -> State:
         """進行を1段階進める。
@@ -41,7 +54,16 @@ class GameController:
                 raise GameError(
                     "画面の表示が古いため操作を取り消しました（もう進んでいます）"
                 )
+            now = self._clock()
+            if (
+                self._last_advance is not None
+                and now - self._last_advance < self._min_advance_interval
+            ):
+                raise GameError(
+                    "続けて押されたので取り消しました（少し待ってからもう一度押してください）"
+                )
             state = self.engine.advance()
+            self._last_advance = now
             self._changed()
         self.push_state()
         return state
