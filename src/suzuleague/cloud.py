@@ -10,6 +10,7 @@ resync()でいつでも最新状態を再送できるようにしている。
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import select
@@ -121,10 +122,8 @@ def fetch_all_vars(
     except (websocket.WebSocketException, OSError, json.JSONDecodeError):
         pass  # timeout含む受信終了
     finally:
-        try:
+        with contextlib.suppress(Exception):
             ws.close()
-        except Exception:
-            pass
     return values
 
 
@@ -240,10 +239,8 @@ class CloudBridge:
     def disconnect(self) -> None:
         self._stop.set()
         if self.cloud is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self.cloud.disconnect()
-            except Exception:
-                pass
 
     def _start_heartbeat(self) -> None:
         def beat() -> None:

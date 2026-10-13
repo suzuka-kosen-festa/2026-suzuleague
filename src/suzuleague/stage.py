@@ -236,20 +236,37 @@ def _answering(*states: int) -> Block:
     return cond
 
 
+# 「通信」だけが使う変数。「見た〜」は、最後に処理した状態
+COMMUNICATION_VARIABLES = ("見たSEQ", "見たANSWER", "見たSTATE", "見たTEAM", "見たROUND", "見たQID", "順に進んだ", "桁", "点", "控え")
+
+
 def _replace_communication(project: dict[str, Any], variant: str) -> None:
-    """「通信」スプライトのスクリプトを入れ替える。"""
+    """「通信」スプライトのスクリプトを入れ替える。
+
+    ブロックの ID は作った順に振るので、下の呼び出しの順番を変えると書き出した中身（digest）が変わる。
+    """
     target = find_target(project, "通信")
     target["blocks"] = {}
     target["comments"] = {}
     s = Scripts(project, "通信")
-    has_exhibition_message = "7_エキシビジョン回答受付" in stage_of(project)["broadcasts"].values()
-
-    for name in ("見たSEQ", "見たANSWER", "見たSTATE", "見たTEAM", "見たROUND", "見たQID", "順に進んだ", "桁", "点", "控え"):
+    for name in COMMUNICATION_VARIABLES:
         s.add_variable(name)
-
+    # エキシビションの回答受付のメッセージは、今のところ受け手がない。プロジェクトにあるときだけ送る
+    has_exhibition_message = "7_エキシビジョン回答受付" in stage_of(project)["broadcasts"].values()
     exhibition = [broadcast("7_エキシビジョン回答受付")] if has_exhibition_message else []
 
-    # 旗が押されたら、P2S_SEQ と P2S_ANSWER の変化を見続ける
+    _add_watch_loop(s)
+    _define_receive_state(s)
+    _define_advance(s, exhibition)
+    _define_show_answer(s)
+    _define_show_scores(s)
+    _define_rebuild(s, exhibition)
+    if variant == "play":
+        _add_answer_sender(s)
+
+
+def _add_watch_loop(s: Scripts) -> None:
+    """旗が押されたら、P2S_SEQ と P2S_ANSWER の変化を見続ける。"""
     s.add(
         on_flag(),
         set_var("見たSEQ", "まだ"),  # 何が届いていても、最初の1回は画面を作る
@@ -271,7 +288,10 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
         ),
     )
 
-    # 1つ前の段階から順に進んだときだけ演出を流し、それ以外は作り直す
+
+def _define_receive_state(s: Scripts) -> None:
+    """1つ前の段階から順に進んだときだけ演出を流し、それ以外は作り直す。"""
+
     def step(state: int | Block, previous: int | Block, *more: Block) -> Block:
         cond = both(
             state if isinstance(state, Block) else eq(Var(STATE), state),
@@ -303,6 +323,9 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
         when_else(eq(Var("順に進んだ"), 1), [call("次の段階へ進める")], [call("画面を作り直す")]),
     )
 
+
+def _define_advance(s: Scripts, exhibition: list[Block]) -> None:
+    """1つ前の段階から進んだときに、元の演出のメッセージを送る。"""
     s.define(
         "次の段階へ進める",
         when(
@@ -324,6 +347,9 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
         when(eq(Var(STATE), 8), call("得点表を出す")),
     )
 
+
+def _define_show_answer(s: Scripts) -> None:
+    """届いた回答（☁ P2S_ANSWER）を、出演者がテンキーで入れて GO を押したときと同じ状態にする。"""
     s.define(
         "回答を出す",
         set_var("予想%", Var(ANSWER)),
@@ -337,7 +363,12 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
         set_var("回答中", 2),
     )
 
-    # P2S_SCORES は 1 のあとにチーム番号順で3桁ずつ（protocol.encode_scores）。999 はまだのチーム
+
+def _define_show_scores(s: Scripts) -> None:
+    """全チームの得点をリスト「得点表」に入れて、全体結果の画面を出す。
+
+    P2S_SCORES は 1 のあとにチーム番号順で3桁ずつ（protocol.encode_scores）。999 はまだのチーム。
+    """
     score = join(
         join(letter(plus(Var("桁"), 1), Var(SCORES)), letter(plus(Var("桁"), 2), Var(SCORES))),
         letter(plus(Var("桁"), 3), Var(SCORES)),
@@ -355,7 +386,9 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
         broadcast(stage_result.SHOW_MESSAGE),  # 全体結果の画面は stage_result.py のスプライトが出す
     )
 
-    # 今の状態だけから画面を組み立てる。開き直したとき・送り直されたとき・チームが替わるときに通る
+
+def _define_rebuild(s: Scripts, exhibition: list[Block]) -> None:
+    """今の状態だけから画面を組み立てる。開き直したとき・送り直されたとき・チームが替わるときに通る。"""
     s.define(
         "画面を作り直す",
         broadcast("作り直し_止める"),
@@ -424,12 +457,14 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
         set_var("途中復帰", 0),
     )
 
-    if variant == "play":
-        s.add(
-            on_message("回答_確定"),
-            set_var("☁ S2P_ANSWER", Var("予想%")),
-            change_var("☁ S2P_SEQ", 1),
-        )
+
+def _add_answer_sender(s: Scripts) -> None:
+    """出演者用: GO が押されたら、回答を裏方PCへ送る（ANSWER → SEQ の順）。"""
+    s.add(
+        on_message("回答_確定"),
+        set_var("☁ S2P_ANSWER", Var("予想%")),
+        change_var("☁ S2P_SEQ", 1),
+    )
 
 
 def _add_rebuild_helpers(project: dict[str, Any]) -> None:

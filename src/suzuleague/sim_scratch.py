@@ -16,6 +16,7 @@ P2S変数の更新を受信して「ステージ画面」を模擬表示し、
 from __future__ import annotations
 
 import argparse
+import contextlib
 import random
 import threading
 import time
@@ -211,10 +212,8 @@ class ScratchSimulator:
     def disconnect(self) -> None:
         self._stop.set()
         if self.cloud is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self.cloud.disconnect()
-            except Exception:
-                pass
 
 
 def main() -> None:

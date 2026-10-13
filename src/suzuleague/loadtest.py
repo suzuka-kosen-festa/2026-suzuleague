@@ -25,6 +25,7 @@ cloud-server（https://github.com/TurboWarp/cloud-server）に対して行うこ
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import ssl
 import statistics
@@ -127,10 +128,8 @@ class Client:
     def close(self) -> None:
         self._stop.set()
         if self.ws is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self.ws.close()
-            except Exception:
-                pass
 
 
 def run_round(

@@ -366,7 +366,8 @@ class TestPlayerState:
 
     def test_host_state_carries_code_and_player_part(self):
         engine = make_engine()
-        codes = TeamCodes([1, 2, 3, 4], randbelow=lambda n, it=iter([1, 2, 3, 4]): next(it))
+        fixed = iter([1, 2, 3, 4])
+        codes = TeamCodes([1, 2, 3, 4], randbelow=lambda n: next(fixed))
         assert build_host_state(engine, player_codes=codes)["player_code"] is None
         advance_to(engine, State.TEAM_INTRO)
         state = build_host_state(engine, player_codes=codes)
@@ -377,7 +378,8 @@ class TestPlayerState:
 class TestPlayerAnswer:
     def setup_method(self):
         self.engine = make_engine()
-        self.codes = TeamCodes([1, 2, 3, 4], randbelow=lambda n, it=iter([1111, 2222, 3333, 4444]): next(it))
+        fixed = iter([1111, 2222, 3333, 4444])
+        self.codes = TeamCodes([1, 2, 3, 4], randbelow=lambda n: next(fixed))
         self.controller = GameController(self.engine)
         advance_to(self.engine, State.ANSWERING)
 
