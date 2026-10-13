@@ -499,7 +499,7 @@ def transform(project: dict[str, Any], variant: str) -> tuple[dict[str, Any], li
     project = copy.deepcopy(project)
     notes: list[str] = []
 
-    _set_cloud_variables(project, variant)
+    _set_cloud_variables(project)
     _replace_communication(project, variant)
     _add_rebuild_helpers(project)
     _keep_keypad_on_first_question(project, notes)
@@ -509,23 +509,50 @@ def transform(project: dict[str, Any], variant: str) -> tuple[dict[str, Any], li
             target["blocks"] = {}
             target["comments"] = {}
             target["visible"] = False
+    _drop_unused_cloud_variables(project, variant)
     return project, notes
 
 
-def _set_cloud_variables(project: dict[str, Any], variant: str) -> None:
-    """クラウド変数を決める。大画面用は読むだけにし、S2P_* を送れないようにする。"""
+def _set_cloud_variables(project: dict[str, Any]) -> None:
+    """裏方PCとやり取りするクラウド変数をそろえ、開いた直後の値を待機の状態にする。"""
     stage = _stage(project)
     by_name = {v[0]: v for v in stage["variables"].values()}
     for name, default in CLOUD_DEFAULTS.items():
         if name not in by_name:
             by_name[name] = [name, default, True]
             stage["variables"][f"{Scripts.PREFIX}-cloud-{name.split()[-1]}"] = by_name[name]
-        writable = name.startswith("☁ P2S_") or variant == "play"
-        by_name[name][:] = [name, default, True] if writable else [name, default]
-    for value in stage["variables"].values():
-        # 使わなくなった S2P_ACK などを、送れる変数のまま残さない
-        if len(value) > 2 and value[0].startswith("☁ S2P_") and value[0] not in CLOUD_DEFAULTS:
-            del value[2:]
+        by_name[name][:] = [name, default, True]
+
+
+def _drop_unused_cloud_variables(project: dict[str, Any], variant: str) -> None:
+    """使わないクラウド変数を、名前から ☁ を外してふつうの変数にする。
+
+    Packager は ☁ で始まるステージの変数をすべてクラウド変数として書き出すので、
+    印を外すだけでは送れる変数のまま残る。大画面用では S2P_* もここで外し、
+    回答を送る手段そのものをなくす（S2P_ANSWER に書くと出演者の回答として採点されるため）。
+    """
+    keep = {"☁ HEARTBEAT"} | {n for n in CLOUD_DEFAULTS if n.startswith("☁ P2S_") or variant == "play"}
+    renamed: dict[str, str] = {}
+    for var_id, value in _stage(project)["variables"].items():
+        if value[0].startswith("☁ ") and value[0] not in keep:
+            renamed[var_id] = value[0].removeprefix("☁ ")
+            value[:] = [renamed[var_id], value[1]]
+    for target in project["targets"]:
+        for block in target["blocks"].values():
+            if isinstance(block, list):  # 置いてあるだけの変数 [12, 名前, ID, x, y]
+                if block[0] == 12 and block[2] in renamed:
+                    block[1] = renamed[block[2]]
+                continue
+            ref = block["fields"].get("VARIABLE")
+            if ref and ref[1] in renamed:
+                ref[0] = renamed[ref[1]]
+            for value in block["inputs"].values():
+                for inner in value[1:]:
+                    if isinstance(inner, list) and inner[0] == 12 and inner[2] in renamed:
+                        inner[1] = renamed[inner[2]]
+    for monitor in project.get("monitors", []):
+        if monitor.get("id") in renamed:
+            monitor["params"]["VARIABLE"] = renamed[monitor["id"]]
 
 
 def _answering(*states: int) -> Block:

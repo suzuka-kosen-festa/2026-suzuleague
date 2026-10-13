@@ -136,9 +136,11 @@ class TestTransform:
     def test_view_cannot_send_answers(self):
         """大画面用が S2P_* を書くと、出演者の回答として採点されてしまう。"""
         made, _ = stage.transform(make_project(), "view")
-        assert writes_to(made, "☁ S2P_") == []
+        assert writes_to(made, "☁ S2P_") == [] and writes_to(made, "S2P_") == []
         variables = stage_variables(made)
-        for name in ("☁ S2P_ANSWER", "☁ S2P_SEQ", "☁ S2P_ACK"):
+        # Packager は ☁ で始まる変数をすべてクラウド変数にするので、名前ごと外してあること
+        assert not [name for name in variables if name.startswith("☁ S2P_")]
+        for name in ("S2P_ANSWER", "S2P_SEQ", "S2P_ACK"):
             assert len(variables[name]) == 2, f"{name} が送れる変数のまま"
         for name in stage.INPUT_SPRITES:
             target = stage.find_target(made, name)
@@ -156,6 +158,7 @@ class TestTransform:
         assert (second["opcode"], second["fields"]["VARIABLE"][0]) == ("data_changevariableby", "☁ S2P_SEQ")
         variables = stage_variables(made)
         assert variables["☁ S2P_ANSWER"][2] is True and variables["☁ S2P_SEQ"][2] is True
+        assert "☁ S2P_ACK" not in variables and len(variables["S2P_ACK"]) == 2  # 使わない
         assert stage.find_target(made, "キー")["blocks"] != {}
 
     def test_never_writes_to_p2s(self, variant):
@@ -167,9 +170,35 @@ class TestTransform:
         made, _ = stage.transform(make_project(), variant)
         variables = stage_variables(made)
         for name, default in stage.CLOUD_DEFAULTS.items():
-            assert variables[name][1] == default
+            if name in variables:  # 大画面用には S2P_* がない
+                assert variables[name][1] == default
         for name in ("☁ P2S_STATE", "☁ P2S_ANSWER", "☁ P2S_SCORES"):
             assert variables[name][2] is True
+
+    def test_only_intended_variables_are_cloud(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        cloud = {name for name in stage_variables(made) if name.startswith("☁ ")}
+        expected = {n for n in stage.CLOUD_DEFAULTS if n.startswith("☁ P2S_") or variant == "play"}
+        assert cloud == expected
+
+    def test_renamed_variables_keep_their_references(self):
+        """名前を変えた変数を使うブロックとモニターが、古い名前のまま残らない。"""
+        source = make_project()
+        blocks = stage.find_target(source, "演出")["blocks"]
+        blocks["reader"] = {
+            "opcode": "data_setvariableto",
+            "next": None,
+            "parent": None,
+            "inputs": {"VALUE": [3, [12, "☁ S2P_ACK", "s2"], [10, ""]]},
+            "fields": {"VARIABLE": ["回答中", "v0"]},
+            "shadow": False,
+            "topLevel": True,
+        }
+        source["monitors"] = [{"id": "s2", "opcode": "data_variable", "params": {"VARIABLE": "☁ S2P_ACK"}}]
+        made, _ = stage.transform(source, "play")
+        reader = stage.find_target(made, "演出")["blocks"]["reader"]
+        assert reader["inputs"]["VALUE"][1][1] == "S2P_ACK"
+        assert made["monitors"][0]["params"]["VARIABLE"] == "S2P_ACK"
 
     def test_original_communication_scripts_are_gone(self, variant):
         made, _ = stage.transform(make_project(), variant)
