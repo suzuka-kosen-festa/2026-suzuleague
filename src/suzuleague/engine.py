@@ -133,12 +133,13 @@ class GameEngine:
             ),
         )
 
-    def winner(self) -> Team | None:
-        """クリアしたチームの中で最多バルーンのチーム。全滅ならNone。"""
+    def winners(self) -> list[Team]:
+        """クリアしたチームの中で最多バルーンのチーム（登場順）。同数なら全チームが優勝。全滅なら空。"""
         cleared = [t for t in self.teams if t.finished_rounds > 0 and not t.is_failed]
         if not cleared:
-            return None
-        return max(cleared, key=lambda t: t.balloons)
+            return []
+        most = max(t.balloons for t in cleared)
+        return [t for t in cleared if t.balloons == most]
 
     # ---- 操作系 -------------------------------------------------
 

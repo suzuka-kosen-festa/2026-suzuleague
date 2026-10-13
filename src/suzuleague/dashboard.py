@@ -167,11 +167,12 @@ class Dashboard:
             )
         self.console.print(table)
         if self.engine.state is State.FINISHED:
-            winner = self.engine.winner()
-            if winner:
+            winners = self.engine.winners()
+            if winners:
+                names = "・".join(f"チーム{w.number} {w.name}" for w in winners)
                 self.console.print(
-                    f"[bold yellow]🏆 優勝: チーム{winner.number} {winner.name}"
-                    f"（バルーン{winner.balloons}）[/]"
+                    f"[bold yellow]🏆 {'同点' if len(winners) > 1 else ''}優勝: {names}"
+                    f"（バルーン{winners[0].balloons}）[/]"
                 )
             else:
                 self.console.print("[red]クリアチームなし（優勝なし）[/]")

@@ -157,11 +157,11 @@ def _shown_result(engine: GameEngine) -> dict[str, Any] | None:
     }
 
 
-def _winner_info(engine: GameEngine) -> dict[str, Any] | None:
-    winner = engine.winner() if engine.state is State.FINISHED else None
-    if winner is None:
-        return None
-    return {"number": winner.number, "name": winner.name, "balloons": winner.balloons}
+def _winners_info(engine: GameEngine) -> list[dict[str, Any]]:
+    """優勝チーム（同点なら複数）。全体結果まで進むまでは空。"""
+    if engine.state is not State.FINISHED:
+        return []
+    return [{"number": t.number, "name": t.name, "balloons": t.balloons} for t in engine.winners()]
 
 
 def _shows_question(engine: GameEngine) -> bool:
@@ -195,7 +195,7 @@ def build_player_state(engine: GameEngine, *, hold_reveal: bool = False) -> dict
         # 発表済みの問題数。観客ランキングで未回答の問題を数えるのに使う（cloud-server）
         "revealed": sum(t.finished_rounds for t in engine.teams),
         "finished": engine.state is State.FINISHED,
-        "winner": _winner_info(engine),
+        "winners": _winners_info(engine),
     }
     if hold_reveal and engine.state is State.REVEAL:
         _hide_reveal(state, engine)
@@ -265,7 +265,7 @@ def build_host_state(
         "result": _shown_result(engine),
         "teams": _team_summary(engine),
         "finished": engine.state is State.FINISHED,
-        "winner": _winner_info(engine),
+        "winners": _winners_info(engine),
         "last_command": last_command,
         "hold": math.ceil(hold_remaining),
         "player_code": (

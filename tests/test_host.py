@@ -130,14 +130,21 @@ class TestBuildHostState:
         assert result["damage"] == 20
         assert result["balloons_after"] == 80
 
-    def test_finished_has_winner(self):
+    def test_finished_has_winners(self):
         engine = make_engine()
         advance_to(engine, State.FINISHED)
         state = build_host_state(engine)
         assert state["finished"] is True
         assert state["next_action"] is None
-        assert state["winner"]["number"] == 1  # 全チーム同点なら先頭
+        # 全チーム同点なら全チームが優勝（登場順）
+        assert [w["number"] for w in state["winners"]] == [t.number for t in engine.teams]
+        assert state["player"]["winners"] == state["winners"]
         assert all(t["status"] == "クリア" for t in state["teams"])
+
+    def test_no_winners_before_finished(self):
+        engine = make_engine()
+        advance_to(engine, State.TEAM_RESULT)
+        assert build_host_state(engine)["winners"] == []
 
     def test_is_json_serializable(self):
         engine = make_engine()

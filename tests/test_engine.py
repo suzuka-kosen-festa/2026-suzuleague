@@ -288,9 +288,20 @@ class TestSnapshotAndWinner:
                 engine.advance()
         engine.advance()  # 最終チームの結果 -> 全体結果
         assert engine.state is State.FINISHED
-        winner = engine.winner()
-        assert winner is not None
-        assert winner.number == 2
+        assert [t.number for t in engine.winners()] == [2]
+
+    def test_tied_teams_share_the_win(self):
+        engine = make_engine()
+        # チーム1・2・4: ノーダメージ → 残100、チーム3: 毎回10ダメージ → 残50
+        for team_no in range(1, 5):
+            engine.advance()
+            engine.advance()
+            for _ in range(5):
+                play_round(engine, answer=40 if team_no == 3 else 50)
+                engine.advance()
+        engine.advance()
+        assert engine.state is State.FINISHED
+        assert [t.number for t in engine.winners()] == [1, 2, 4]
 
     def test_winner_none_when_all_failed(self):
         engine = make_engine(corrects=[100] * 20)
@@ -300,7 +311,7 @@ class TestSnapshotAndWinner:
             for _ in range(5):
                 play_round(engine, answer=0)
                 engine.advance()
-        assert engine.winner() is None
+        assert engine.winners() == []
 
 
 class TestTeamSetup:

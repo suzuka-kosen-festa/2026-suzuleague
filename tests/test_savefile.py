@@ -81,7 +81,7 @@ class TestEngineRoundTrip:
         while midway.state is not State.FINISHED:
             step(midway, lambda: next(rest))
         assert [t.balloons for t in midway.teams] == [t.balloons for t in final.teams]
-        assert midway.winner() == final.winner()
+        assert midway.winners() == final.winners()
 
     def test_pending_answer_survives(self):
         engine = GameEngine()

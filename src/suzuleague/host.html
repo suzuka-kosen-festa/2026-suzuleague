@@ -370,9 +370,10 @@
 
     show("winner-card", s.finished);
     if (s.finished) {
-      if (s.winner) {
-        el("winner-name").textContent = teamLabel(s.winner);
-        el("winner-prize").textContent = "残りバルーン " + s.winner.balloons + " ／ 景品：お菓子の詰め合わせ";
+      if (s.winners.length) {
+        el("winner-name").textContent = s.winners.map(teamLabel).join("・");
+        el("winner-prize").textContent = (s.winners.length > 1 ? "同点優勝 ／ " : "") +
+          "残りバルーン " + s.winners[0].balloons + " ／ 景品：お菓子の詰め合わせ";
       } else {
         el("winner-name").textContent = "優勝チームなし";
         el("winner-prize").textContent = "クリアしたチームがありませんでした";

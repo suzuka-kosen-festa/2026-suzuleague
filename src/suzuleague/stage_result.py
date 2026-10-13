@@ -7,7 +7,7 @@
 - 点数は、スプライト「通信」がリスト「得点表」にチーム番号順で入れてから「結果_出す」を送る
 - チームの数はリストの長さで決まる（本番は4、デモは1）。カードを1枚ずつ出し、最後に優勝を示す
 
-優勝の決め方は engine.winner() と同じ（残りバルーンが最多のチーム。同数なら先のチーム。全チームが0なら優勝なし）。
+優勝の決め方は engine.winners() と同じ（残りバルーンが最多のチーム。同数なら全チーム。全チームが0なら優勝なし）。
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from .sb3 import (
     Scripts,
     Var,
     add_sprite,
+    both,
     change_var,
     create_clone,
     divide,
@@ -211,7 +212,7 @@ def add_result_screen(project: dict[str, Any]) -> None:
     add_sprite(project, SPRITE, costumes())
     s = Scripts(project, SPRITE)
     # スプライトだけの変数。クローンは、作られたときの値を自分の分として持つ
-    for name in ("役", "番", "桁目", "点", "倍率", "横", "数", "最大", "優勝番", "順位", "比"):
+    for name in ("役", "番", "桁目", "点", "倍率", "横", "数", "最大", "順位", "比"):
         s.add_variable(name)
 
     def score_of(index: Any) -> Block:
@@ -232,18 +233,13 @@ def add_result_screen(project: dict[str, Any]) -> None:
         set_var("数", list_length(SCORES_LIST)),
         set_var("倍率", 100),
         when(gt(Var("数"), 4), set_var("倍率", 84)),  # 5チームは横に入りきらないので縮める
-        # 優勝は、残りバルーンが最多のチーム（同数なら先のチーム。全チームが0なら優勝なし）
+        # 優勝は、残りバルーンが最多のチーム（同数なら全チーム。全チームが0なら優勝なし）
         set_var("最大", 0),
-        set_var("優勝番", 0),
         set_var("番", 0),
         repeat(
             Var("数"),
             change_var("番", 1),
-            when(
-                gt(score_of(Var("番")), Var("最大")),
-                set_var("最大", score_of(Var("番"))),
-                set_var("優勝番", Var("番")),
-            ),
+            when(gt(score_of(Var("番")), Var("最大")), set_var("最大", score_of(Var("番")))),
         ),
         wait(0.6),
         set_var("番", 0),
@@ -275,14 +271,18 @@ def add_result_screen(project: dict[str, Any]) -> None:
             wait(0.4),
         ),
         wait(0.5),
-        when(
-            gt(Var("優勝番"), 0),
-            set_var("番", Var("優勝番")),
-            set_var("横", card_x),
-            set_var("役", "金枠"),
-            create_clone(),
-            set_var("役", "優勝"),
-            create_clone(),
+        set_var("番", 0),
+        repeat(
+            Var("数"),
+            change_var("番", 1),
+            when(
+                both(gt(Var("最大"), 0), eq(score_of(Var("番")), Var("最大"))),
+                set_var("横", card_x),
+                set_var("役", "金枠"),
+                create_clone(),
+                set_var("役", "優勝"),
+                create_clone(),
+            ),
         ),
         set_var("役", "背景"),
     )
