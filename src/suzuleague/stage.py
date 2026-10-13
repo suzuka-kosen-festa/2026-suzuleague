@@ -40,11 +40,52 @@ import tempfile
 import urllib.error
 import urllib.request
 import zipfile
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .publish import DEFAULT_SERVER_DIR, PRODUCTION_URL
+from .sb3 import (
+    Block,
+    Menu,
+    ProjectError,
+    Scripts,
+    Var,
+    absolute,
+    add_to,
+    blocks_of,
+    both,
+    broadcast,
+    call,
+    change_var,
+    delete_all,
+    divide,
+    either,
+    eq,
+    find_target,
+    forever,
+    gt,
+    hide_list,
+    join,
+    length,
+    letter,
+    lt,
+    minus,
+    no,
+    on_flag,
+    on_message,
+    plus,
+    receivers,
+    rename_stage_variables,
+    repeat,
+    script_blocks,
+    set_var,
+    show_list,
+    stage_of,
+    stop_other_scripts,
+    wait,
+    when,
+    when_else,
+)
 
 SCRATCH_PROJECT_ID = "1364239598"
 VARIANTS = {"view": "大画面用（入力なし）", "play": "出演者用（入力あり）"}
@@ -89,8 +130,8 @@ STATE, TEAM, ROUND, QID = "☁ P2S_STATE", "☁ P2S_TEAM", "☁ P2S_ROUND", "☁
 CORRECT, BALLOONS, ANSWER, SCORES = "☁ P2S_CORRECT", "☁ P2S_BALLOONS", "☁ P2S_ANSWER", "☁ P2S_SCORES"
 
 
-class StageError(Exception):
-    """元のプロジェクトが想定と違っていて、作り直せない。"""
+class StageError(ProjectError):
+    """元のプロジェクトや Packager の出力が想定と違っていて、作り直せない。"""
 
 
 # ---- 元のプロジェクトを取ってくる ------------------------------------
@@ -109,372 +150,16 @@ def fetch_project(project_id: str = SCRATCH_PROJECT_ID) -> tuple[dict[str, Any],
     return project, str(meta["history"]["modified"])
 
 
-# ---- ブロックを組み立てる小さな道具 ----------------------------------
-# project.json のブロックは ID でつながった辞書なので、手で書くと読めない。
-# ここでは入れ子の Python の式で書き、Scripts がまとめて辞書に直す。
-
-
-@dataclass(frozen=True)
-class Var:
-    name: str
-
-
-@dataclass(frozen=True)
-class Msg:
-    name: str
-
-
-@dataclass(frozen=True)
-class Menu:
-    """ドロップダウンで選ぶ値（背景の名前など）。"""
-
-    opcode: str
-    field: str
-    value: str
-
-
-@dataclass
-class Block:
-    opcode: str
-    inputs: dict[str, Any] = field(default_factory=dict)
-    fields: dict[str, Any] = field(default_factory=dict)
-    stacks: dict[str, list[Block]] = field(default_factory=dict)
-    mutation: dict[str, Any] | None = None
-
-
-# 真偽値を受ける入力（六角形の穴）。影になる値を持たない
-BOOL_INPUTS = {
-    ("control_if", "CONDITION"),
-    ("control_if_else", "CONDITION"),
-    ("operator_and", "OPERAND1"),
-    ("operator_and", "OPERAND2"),
-    ("operator_or", "OPERAND1"),
-    ("operator_or", "OPERAND2"),
-    ("operator_not", "OPERAND"),
-}
-
-
-def eq(a: Any, b: Any) -> Block:
-    return Block("operator_equals", {"OPERAND1": a, "OPERAND2": b})
-
-
-def gt(a: Any, b: Any) -> Block:
-    return Block("operator_gt", {"OPERAND1": a, "OPERAND2": b})
-
-
-def lt(a: Any, b: Any) -> Block:
-    return Block("operator_lt", {"OPERAND1": a, "OPERAND2": b})
-
-
-def both(a: Block, b: Block) -> Block:
-    return Block("operator_and", {"OPERAND1": a, "OPERAND2": b})
-
-
-def either(a: Block, b: Block) -> Block:
-    return Block("operator_or", {"OPERAND1": a, "OPERAND2": b})
-
-
-def no(a: Block) -> Block:
-    return Block("operator_not", {"OPERAND": a})
-
-
-def plus(a: Any, b: Any) -> Block:
-    return Block("operator_add", {"NUM1": a, "NUM2": b})
-
-
-def minus(a: Any, b: Any) -> Block:
-    return Block("operator_subtract", {"NUM1": a, "NUM2": b})
-
-
-def divide(a: Any, b: Any) -> Block:
-    return Block("operator_divide", {"NUM1": a, "NUM2": b})
-
-
-def absolute(a: Any) -> Block:
-    return Block("operator_mathop", {"NUM": a}, {"OPERATOR": "abs"})
-
-
-def join(a: Any, b: Any) -> Block:
-    return Block("operator_join", {"STRING1": a, "STRING2": b})
-
-
-def letter(index: Any, text: Any) -> Block:
-    return Block("operator_letter_of", {"LETTER": index, "STRING": text})
-
-
-def length(text: Any) -> Block:
-    return Block("operator_length", {"STRING": text})
-
-
-def set_var(name: str, value: Any) -> Block:
-    return Block("data_setvariableto", {"VALUE": value}, {"VARIABLE": Var(name)})
-
-
-def change_var(name: str, by: Any) -> Block:
-    return Block("data_changevariableby", {"VALUE": by}, {"VARIABLE": Var(name)})
-
-
-def when(cond: Block, *body: Block) -> Block:
-    return Block("control_if", {"CONDITION": cond}, stacks={"SUBSTACK": list(body)})
-
-
-def when_else(cond: Block, body: list[Block], otherwise: list[Block]) -> Block:
-    return Block("control_if_else", {"CONDITION": cond}, stacks={"SUBSTACK": body, "SUBSTACK2": otherwise})
-
-
-def forever(*body: Block) -> Block:
-    return Block("control_forever", stacks={"SUBSTACK": list(body)})
-
-
-def repeat(times: Any, *body: Block) -> Block:
-    return Block("control_repeat", {"TIMES": times}, stacks={"SUBSTACK": list(body)})
-
-
-def wait(seconds: float) -> Block:
-    return Block("control_wait", {"DURATION": seconds})
-
-
-def broadcast(name: str) -> Block:
-    return Block("event_broadcast", {"BROADCAST_INPUT": Msg(name)})
-
-
-def call(name: str) -> Block:
-    return Block("procedures_call", mutation=_procedure_mutation(name))
-
-
-def delete_all(list_name: str) -> Block:
-    return Block("data_deletealloflist", fields={"LIST": Var(list_name)})
-
-
-def add_to(list_name: str, item: Any) -> Block:
-    return Block("data_addtolist", {"ITEM": item}, {"LIST": Var(list_name)})
-
-
-def show_list(list_name: str) -> Block:
-    return Block("data_showlist", fields={"LIST": Var(list_name)})
-
-
-def hide_list(list_name: str) -> Block:
-    return Block("data_hidelist", fields={"LIST": Var(list_name)})
-
-
-def stop_other_scripts() -> Block:
-    return Block(
-        "control_stop",
-        fields={"STOP_OPTION": "other scripts in sprite"},
-        mutation={"tagName": "mutation", "children": [], "hasnext": "true"},
-    )
-
-
-def on_flag() -> Block:
-    return Block("event_whenflagclicked")
-
-
-def on_message(name: str) -> Block:
-    return Block("event_whenbroadcastreceived", fields={"BROADCAST_OPTION": Msg(name)})
-
-
-def _procedure_mutation(name: str, *, prototype: bool = False) -> dict[str, Any]:
-    mutation = {"tagName": "mutation", "children": [], "proccode": name, "argumentids": "[]", "warp": "false"}
-    if prototype:
-        mutation |= {"argumentnames": "[]", "argumentdefaults": "[]"}
-    return mutation
-
-
-class Scripts:
-    """1つのスプライト（かステージ）にスクリプトを足す。"""
-
-    PREFIX = "sz"  # 足したブロック・変数の ID の頭。元の ID とぶつからないようにする
-
-    def __init__(self, project: dict[str, Any], name: str) -> None:
-        self.stage = next(t for t in project["targets"] if t["isStage"])
-        self.target = self.stage if name == "Stage" else find_target(project, name)
-        self.blocks: dict[str, Any] = self.target["blocks"]
-        self._tops = 0
-
-    def _new_id(self, kind: str, pool: dict[str, Any]) -> str:
-        n = len(pool)
-        while f"{self.PREFIX}-{kind}-{n}" in pool:
-            n += 1
-        return f"{self.PREFIX}-{kind}-{n}"
-
-    # -- 変数・リスト・メッセージの参照 --
-
-    def _lookup(self, kind: str, name: str) -> list[str]:
-        for target in (self.target, self.stage):
-            for item_id, item in target[kind].items():
-                if item[0] == name:
-                    return [name, item_id]
-        what = "変数" if kind == "variables" else "リスト"
-        raise StageError(f"{what}「{name}」が元のプロジェクトにありません")
-
-    def variable(self, name: str) -> list[str]:
-        try:
-            return self._lookup("variables", name)
-        except StageError:
-            return self._lookup("lists", name)
-
-    def message(self, name: str) -> list[str]:
-        for msg_id, msg_name in self.stage["broadcasts"].items():
-            if msg_name == name:
-                return [name, msg_id]
-        msg_id = self._new_id("msg", self.stage["broadcasts"])
-        self.stage["broadcasts"][msg_id] = name
-        return [name, msg_id]
-
-    def add_variable(self, name: str, value: str = "0") -> None:
-        """このスプライトだけの変数を足す（すでにあれば何もしない）。"""
-        if any(v[0] == name for v in self.target["variables"].values()):
-            return
-        self.target["variables"][self._new_id("var", self.target["variables"])] = [name, value]
-
-    # -- ブロックを辞書へ --
-
-    def _put(self, block: Block, parent: str | None, *, top: bool = False) -> str:
-        block_id = self._new_id("b", self.blocks)
-        entry: dict[str, Any] = {
-            "opcode": block.opcode,
-            "next": None,
-            "parent": parent,
-            "inputs": {},
-            "fields": {},
-            "shadow": False,
-            "topLevel": top,
-        }
-        if top:
-            self._tops += 1
-            entry |= {"x": 4000, "y": 400 * self._tops}  # 元のスクリプトと重ならない場所に置く
-        self.blocks[block_id] = entry
-        for name, value in block.inputs.items():
-            entry["inputs"][name] = self._input(block.opcode, name, value, block_id)
-        for name, value in block.fields.items():
-            if isinstance(value, Var):
-                entry["fields"][name] = self.variable(value.name)
-            elif isinstance(value, Msg):
-                entry["fields"][name] = self.message(value.name)
-            else:
-                entry["fields"][name] = [value, None]
-        for name, stack in block.stacks.items():
-            first = self._put_stack(stack, block_id)
-            if first:
-                entry["inputs"][name] = [2, first]
-        if block.mutation:
-            entry["mutation"] = block.mutation
-        return block_id
-
-    def _input(self, opcode: str, name: str, value: Any, parent: str) -> list[Any]:
-        if isinstance(value, Block):
-            child = self._put(value, parent)
-            return [2, child] if (opcode, name) in BOOL_INPUTS else [3, child, [10, ""]]
-        if isinstance(value, Var):
-            return [3, [12, *self.variable(value.name)], [10, ""]]
-        if isinstance(value, Msg):
-            return [1, [11, *self.message(value.name)]]
-        if isinstance(value, Menu):
-            menu_id = self._new_id("b", self.blocks)
-            self.blocks[menu_id] = {
-                "opcode": value.opcode,
-                "next": None,
-                "parent": parent,
-                "inputs": {},
-                "fields": {value.field: [value.value, None]},
-                "shadow": True,
-                "topLevel": False,
-            }
-            return [1, menu_id]
-        return [1, [10, str(value)]]
-
-    def _put_stack(self, stack: list[Block], parent: str | None) -> str | None:
-        first = previous = None
-        for block in stack:
-            block_id = self._put(block, previous or parent)
-            if previous:
-                self.blocks[previous]["next"] = block_id
-            else:
-                first = block_id
-            previous = block_id
-        return first
-
-    def add(self, hat: Block, *body: Block) -> None:
-        """ハットブロック（旗・メッセージ）から始まるスクリプトを足す。"""
-        hat_id = self._put(hat, None, top=True)
-        self.blocks[hat_id]["next"] = self._put_stack(list(body), hat_id)
-
-    def define(self, name: str, *body: Block) -> None:
-        """引数のないブロック定義を足す。call(name) で呼ぶ。"""
-        hat_id = self._put(Block("procedures_definition"), None, top=True)
-        proto_id = self._new_id("b", self.blocks)
-        self.blocks[proto_id] = {
-            "opcode": "procedures_prototype",
-            "next": None,
-            "parent": hat_id,
-            "inputs": {},
-            "fields": {},
-            "shadow": True,
-            "topLevel": False,
-            "mutation": _procedure_mutation(name, prototype=True),
-        }
-        self.blocks[hat_id]["inputs"]["custom_block"] = [1, proto_id]
-        self.blocks[hat_id]["next"] = self._put_stack(list(body), hat_id)
-
-
-# ---- 元のプロジェクトを調べる ----------------------------------------
-
-
-def find_target(project: dict[str, Any], name: str) -> dict[str, Any]:
-    for target in project["targets"]:
-        if target["name"] == name:
-            return target
-    raise StageError(f"スプライト「{name}」が元のプロジェクトにありません")
-
-
-def _stage(project: dict[str, Any]) -> dict[str, Any]:
-    return next(t for t in project["targets"] if t["isStage"])
-
-
-def _blocks(target: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """ブロックだけを返す（置いてあるだけの変数は配列で入っているので除く）。"""
-    return {k: b for k, b in target["blocks"].items() if isinstance(b, dict)}
-
-
-def _receivers(project: dict[str, Any], message: str) -> list[tuple[dict[str, Any], str]]:
-    """メッセージを受け取るスクリプトの（スプライト, ハットブロックのID）。"""
-    found = []
-    for target in project["targets"]:
-        for block_id, block in _blocks(target).items():
-            if (
-                block["opcode"] == "event_whenbroadcastreceived"
-                and block["fields"]["BROADCAST_OPTION"][0] == message
-            ):
-                found.append((target, block_id))
-    return found
-
-
-def _script_blocks(target: dict[str, Any], top_id: str) -> list[str]:
-    """あるスクリプトに属するブロックのIDを、上から順に返す。"""
-    blocks = _blocks(target)
-    order, queue = [], [top_id]
-    while queue:
-        block_id = queue.pop()
-        if block_id not in blocks:
-            continue
-        order.append(block_id)
-        block = blocks[block_id]
-        children = [v[1] for v in block["inputs"].values() if isinstance(v[1], str)]
-        queue.extend([*( [block["next"]] if block["next"] else []), *reversed(children)])
-    return order
-
-
 def check_source(project: dict[str, Any]) -> None:
     """頼っているメッセージ・変数・スプライトがそろっているか確かめる。"""
     problems = []
-    stage = _stage(project)
+    stage = stage_of(project)
     names = {t["name"] for t in project["targets"]}
     for sprite in ("通信", "問題", *INPUT_SPRITES):
         if sprite not in names:
             problems.append(f"スプライト「{sprite}」がない")
     for message in REQUIRED_MESSAGES:
-        if not [t for t, _ in _receivers(project, message) if t["name"] != "通信"]:
+        if not [t for t, _ in receivers(project, message) if t["name"] != "通信"]:
             problems.append(f"メッセージ「{message}」を受け取るスクリプトがない")
     variables = {v[0] for v in stage["variables"].values()}
     for name in (*REQUIRED_VARIABLES, STATE, TEAM, ROUND, QID, CORRECT, BALLOONS, "☁ P2S_SEQ"):
@@ -515,7 +200,7 @@ def transform(project: dict[str, Any], variant: str) -> tuple[dict[str, Any], li
 
 def _set_cloud_variables(project: dict[str, Any]) -> None:
     """裏方PCとやり取りするクラウド変数をそろえ、開いた直後の値を待機の状態にする。"""
-    stage = _stage(project)
+    stage = stage_of(project)
     by_name = {v[0]: v for v in stage["variables"].values()}
     for name, default in CLOUD_DEFAULTS.items():
         if name not in by_name:
@@ -532,27 +217,14 @@ def _drop_unused_cloud_variables(project: dict[str, Any], variant: str) -> None:
     回答を送る手段そのものをなくす（S2P_ANSWER に書くと出演者の回答として採点されるため）。
     """
     keep = {"☁ HEARTBEAT"} | {n for n in CLOUD_DEFAULTS if n.startswith("☁ P2S_") or variant == "play"}
-    renamed: dict[str, str] = {}
-    for var_id, value in _stage(project)["variables"].items():
-        if value[0].startswith("☁ ") and value[0] not in keep:
-            renamed[var_id] = value[0].removeprefix("☁ ")
-            value[:] = [renamed[var_id], value[1]]
-    for target in project["targets"]:
-        for block in target["blocks"].values():
-            if isinstance(block, list):  # 置いてあるだけの変数 [12, 名前, ID, x, y]
-                if block[0] == 12 and block[2] in renamed:
-                    block[1] = renamed[block[2]]
-                continue
-            ref = block["fields"].get("VARIABLE")
-            if ref and ref[1] in renamed:
-                ref[0] = renamed[ref[1]]
-            for value in block["inputs"].values():
-                for inner in value[1:]:
-                    if isinstance(inner, list) and inner[0] == 12 and inner[2] in renamed:
-                        inner[1] = renamed[inner[2]]
-    for monitor in project.get("monitors", []):
-        if monitor.get("id") in renamed:
-            monitor["params"]["VARIABLE"] = renamed[monitor["id"]]
+    renamed = {
+        var_id: value[0].removeprefix("☁ ")
+        for var_id, value in stage_of(project)["variables"].items()
+        if value[0].startswith("☁ ") and value[0] not in keep
+    }
+    rename_stage_variables(project, renamed)
+    for var_id in renamed:
+        del stage_of(project)["variables"][var_id][2:]  # クラウドの印も外す
 
 
 def _answering(*states: int) -> Block:
@@ -568,7 +240,7 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
     target["blocks"] = {}
     target["comments"] = {}
     s = Scripts(project, "通信")
-    has_exhibition_message = "7_エキシビジョン回答受付" in _stage(project)["broadcasts"].values()
+    has_exhibition_message = "7_エキシビジョン回答受付" in stage_of(project)["broadcasts"].values()
 
     for name in ("見たSEQ", "見たANSWER", "見たSTATE", "見たTEAM", "見たROUND", "見たQID", "順に進んだ", "桁", "点", "控え"):
         s.add_variable(name)
@@ -805,29 +477,16 @@ def _keep_keypad_on_first_question(project: dict[str, Any], notes: list[str]) ->
     その前に回答受付（回答中=1）へ進んでいると上書きされ、テンキーが出なくなる。
     まだ 0 のときだけ 0.1 にする。
     """
-    for target, top_id in _receivers(project, "演出_風船登場開始"):
-        blocks = _blocks(target)
-        for block_id in _script_blocks(target, top_id):
+    for target, top_id in receivers(project, "演出_風船登場開始"):
+        blocks = blocks_of(target)
+        for block_id in script_blocks(target, top_id):
             block = blocks[block_id]
             if (
                 block["opcode"] == "data_setvariableto"
                 and block["fields"]["VARIABLE"][0] == "回答中"
                 and block["inputs"]["VALUE"][1][1:] == ["0.1"]
             ):
-                s = Scripts(project, target["name"])
-                guard = s._put(when(eq(Var("回答中"), 0)), block["parent"])
-                entry = s.blocks[guard]
-                entry["next"] = block["next"]
-                if block["next"]:
-                    blocks[block["next"]]["parent"] = guard
-                parent = blocks[block["parent"]]
-                if parent["next"] == block_id:
-                    parent["next"] = guard
-                for value in parent["inputs"].values():
-                    if value[1] == block_id:
-                        value[1] = guard
-                entry["inputs"]["SUBSTACK"] = [2, block_id]
-                block["parent"], block["next"] = guard, None
+                Scripts(project, target["name"]).wrap_in_if(block_id, eq(Var("回答中"), 0))
                 return
     notes.append("1問目のテンキーの直し（#53）は当てていません（効果音のあとで 回答中 を 0.1 にするブロックが見つからない）")
 
@@ -936,7 +595,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"✓ {args.url} のステージ画面 {len(VARIANTS)} 件は、今の Scratch プロジェクトから作ったものと一致しています")
             return 0
         build(args.server_dir, args.room_id)
-    except StageError as e:
+    except ProjectError as e:
         print(f"✗ {e}")
         return 1
     return 0

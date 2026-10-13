@@ -1,7 +1,7 @@
 """Scratch⇔Python間のcloud変数プロトコル定義。
 
-TurboWarp cloudは数値のみ扱えるため、すべて整数で送受信する。
-変数一覧と意味は docs/protocol.md を参照（Scratch担当との共有仕様）。
+TurboWarp cloudは数値のみ扱えるため、値はすべて整数にする（送るときは cloud.py が
+文字列に直す）。変数一覧と意味は docs/protocol.md を参照（Scratch担当との共有仕様）。
 
 このモジュールは通信ライブラリに依存しない純粋なエンコード/デコード。
 """
@@ -57,7 +57,7 @@ def encode_snapshot(snapshot: Snapshot, seq: int) -> dict[str, int]:
     """エンジンのスナップショットをcloud変数の辞書に変換する。
 
     P2S_SEQ を最後に置くことで、Scratch側がSEQ変化を検知した時点で
-    他の変数が更新済みであることを期待できる（set_varsは順に送信される）。
+    他の変数が更新済みであることを期待できる（cloud.py がこの順に1つずつ送る）。
     """
     return {
         VAR_P2S_STATE: int(snapshot.state),

@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+import json
+
 from .models import Question
 
 ROUNDS_PER_TEAM = 5
@@ -119,34 +121,17 @@ class QuestionSet:
         観客の画面は正解を先に知ってはいけないので、**問題文だけ**を渡す。
         正解は正解発表のタイミングで cloud 変数 P2S_CORRECT から届く。
         """
-        import json
-
         table = {str(q.id): q.text for q in sorted(self.questions, key=lambda q: q.id)}
         return json.dumps(table, ensure_ascii=False, indent=2)
 
 
 def main() -> None:
-    """問題リストを外部向けの形式で書き出す。
+    """問題文を1行1問のテキストで書き出す（Scratch担当に渡す。行番号 = 問題ID）。
 
     使い方:
-      uv run python -m suzuleague.questions > questions.txt        # Scratch貼り付け用
-      uv run python -m suzuleague.questions --audience-json        # 観客ページ用
+      uv run python -m suzuleague.questions > "docs/scratch/問題文リスト.txt"
     """
-    import argparse
-
-    parser = argparse.ArgumentParser(description="問題リストの書き出し")
-    parser.add_argument(
-        "--audience-json",
-        action="store_true",
-        help="観客用ページに埋め込むJSONを出力する（既定はScratch貼り付け用テキスト）",
-    )
-    args = parser.parse_args()
-
-    qs = QuestionSet()
-    if args.audience_json:
-        print(qs.export_audience_json())
-    else:
-        print(qs.export_scratch_list(), end="")
+    print(QuestionSet().export_scratch_list(), end="")
 
 
 if __name__ == "__main__":

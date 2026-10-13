@@ -14,7 +14,6 @@ from collections.abc import Callable
 from .cloud import CloudBridge
 from .engine import GameEngine, GameError, Snapshot, State
 
-
 # 本番で「次へ」を受け付ける最短の間隔（秒）。これより短い間隔で続けて届いた分は取り消す。
 # Scratch は P2S_SEQ の変化を1コマ（約0.03秒）ごとに見ているだけなので、2つのステートが
 # ほぼ同時に届くと後のほうしか処理せず、間のステート（正解発表など）の演出が飛ぶ

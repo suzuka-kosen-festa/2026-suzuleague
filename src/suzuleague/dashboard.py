@@ -21,14 +21,15 @@ import argparse
 import os
 import signal
 import threading
-from pathlib import Path
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from . import savefile
 from .cloud import ENV_CLOUD_HOST, CloudBridge, resolve_cloud_host, resolve_project_id
 from .controller import MIN_ADVANCE_INTERVAL, GameController
 from .engine import GameEngine, GameError, State
@@ -41,7 +42,6 @@ from .host import (
     serve_local,
 )
 from .labels import NEXT_HINTS, STATE_LABELS, team_status_label
-from . import savefile
 from .protocol import ACK_ANIMATION_DONE
 from .questions import ROUNDS_PER_TEAM
 from .teams import ENV_TEAMS, resolve_teams
