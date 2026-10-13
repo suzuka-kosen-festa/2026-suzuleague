@@ -58,6 +58,12 @@ class TestBuild:
         assert "handshake" in sends[0]
         assert "S2P" not in sends[0]
 
+    def test_reveal_waits_for_scratch_animation(self, html):
+        """Scratch 画面より先に正解を出さない（ゲージの演出は実測で最長13.5秒）。"""
+        m = re.search(r"var REVEAL_DELAY_MS = (\d+);", html)
+        assert m, "正解発表の待ち時間が見つからない"
+        assert int(m.group(1)) >= 13_500
+
     def test_no_external_resources(self, html):
         """会場ネットワークに依存しないよう外部読み込みを持たない。"""
         assert not re.search(r'src="https?://', html)
