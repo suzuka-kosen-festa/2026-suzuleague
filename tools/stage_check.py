@@ -81,6 +81,7 @@ PLACED = ("問題", "問題数", "予想", "正解")
 UNSTABLE_ROLES = {("UI", "風船")}
 UNSTABLE_SPRITES = {"数字"}
 REOPEN_SETTLE = 4.0  # 開き直してから、画面を組み立て終えるまで待つ秒数
+REOPEN_LIMIT = 10.0  # そのあと、開き直す前と同じ画面になるまで待つ上限
 
 
 @dataclass
@@ -302,6 +303,8 @@ class Run:
             before = page.snapshot()
             page.open()
             time.sleep(REOPEN_SETTLE)
+            # 全体結果のように、組み立て直してから少しずつ出る画面もあるので、そろうまで少し待つ
+            _wait_until(lambda page=page, before=before: summary(page.snapshot(), only) == summary(before, only), REOPEN_LIMIT, 0.5)
             after = page.snapshot()
             missing = summary(before, only) - summary(after, only)
             added = summary(after, only) - summary(before, only)
