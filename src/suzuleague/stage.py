@@ -531,6 +531,13 @@ def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Bloc
                         both(both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)), lt(Var(STATE), 6)),
                         broadcast(CLEARED_TEXT_MESSAGE),
                     ),
+                    # その問題でゲームオーバー・クリアになった正解発表では、元の演出が問題文などを隠している
+                    # （ラウンド結果でまた出す）。上で ラウンド結果 まで出したので、同じものを隠し直す
+                    when(
+                        eq(Var(STATE), 4),
+                        when(eq(Var(FAILED_ROUND), Var(ROUND)), broadcast(GAME_OVER_HIDE_MESSAGE)),
+                        when(both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)), broadcast(CLEARED_HIDE_MESSAGE)),
+                    ),
                 ),
                 wait(0.1),
                 set_var("復帰描画中", 0),
@@ -554,6 +561,8 @@ def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
     names = {t["name"] for t in project["targets"]}
     _add_rebuild_game_over_text(project, notes)
     _add_rebuild_cleared_text(project, notes)
+    _mirror_simple_receivers(project, "結果_ゲームオーバー", GAME_OVER_HIDE_MESSAGE)
+    _mirror_simple_receivers(project, "結果_クリア", CLEARED_HIDE_MESSAGE)
 
     # エキシビションの回答受付で開き直したときも音楽を戻す（元の 途中復帰_出題UI同期 は出題と回答受付のときだけ）
     stage = stage_of(project)
@@ -604,6 +613,61 @@ def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
 
 GAME_OVER_TEXT_MESSAGE = "作り直し_ゲームオーバー文字"
 CLEARED_TEXT_MESSAGE = "作り直し_クリア文字"
+GAME_OVER_HIDE_MESSAGE = "作り直し_ゲームオーバーで隠す"
+CLEARED_HIDE_MESSAGE = "作り直し_クリアで隠す"
+
+
+def _mirror_simple_receivers(project: dict[str, Any], source: str, message: str) -> None:
+    """source を受ける「隠す・絵を替えるだけ」のスクリプトを、message でも同じように動くようにする。
+
+    元の演出は、結果_ゲームオーバー・結果_クリア で問題文や問題枠を隠す（音や動きのある受け手もある）。
+    開き直したときは、そのうち「隠すだけ」「役割が N なら隠す・絵を替えるだけ」のものだけを、音と動きなしでやり直したい。
+    形が違う受け手（音・待ち・動き）は写さない。
+    """
+    for target, top_id in receivers(project, source):
+        blocks = blocks_of(target)
+        first = blocks.get(blocks[top_id]["next"] or "")
+        if first is None or first["next"]:
+            continue
+        if _is_simple_look(blocks, first):
+            Scripts(project, target["name"]).add(on_message(message), _copy_simple_look(blocks, first))
+            continue
+        role = _role_condition(blocks, first)
+        inner = blocks.get(first["inputs"].get("SUBSTACK", [None, None])[1] or "")
+        if role is not None and inner is not None and not inner["next"] and _is_simple_look(blocks, inner):
+            Scripts(project, target["name"]).add(
+                on_message(message), when(eq(Var("役割"), role), _copy_simple_look(blocks, inner))
+            )
+
+
+def _is_simple_look(blocks: dict[str, Any], block: dict[str, Any]) -> bool:
+    if block["opcode"] == "looks_hide":
+        return True
+    if block["opcode"] != "looks_switchcostumeto":
+        return False
+    menu = blocks.get(block["inputs"].get("COSTUME", [None, None])[1] or "")
+    return isinstance(menu, dict) and menu["opcode"] == "looks_costume"
+
+
+def _copy_simple_look(blocks: dict[str, Any], block: dict[str, Any]) -> Block:
+    if block["opcode"] == "looks_hide":
+        return Block("looks_hide")
+    costume = blocks[block["inputs"]["COSTUME"][1]]["fields"]["COSTUME"][0]
+    return Block("looks_switchcostumeto", {"COSTUME": Menu("looks_costume", "COSTUME", costume)})
+
+
+def _role_condition(blocks: dict[str, Any], block: dict[str, Any]) -> str | None:
+    """「もし（役割）= N なら」の N（そうでなければ None）。"""
+    if block["opcode"] != "control_if":
+        return None
+    cond = blocks.get(block["inputs"].get("CONDITION", [None, None])[1] or "")
+    if cond is None or cond["opcode"] != "operator_equals":
+        return None
+    a, b = cond["inputs"].get("OPERAND1"), cond["inputs"].get("OPERAND2")
+    for var, value in ((a, b), (b, a)):
+        if isinstance(var, list) and isinstance(var[1], list) and var[1][:2] == [12, "役割"] and _literal(value) is not None:
+            return _literal(value)
+    return None
 
 
 def _literal(value: Any) -> str | None:

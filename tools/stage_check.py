@@ -6,9 +6,9 @@ Scratch担当がプロジェクトを直すたびに、ステージ画面を作�
 - 隣の cloud-server（`../cloud-server`）を手元で起動し、書き出した `public/stage/play/`（出演者用）と
   `public/stage/view/`（大画面用）を自動操作のブラウザで開く
 - 裏方PCと同じ進行（GameEngine）を同じサーバにつないで、3チームぶん進める
-  - チーム1: 5問とも1ずれ → クリア
+  - チーム1: 4問は1ずれ、最後はぴったり → クリア（ぴったり賞の演出のあとに CLEARED が出る）
   - チーム2: 2問目で大きく外してゲームオーバー → 残りはエキシビション
-  - チーム3: 5問とも1ずれ → チーム1と同点で優勝を分け合う
+  - チーム3: チーム1と同じ → 同点で優勝を分け合う
 - 段階ごとに、Scratch の中の状態（問題文・問題番号・チームの札・残りバルーン・予想・正解・文字）を、
   裏方PCの状態と照らし合わせる
 - 出題・回答受付・正解発表・ラウンド結果・チーム結果・全体結果で開き直して、
@@ -371,11 +371,9 @@ class Run:
             self.check_common(f"{q_title} 正解発表", revealed=True)
             self.check_end_texts(f"{q_title} 正解発表", result)
             if round_no in (2, 5) or ends_team(result):
-                # ゲームオーバー・クリアの問題は、開き直すとラウンド結果と同じ画面（問題文も出る）になるので、文字だけ比べる
                 self.compare_after_reopen(
                     f"{q_title} 正解発表",
                     lambda page, snap, result=result: self.check_end_texts_on(page, snap, result),
-                    only={"GameOver", "UI_結果演出"} if ends_team(result) else None,
                 )
             self.advance(2.0)  # ラウンド結果
             self.check_common(f"{q_title} ラウンド結果", revealed=True)
@@ -388,8 +386,12 @@ class Run:
         """風船が割れ終わり、GAME OVER・CLEARED の文字が出終わるまで待つ。"""
         for page in self.pages:
             _wait_until(lambda page=page: _num(page.snapshot()["vars"].get("風船の数")) == result.balloons_after, 20, 0.5)
-        if result.balloons_after == 0 or result.round_no == 5:
-            time.sleep(5.0)  # 文字は数秒待ってから、1文字ずつ（大きくなりながら）出る
+        if ends_team(result):
+            # 文字は数秒待ってから出る（ぴったりのときは、ぴったり賞の演出が終わってから CLEARED が出る）
+            game_over = result.balloons_after == 0
+            for page in self.pages:
+                _wait_until(lambda page=page: self.end_text_shown(page, page.snapshot(), game_over), 20, 0.5)
+            time.sleep(1.0)  # 文字が大きくなり終わるまで
         else:
             time.sleep(1.5)  # 風船を割る鳥が出ていく
 
@@ -418,6 +420,12 @@ class Run:
             f"{title}: テンキーの回答 {answer} が裏方PCに届く",
             f"届いたのは {self.received}",
         )
+
+    @staticmethod
+    def end_text_shown(page: StagePage, snap: dict[str, Any], game_over: bool) -> bool:
+        if game_over:
+            return len(page.shown(snap, "GameOver")) >= 8
+        return any(p["role"] == "1" for p in page.shown(snap, "UI_結果演出", "Perfect_cleared"))
 
     def check_end_texts(self, title: str, result: Any) -> None:
         for page in self.pages:
@@ -459,14 +467,13 @@ class Run:
         print("== 待機 ==")
         self.advance()  # チーム1の紹介
         teams = len(self.engine.teams)
-        # ぴったりにはしない（ぴったり賞の演出は、終わるときに CLEARED の文字も消してしまう。元の作りのまま）
         def near(correct: int) -> int:
             return correct + 1 if correct < 100 else correct - 1
 
         plans: list[Callable[[int, int], int]] = [
-            lambda round_no, correct: near(correct),  # 毎回1ずれ → クリア
+            lambda round_no, correct: correct if round_no == 5 else near(correct),  # 1ずれ×4・最後はぴったり → クリア
             lambda round_no, correct: (0 if correct >= 50 else 100) if round_no == 2 else near(correct),  # 2問目でゲームオーバー
-            lambda round_no, correct: near(correct),  # 毎回1ずれ → チーム1と同点
+            lambda round_no, correct: correct if round_no == 5 else near(correct),  # チーム1と同じ → 同点優勝
         ]
         for i in range(teams):
             if i:

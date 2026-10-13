@@ -620,3 +620,49 @@ class TestRebuildWaitsForClones:
     def test_no_wait_without_ui(self, variant):
         made, _ = stage.transform(make_project(), variant)
         assert not blocks_with(made, "通信", "control_repeat_until")
+
+
+class TestRebuildHidesLikeTheEnding:
+    """ゲームオーバー・クリアの正解発表で開き直したら、元の演出と同じく問題文などを隠す。"""
+
+    def _with_endings(self) -> dict:
+        source = make_project()
+        stage_target = source["targets"][0]
+        stage_target["broadcasts"]["m-clear"] = "結果_クリア"
+        go_id = next(k for k, v in stage_target["broadcasts"].items() if v == "結果_ゲームオーバー")
+        question = stage.find_target(source, "問題")
+        question["blocks"] = {
+            "q-hat": _hat(go_id, "結果_ゲームオーバー", "q-hide"),
+            "q-hide": _block("looks_hide", "q-hat"),
+            "c-hat": _hat("m-clear", "結果_クリア", "c-hide"),
+            "c-hide": _block("looks_hide", "c-hat"),
+        }
+        overlay = _sprite("UI_オーバーレイ", {
+            "o-hat": _hat(go_id, "結果_ゲームオーバー", "o-if"),
+            "o-if": _block("control_if", "o-hat", inputs={"CONDITION": [2, "o-eq"], "SUBSTACK": [2, "o-hide"]}),
+            "o-eq": _block("operator_equals", "o-if", inputs={"OPERAND1": [3, [12, "役割", "r1"], [10, ""]], "OPERAND2": [1, [10, "2"]]}),
+            "o-hide": _block("looks_hide", "o-if"),
+            # 音のある受け手は写さない
+            "s-hat": _hat(go_id, "結果_ゲームオーバー", "s-sound"),
+            "s-sound": _block("sound_play", "s-hat", next_id="s-hide"),
+            "s-hide": _block("looks_hide", "s-sound"),
+        }) | {"variables": {"r1": ["役割", "0"]}}
+        source["targets"].append(overlay)
+        return source
+
+    def test_simple_receivers_are_mirrored(self, variant):
+        made, _ = stage.transform(self._with_endings(), variant)
+        game_over = [(t["name"], b) for t, b in stage.receivers(made, stage.GAME_OVER_HIDE_MESSAGE)]
+        cleared = [t["name"] for t, _ in stage.receivers(made, stage.CLEARED_HIDE_MESSAGE)]
+        assert sorted(name for name, _ in game_over) == ["UI_オーバーレイ", "問題"]
+        assert cleared == ["問題"]
+        overlay = stage.find_target(made, "UI_オーバーレイ")["blocks"]
+        (hat,) = [b for name, b in game_over if name == "UI_オーバーレイ"]
+        guard = overlay[overlay[hat]["next"]]
+        assert guard["opcode"] == "control_if"
+        assert overlay[guard["inputs"]["SUBSTACK"][1]]["opcode"] == "looks_hide"
+
+    def test_rebuild_sends_them_only_at_the_reveal(self, variant):
+        made, _ = stage.transform(self._with_endings(), variant)
+        sent = broadcasts_in(made, "通信")
+        assert {stage.GAME_OVER_HIDE_MESSAGE, stage.CLEARED_HIDE_MESSAGE} <= sent

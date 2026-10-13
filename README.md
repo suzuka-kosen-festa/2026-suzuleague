@@ -36,6 +36,8 @@
 | [docs/game-rules.md](docs/game-rules.md) | ゲームルール・進行ステートの遷移図・採点仕様 | 全員 |
 | [docs/protocol.md](docs/protocol.md) | クラウド変数の通信仕様と、スマホ画面が使う HTTPS API | Scratch担当・開発者 |
 | [docs/development.md](docs/development.md) | セットアップ・動作確認・既知の落とし穴・本番チェックリスト | 開発者 |
+| [docs/messages.md](docs/messages.md) | 相手のある調整の連絡文（Scratch担当・イベント担当へ、Discord にそのまま貼る） | 連絡する人 |
+| [docs/day-checklist.html](docs/day-checklist.html) | 当日チェックリスト（印刷用のA4・1枚） | 当日の裏方・司会 |
 | [docs/イベント責任者作成の企画書.md](docs/イベント責任者作成の企画書.md) | イベントの企画書（ルール・タイムテーブル・台本） | 全員 |
 
 「しくみの図解」の実体は [docs/explainer.html](docs/explainer.html)。

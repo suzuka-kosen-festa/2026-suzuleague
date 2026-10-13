@@ -99,7 +99,7 @@ Issue は7件（2026-10-14 時点）。#52・#53 は作り直したステージ�
 | イベント担当 | リハーサルの日程・裏方PCの番をする人・裏方PCの置き場所と回線 | Discord | 早めに |
 | Org のオーナー | Render の GitHub App がこのリポジトリを読めるよう承認（リポジトリ統合） | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | リハーサル前 |
 
-イベント担当とのやり取りは GitHub の外（Discord）で進める。
+イベント担当とのやり取りは GitHub の外（Discord）で進める。そのまま貼れる文面は [messages.md](./messages.md) にまとめてある。
 
 ## 完了していること
 

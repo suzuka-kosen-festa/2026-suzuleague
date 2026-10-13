@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>スズリーグ 当日チェックリスト</title>
+<!--
+  本番当日に印刷して持っていく1枚（A4縦）。ブラウザで開いて印刷する（背景のグラフィックを印刷、を推奨）。
+  元は docs/development.md の「リリース（本番投入）チェックリスト」と Issue #49。
+  手順が変わったら、development.md とこのページの両方を直す。
+-->
+<style>
+  @page { size: A4 portrait; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: 3.15mm;
+    line-height: 1.45;
+    color: #111;
+    background: #fff;
+  }
+  .sheet { max-width: 190mm; margin: 0 auto; }
+  h1 { font-size: 6mm; margin: 0; letter-spacing: .04em; }
+  .sub { color: #555; margin: 1mm 0 3mm; }
+  .fill { display: inline-block; min-width: 32mm; border-bottom: .3mm solid #888; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+  section { border: .35mm solid #333; border-radius: 1.5mm; padding: 2mm 3mm; break-inside: avoid; }
+  section.wide { grid-column: 1 / -1; }
+  h2 { font-size: 3.8mm; margin: 0 0 1.2mm; padding-bottom: .8mm; border-bottom: .3mm solid #bbb; }
+  h2 .when { font-weight: 400; color: #555; font-size: 3mm; margin-left: 1.5mm; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { position: relative; padding-left: 5mm; margin: .7mm 0; }
+  li::before { content: ""; position: absolute; left: 0; top: .9mm; width: 3mm; height: 3mm; border: .3mm solid #333; border-radius: .5mm; }
+  .who { display: inline-block; font-size: 2.6mm; padding: 0 1.2mm; border-radius: 1mm; margin-right: 1mm; background: #e5e7eb; }
+  .who.ura { background: #dbeafe; }
+  .who.shikai { background: #fce7f3; }
+  .who.stage { background: #dcfce7; }
+  b.warn { color: #b91c1c; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 2.8mm; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; vertical-align: top; padding: .6mm 1mm; border-bottom: .2mm solid #ddd; }
+  th { white-space: nowrap; width: 33mm; }
+  .urls td { font-family: ui-monospace, Menlo, monospace; font-size: 2.8mm; }
+  @media screen {
+    body { background: #e5e7eb; padding: 16px; }
+    .sheet { background: #fff; padding: 10mm; box-shadow: 0 2px 12px rgba(0, 0, 0, .15); }
+  }
+  @media screen and (max-width: 720px) {
+    body { padding: 0; font-size: 14px; }
+    .sheet { padding: 16px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>スズリーグ 当日チェックリスト</h1>
+  <p class="sub">
+    10/31（土）・11/1（日）　イベント40分・準備10分　｜
+    裏方PCの番 <span class="fill"></span>
+    音を出す端末（大画面のPC／出演者の端末）<span class="fill"></span>
+  </p>
+
+  <div class="grid">
+    <section>
+      <h2>前日まで<span class="when">裏方</span></h2>
+      <ul>
+        <li><span class="who ura">裏方</span>司会者画面の合言葉を作り直した（Render の <code>HOST_TOKEN</code>。アプリで入れ直す）</li>
+        <li><span class="who ura">裏方</span><code>teams.json</code> を作り、ステージ画面を作り直した（札とカードにチーム名）</li>
+        <li><span class="who ura">裏方</span>画面が最新: <code>publish --check</code>・<code>stage --check</code> がどちらも ✓</li>
+        <li><span class="who ura">裏方</span>リハーサル後、<b>スマホの</b>司会者画面で「ランキングをリセット」を押した</li>
+        <li><span class="who ura">裏方</span>QRコードを印刷した（<code>docs/qr/print.html</code>）</li>
+        <li><span class="who shikai">司会</span>司会のスマホで司会者画面を開き、新しい合言葉を入れた</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>開演30分前<span class="when">全員</span></h2>
+      <ul>
+        <li><span class="who ura">裏方</span>ブラウザで <code>suzuleague-cloud.onrender.com</code> を開いてサーバを起こす（寝ていると約20秒）</li>
+        <li><span class="who ura">裏方</span>裏方PCのスリープを切り、電源につなぐ</li>
+        <li><span class="who ura">裏方</span><code>スズリーグ.app</code> で「本番」→ <b class="warn">「最初から」</b>を選ぶ（リハーサルの続きで始めない）</li>
+        <li><span class="who shikai">司会</span>司会者画面が「PCと接続中」になっている</li>
+        <li><span class="who stage">大画面</span><code>/stage/view/</code> を開いて1回クリック → 右上で全画面</li>
+        <li><span class="who stage">出演者</span><code>/stage/play/</code> を開いて1回クリック</li>
+        <li><span class="who stage">両方</span>「開始までお待ちください」が出ている。スリープ・自動ロックを切った</li>
+        <li><span class="who stage">両方</span><b class="warn">音は片方だけ</b>（もう片方は消音）</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>司会へひとこと<span class="when">開演前に</span></h2>
+      <ul>
+        <li>「次へ」は続けて押さない（1秒以内の2回目は取り消される）</li>
+        <li><b>正解発表のあと15秒は「次へ」が押せない</b>（大画面の演出待ち。残り秒数が出る）</li>
+        <li>出演者の回答が届かないときは、司会者画面の「代理入力」で入れる</li>
+        <li>ステージの端末が動かないときだけ、予備の回答画面と4桁の合言葉を出演者に伝える</li>
+        <li>同点で優勝が複数のこともある（画面に「同点優勝」と出る）</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>困ったとき<span class="when">慌てず上から</span></h2>
+      <table>
+        <tr><th>大画面・出演者の画面がおかしい</th><td>再読み込みして1回クリック。または司会者画面「困ったとき」→「Scratch に今の状態を送り直す」</td></tr>
+        <tr><th>司会者画面が「PCの応答なし」</th><td>裏方PCで <code>スズリーグ.app</code> を開き直し、<b>「続きから」</b></td></tr>
+        <tr><th>司会のスマホで操作できない</th><td>裏方PCの司会者画面（自動で開いている）で続ける</td></tr>
+        <tr><th>出演者の端末が動かない</th><td>予備の回答画面 <code>/player.html</code>（合言葉は司会者画面に出る）か「代理入力」</td></tr>
+        <tr><th>Render が落ちた</th><td><code>development.md</code>「本番サーバが落ちたときの代替手段」</td></tr>
+      </table>
+    </section>
+
+    <section class="wide">
+      <h2>開くページ<span class="when">すべて https://suzuleague-cloud.onrender.com の下</span></h2>
+      <table class="urls">
+        <tr><th>司会者画面</th><td>/host.html（合言葉）</td><th>観客ページ</th><td>/suzuleague.html（QR）</td></tr>
+        <tr><th>大画面</th><td>/stage/view/</td><th>出演者の端末</th><td>/stage/play/</td></tr>
+        <tr><th>予備の回答画面</th><td>/player.html（4桁の合言葉）</td><th>裏方PC</th><td>launcher/スズリーグ.app</td></tr>
+      </table>
+    </section>
+
+    <section class="wide">
+      <h2>終わったら</h2>
+      <ul>
+        <li><span class="who ura">裏方</span>全体結果まで出したら、アプリの「終了する」で閉じる（2日目にも行うときは、また「最初から」で始める）</li>
+        <li><span class="who ura">裏方</span>気づいたことをメモして、次の日の前に直すか決める</li>
+      </ul>
+    </section>
+  </div>
+</div>
+</body>
+</html>
