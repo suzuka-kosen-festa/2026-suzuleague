@@ -215,8 +215,21 @@ class TestValidation:
 
 
 class TestSnapshotAndWinner:
+    def test_correct_stays_through_team_result(self):
+        """チーム結果でも最後の問題の正解を出す（ステージ画面を開き直しても組み立てられるように）。"""
+        engine = make_engine([50] * 4 + [27] + [50] * 15)
+        engine.advance()
+        engine.advance()
+        for _ in range(5):
+            play_round(engine, answer=40)
+            engine.advance()
+        assert engine.state is State.TEAM_RESULT
+        assert engine.snapshot().correct == 27
+        engine.advance()  # 次のチーム
+        assert engine.snapshot().correct == -1
+
     def test_correct_hidden_until_reveal(self):
-        """正解%はREVEAL/ROUND_RESULT以外では-1（隠蔽）。"""
+        """正解%は正解発表より前では-1（隠蔽）。"""
         engine = make_engine()
         engine.advance()
         engine.advance()  # QUESTION

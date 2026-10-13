@@ -42,7 +42,7 @@ class Snapshot:
     team_no: int  # 現在のチーム番号 (未開始時は0)
     round_no: int  # 現在のラウンド (未開始時は0)
     question_id: int  # 現在の問題ID (出題前は0)
-    correct: int  # 正解% (REVEAL以降のみ有効、それ以外は-1)
+    correct: int  # 正解% (正解発表からチーム結果まで有効、それ以外は-1)
     balloons: int  # 現在チームのバルーン残数
     answer: int = -1  # 出演者の回答% (届いていなければ-1。出題のたびに-1に戻る)
     scores: tuple[int, ...] = ()  # チームごとの残りバルーン（チーム番号順。5問を終えていないチームは-1）
@@ -111,18 +111,20 @@ class GameEngine:
     def snapshot(self) -> Snapshot:
         team = self.current_team
         q = self.current_question
-        reveal_states = (State.REVEAL, State.ROUND_RESULT)
+        # チーム結果でも最後の問題の正解と回答を出し続ける。ステージ画面をそこで開き直しても、
+        # 最後の問題の画面（予想と正解のゲージ）を組み立てられるようにするため
+        revealed_states = (State.REVEAL, State.ROUND_RESULT, State.TEAM_RESULT)
         answer: int | None = None
         if self.state in (State.ANSWERING, State.EXHIBITION_ANSWERING):
             answer = self._pending_answer
-        elif self.state in (*reveal_states, State.TEAM_RESULT) and self._last_result:
+        elif self.state in revealed_states and self._last_result:
             answer = self._last_result.answer
         return Snapshot(
             state=self.state,
             team_no=team.number if team else 0,
             round_no=self._round_no,
             question_id=q.id if q else 0,
-            correct=q.correct if (q and self.state in reveal_states) else -1,
+            correct=q.correct if (q and self.state in revealed_states) else -1,
             balloons=team.balloons if team else 0,
             answer=-1 if answer is None else answer,
             scores=tuple(

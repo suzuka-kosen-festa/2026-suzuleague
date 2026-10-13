@@ -3,20 +3,21 @@
 鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」の進行システム。
 
 テレビ番組「ネプリーグ」の「パーセントバルーン」をベースにしたクイズイベント。
-**プロジェクターは使わない。** 司会と観客は自分のスマホ、出演者はステージに置いた端末の Scratch 画面で見る。
-進行の中心は裏方PCで動く Python で、スマホの画面とは Render 上の cloud サーバを介してやり取りする。
+司会と観客は自分のスマホ、出演者はステージに置いた端末のステージ画面（Scratch）で見る。**同じステージ画面を、入力なしで会場の大画面にも映す**（2026-10-13〜）。
+進行の中心は裏方PCで動く Python で、どの画面とも Render 上の cloud サーバを介してやり取りする。
 
 ```
-司会のスマホ（司会者画面）   ─操作─┐
-ステージの端末（Scratch画面）─回答─┼─▶ cloud サーバ（Render）◀─▶ 裏方PC（Python：進行・採点）
-観客のスマホ（観客ページ）   ─成績─┘     │
-                ◀──── 進行の配信（クラウド変数）──┘
+司会のスマホ（司会者画面）     ─操作─┐
+ステージの端末（ステージ画面） ─回答─┼─▶ cloud サーバ（Render）◀─▶ 裏方PC（Python：進行・採点）
+観客のスマホ（観客ページ）     ─成績─┘     │
+   大画面（ステージ画面）◀──── 進行の配信（クラウド変数）──┘
 ```
 
 | 画面 | URL | 使う人 |
 |---|---|---|
 | 観客ページ | <https://suzuleague-cloud.onrender.com/suzuleague.html>（QR: [docs/qr/](docs/qr/)） | 観客 |
-| Scratch画面（出演者用） | <https://turbowarp.org/1364239598?cloud_host=wss://suzuleague-cloud.onrender.com> | ステージの出演者（数字キーで回答） |
+| ステージ画面（大画面用） | <https://suzuleague-cloud.onrender.com/stage/view/> | 会場の全員（入力なし。大画面につなぐPCで開く） |
+| ステージ画面（出演者用） | <https://suzuleague-cloud.onrender.com/stage/play/> | ステージの出演者（数字キーで回答） |
 | 出演者の回答画面（予備） | <https://suzuleague-cloud.onrender.com/player.html> | Scratch が使えないときの出演者（4桁の合言葉が要る） |
 | 司会者画面 | <https://suzuleague-cloud.onrender.com/host.html> | 司会（合言葉が要る） |
 
@@ -30,7 +31,7 @@
 | [docs/status.md](docs/status.md) | 進捗状況・残タスク・未解決の論点・リスク | 全員（現状把握） |
 | [docs/users.md](docs/users.md) | 使う人（司会・出演者・観客など）と、それぞれが見る画面 | 全員（画面や機能を足す前に読む） |
 | [docs/demo/README.md](docs/demo/README.md) | 10/7デモの段取り（端末・準備・本編・困ったとき） | デモをする人 |
-| [docs/scratch/README.md](docs/scratch/README.md) | Scratch担当に渡すもの（問題文リストの取り込み手順と、実機確認で分かった修正依頼） | Scratch担当 |
+| [docs/scratch/README.md](docs/scratch/README.md) | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト・これまでの修正依頼） | Scratch担当 |
 | [docs/architecture.md](docs/architecture.md) | 全体構成・設計判断の理由・レイヤー構造・データフロー | 全員（まず読む） |
 | [docs/game-rules.md](docs/game-rules.md) | ゲームルール・進行ステートの遷移図・採点仕様 | 全員 |
 | [docs/protocol.md](docs/protocol.md) | クラウド変数の通信仕様と、スマホ画面が使う HTTPS API | Scratch担当・開発者 |
@@ -93,6 +94,6 @@ uv run suzuleague --offline --web
 - このリポジトリ: Python / scratchattach / uv と、スマホの画面（HTML）
 - cloud サーバ: [inouekoshi/cloud-server](https://github.com/inouekoshi/cloud-server)（TurboWarp の cloud-server のフォーク。Render で稼働。
   デモ後にこのリポジトリへまとめる予定 → [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45)）
-- Scratch側: 別担当者が開発（本番プロジェクト [`1364239598`](https://scratch.mit.edu/projects/1364239598/)。出演者の手元の端末で使う → [#41](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/41)）
+- Scratch側: 別担当者が開発（本番プロジェクト [`1364239598`](https://scratch.mit.edu/projects/1364239598/)）。絵・音・演出はそのまま使い、裏方PCとやり取りする部分だけを入れ替えて Render から配る（`uv run python -m suzuleague.stage`）
 - 作業は main に直接コミットして push する（cloud-server の master への push は即本番デプロイ）
 - 連絡・相談はDiscordで随時

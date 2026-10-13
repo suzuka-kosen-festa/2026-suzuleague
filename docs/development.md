@@ -337,6 +337,51 @@ uv run python -m suzuleague.publish --room-id 1364239598 --check
 
 接続先: <https://suzuleague-cloud.onrender.com/suzuleague.html>・<https://suzuleague-cloud.onrender.com/host.html>
 
+### ステージ画面を作り直す
+
+大画面と出演者の端末に出す Scratch 画面も、cloud サーバの `public/stage/` から配信している。
+Scratch担当のプロジェクトを取ってきて「通信」スプライトだけを入れ替え、TurboWarp Packager で HTML に書き出したもの
+（何を入れ替えているかは [protocol.md](./protocol.md#ステージ画面は元のプロジェクトから作り直して配る)）。
+**Scratch担当がプロジェクトを直したら、作り直すまで本番には出ない。**
+
+```bash
+# 1. 作って書き出す（Node.js が要る。初回だけ tools/stage-packager に Packager を入れるので少し待つ）
+uv run python -m suzuleague.stage
+
+# 2. cloud-server で差分を確認してコミットし、master に push する（Render が自動でデプロイする）
+cd ../cloud-server && git add public/stage && git commit -m "ステージ画面を作り直す" && git push
+
+# 3. 本番で配っているものが、今の Scratch プロジェクトから作ったものと同じか確かめる
+uv run python -m suzuleague.stage --check
+```
+
+| 画面 | URL |
+|---|---|
+| 大画面用（入力なし） | <https://suzuleague-cloud.onrender.com/stage/view/> |
+| 出演者用（入力あり） | <https://suzuleague-cloud.onrender.com/stage/play/> |
+
+- 開いたら**画面を1回クリックする**（緑の旗が出ている。クリックするまでブラウザが音を出さない）。右上のボタンで全画面にできる
+- 接続先は「このページを配っているサーバ」になるので、手元の cloud-server（`http://localhost:9080/stage/view/`）でも代替手段のURLでもそのまま動く
+- 作り直しが「元の Scratch プロジェクトの作りが変わっています」で止まったら、頼っているメッセージや変数の名前が変わっている。表示された名前を Scratch担当に確かめる
+- 「1問目のテンキーの直し（#53）は当てていません」と出たら、Scratch 側で同じ箇所が直された合図。1問目で早く回答受付へ進めてもテンキーが出ることを確かめる
+- 素材は1画面あたり約21MB（音が大きい）。素材のファイル名は中身から決まるので、絵や音が変わらなければ Git の差分は小さい
+
+#### 作り直したあとに確かめること
+
+手元で cloud-server を動かし（`PORT=9081 npm start`）、`http://localhost:9081/stage/play/` と `/stage/view/` を開いて、
+ダッシュボードを同じサーバにつないで1チームぶん進める。
+
+```bash
+uv run suzuleague --cloud-host ws://localhost:9081 --project-id 1364239598 --teams docs/demo/teams-demo.json
+```
+
+- テンキーで答えると、出演者用の画面と大画面用の画面の両方に予想が出る
+- 正解発表の途中・ラウンド結果・次の問題の出題のそれぞれで再読み込みして、同じ画面に戻る
+- 問題番号（左上）が、司会者画面の何問目と合っている
+
+2026-10-13 には、元のプロジェクトを通しで見たときの画面と、作り直した画面の部品（位置・コスチューム・風船の数）を
+自動操作のブラウザで時点ごとに比べ、通しでも開き直しでも一致することを確かめた。
+
 ### 本番サーバが落ちたときの代替手段
 
 Render のサーバが当日不調だった場合、裏方PC上でサーバを動かして
@@ -499,7 +544,9 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 - [x] ~~ぴったり賞の採否をイベント責任者に確認~~ → **不採用**（2026-07-23）。`--perfect-bonus` は付けない
 - [x] ~~チームの人数と問題数の対応を確認~~ → **5問固定・司会が回答者を指名**（2026-07-24）。実装変更なし
 - [x] ~~Scratch の問題の画像（スプライト「問題」のコスチューム `1-1`〜`4-5`）が20問すべて正しいことを Scratch API で確かめる~~ → **完了**（2026-10-10、[#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50)）。問題を差し替えたらもう一度確かめる
-- [ ] Scratch側で、チームの途中で開き直しても表示が崩れないよう直してもらい、実機で確かめる（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
+- [x] ~~Scratch側で、チームの途中で開き直しても表示が崩れないよう直してもらう~~ → 作り直したステージ画面（`/stage/play/`・`/stage/view/`）で解消（2026-10-13、[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
+- [ ] 実機（大画面につなぐPC・出演者の端末）で `/stage/view/` と `/stage/play/` を開き、1チームぶん通す
+- [ ] Scratch担当がプロジェクトを直したら `uv run python -m suzuleague.stage` で作り直す。`--check` で本番が最新であることを確認
 - [x] ~~本番のルームID・接続先を裏方PCに設定~~ → `launcher/スズリーグ.app` が `1364239598`・`wss://suzuleague-cloud.onrender.com` で起動する（2026-10-05）。
       Scratch側の `?cloud_host=` と一致していることは 10/6 の実機確認で確認済み
 - [x] ~~**Scratch側との結合テスト**~~ → **完了**。10/4 に自動操作、10/6 に実機で全体結果まで通した（#31）
@@ -536,9 +583,9 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 - [ ] 裏方PCの**スリープを切り**、電源につなぐ（止まってもアプリの「続きから」で再開できるが、止まらないに越したことはない）
 - [ ] `launcher/スズリーグ.app` の「本番」で、**「最初から」を選んで**ダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
 - [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
-- [ ] （アプリを起動したあとで）ステージ画面を `?cloud_host=` 付きURLで開いて緑の旗を押し、司会者画面の「Scratch に今の状態を送り直す」で「開始までお待ちください」になることを確認
-- [ ] Scratch の端末の**スリープ・自動ロックを切る**。本番中は再読み込みも緑の旗の押し直しもしない。チームの途中で開き直すと表示が崩れ、出題・回答受付の最中だと次のチームになっても戻らない（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
-- [ ] 司会に伝える: **各チームの1問目は、Scratch に問題文が出てから「次へ」を押す**（出題から約8秒かかる。早いとテンキーが出ない。[#53](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/53)）。「次へ」は続けて押さない（1秒以内の2回目は取り消される）
+- [ ] 大画面につなぐPCで <https://suzuleague-cloud.onrender.com/stage/view/> を、出演者の端末で <https://suzuleague-cloud.onrender.com/stage/play/> を開き、画面を1回クリックして「開始までお待ちください」になることを確認（アプリより先に開いてもよい）
+- [ ] 大画面のPCと出演者の端末の**スリープ・自動ロックを切る**。画面がおかしくなったら再読み込みして1回クリックすれば、今の画面に戻る
+- [ ] 司会に伝える: 「次へ」は続けて押さない（1秒以内の2回目は取り消される）。各チームの1問目は、問題文が出るまで約8秒かかる
 - [ ] 進行不能時の代替手段を確認（司会者画面の「代理入力」、予備の回答画面 `/player.html`、
       「Scratch に今の状態を送り直す」、PCの司会者画面、[バックアップ手順](#本番サーバが落ちたときの代替手段)）
 

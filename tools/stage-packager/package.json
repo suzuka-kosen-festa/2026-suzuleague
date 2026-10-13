@@ -1,0 +1,8 @@
+{
+  "name": "suzuleague-stage-packager",
+  "private": true,
+  "description": "Scratch のステージ画面を HTML に書き出す（src/suzuleague/stage.py から呼ぶ）",
+  "dependencies": {
+    "@turbowarp/packager": "3.13.0"
+  }
+}

@@ -22,3 +22,6 @@ teams.json
 # 起動用ファイルが保存する合言葉
 launcher/settings.env
 launcher/run/
+
+# ステージ画面の書き出しに使う TurboWarp Packager
+tools/stage-packager/node_modules/
