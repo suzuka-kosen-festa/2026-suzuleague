@@ -324,10 +324,11 @@ flowchart TD
 | `labels.py` | ステートの表示名・「次へ」の案内・チームの挑戦状況（CLIと画面で共通） | engine, models |
 | `audience.py` | 観客ページの生成（問題文を埋め込む。正解は埋め込まない） | questions |
 | `publish.py` | 3画面を cloud-server の `public/` に書き出す・本番と照合する | audience, host |
-| `stage.py` | Scratch担当のプロジェクトからステージ画面（大画面用・出演者用）を作る。スプライト「通信」のスクリプトを入れ替え、TurboWarp Packager（`tools/stage-packager`）で `public/stage/` に書き出す・本番と照合する | sb3, publish |
-| `stage_result.py` | ステージ画面の全体結果（チームごとの残りバルーン・順位・優勝）。元の得点表の代わりに足すスプライトと、その絵（SVG） | sb3 |
+| `stage.py` | Scratch担当のプロジェクトからステージ画面（大画面用・出演者用）を作る。スプライト「通信」のスクリプトを入れ替え、`teams.json` のチーム名を札に入れ、TurboWarp Packager（`tools/stage-packager`）で `public/stage/` に書き出す・本番と照合する | sb3, stage_result, teams, publish |
+| `stage_result.py` | ステージ画面の全体結果（チームごとの残りバルーン・順位・優勝。同点なら全チームが優勝）。元の得点表の代わりに足すスプライトと、その絵（SVG）。チーム名の札の絵もここで作る | sb3 |
 | `sb3.py` | Scratch のプロジェクト（project.json）のブロックを Python の式で組み立てる道具。スズリーグ固有の知識は持たない | — |
 | `sim_scratch.py` | Scratch側のフリをする開発ツール | cloud, questions |
+| `tools/stage_check.py` | 書き出したステージ画面を、手元の cloud-server と自動操作のブラウザで3チーム通して確かめる（Playwright。依存には入れない） | engine, controller, cloud |
 
 画面（`host.html`・`player.html`・`audience_template.html`）は外部ライブラリを使わない1ファイル完結のHTML。
 cloud サーバ側のAPI（`hostApi.js`・`rankingApi.js`）は [inouekoshi/cloud-server](https://github.com/inouekoshi/cloud-server) にある。

@@ -77,7 +77,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/host.html` / `player.html` | 司会者画面・出演者の回答画面 |
 | `src/suzuleague/publish.py` | 3画面の cloud-server への書き出しと本番との照合 |
 | `src/suzuleague/stage.py` | ステージ画面（大画面用・出演者用）を Scratch のプロジェクトから作り、書き出す・本番と照合する |
-| `src/suzuleague/stage_result.py` | ステージ画面の全体結果（残りバルーン・順位・優勝）。絵も SVG でここから作る |
+| `src/suzuleague/stage_result.py` | ステージ画面の全体結果（残りバルーン・順位・優勝）とチーム名の札。絵も SVG でここから作る |
 | `src/suzuleague/sb3.py` | Scratch のプロジェクトのブロックを組み立てる道具（`stage.py` が使う） |
 | `tools/stage-packager/` | ステージ画面を HTML に書き出す TurboWarp Packager（Node.js。`stage.py` が呼ぶ） |
 | `tools/stage_check.py` | 書き出したステージ画面を、手元のサーバと自動操作のブラウザで通しに動かして確かめる（Playwright） |
@@ -89,7 +89,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/audience.py` | 観客ページの生成（問題文を埋め込む） |
 | `src/suzuleague/audience_template.html` | 観客ページ（自己採点・観客ランキング・全体結果） |
 | `src/suzuleague/loadtest.py` | 同時接続数・観客ランキングの一斉送信の負荷テスト（開発用） |
-| `tests/` | ユニットテスト（ネットワーク不要。201件） |
+| `tests/` | ユニットテスト（ネットワーク不要。229件） |
 | `launcher/` | ダッシュボードの起動アプリ（`スズリーグ.app`）とターミナル版（`*.command`） |
 | `docs/scratch/` | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト） |
 | `docs/qr/` | QRコードと印刷用ページ |
