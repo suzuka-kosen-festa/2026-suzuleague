@@ -74,6 +74,9 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 「ステージ画面」の模擬表示が流れる。回答受付ステートで
 シミュレータから回答を送るとダッシュボードに届く。
 
+本物のステージ画面（Scratch）とつないで確かめる方法は
+[ステージ画面を作り直す](#作り直したあとに確かめること) を参照。
+
 ## ダッシュボードのコマンド
 
 | コマンド | 動作 |
@@ -82,7 +85,7 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 | `answer <0-100>` / `a` | 回答を入力（Scratchからの回答の代行。上書き可） |
 | `status` / `s` | 現在の状況を表示 |
 | `teams` / `t` | 全チームのスコア一覧・優勝表示 |
-| `resync` | クラウド変数の全状態を再送（Scratch側リロード後に使う。司会者画面の「困ったとき」にも同じボタンがある） |
+| `resync` | クラウド変数の全状態を再送する。ステージ画面は、同じ状態を受け取ると画面を組み立て直す（司会者画面の「困ったとき」にも同じボタンがある） |
 | `help` / `h` | ヘルプ |
 | `quit` / `exit` | 終了 |
 
@@ -116,7 +119,7 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 ### アプリで起動する
 
 `launcher/スズリーグ.app` を開き、「デモ（1チーム5問）」か「本番」を選ぶ。**ターミナルは開かない**。
-ダッシュボードは裏で動き、操作はすべて司会者画面で行う（Scratch への送り直しも「困ったとき」のボタンでできる）。
+ダッシュボードは裏で動き、操作はすべて司会者画面で行う（ステージ画面への送り直しも「困ったとき」のボタンでできる）。
 PCのブラウザに開く司会者画面（`localhost`）は予備で、観客ランキングの操作はできない（スマホの司会者画面で行う）。
 
 | 選ぶもの | チーム構成 |
@@ -151,14 +154,14 @@ CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchの�
 |---|---|
 | 合言葉（`X-Host-Token` ヘッダ。HTTPSで送る） | URLが漏れて進行を乗っ取られる。クラウド変数と違い、他の端末には流れない |
 | 「次へ」に表示中のステートを添える（`expect_state`） | 通信の遅れで「次へ」が二重に届き、2段階進んでしまう |
-| 前の「次へ」から1秒たたない「次へ」は取り消す（`MIN_ADVANCE_INTERVAL`） | 続けて押して2段階進んでしまう。Scratch は2つのステートがほぼ同時に届くと間のステート（正解発表など）を処理しないので、その取りこぼしも防ぐ |
+| 前の「次へ」から1秒たたない「次へ」は取り消す（`MIN_ADVANCE_INTERVAL`） | 続けて押して2段階進んでしまう。ステージ画面は2つのステートがほぼ同時に届くと間のステート（正解発表など）の演出を流せないので、その取りこぼしも防ぐ |
 | 裏方PCは起動前に溜まっていた操作を捨てる | 再起動直後に古い「次へ」が一気に実行される |
 | 正解は押している間だけ表示 | 司会のスマホを周りに覗かれる |
 
 ### 出演者の回答画面（予備）
 
-本番の出演者は、ステージに置いた端末の **Scratch 画面の数字キー**で回答する（`☁ S2P_ANSWER`。#41）。
-スマホの回答画面（`https://suzuleague-cloud.onrender.com/player.html`）は、Scratch の端末が使えないときの予備。
+本番の出演者は、ステージに置いた端末の**ステージ画面（出演者用）の数字キー**で回答する（`☁ S2P_ANSWER`。#41）。
+スマホの回答画面（`https://suzuleague-cloud.onrender.com/player.html`）は、ステージの端末が使えないときの予備。
 回答は司会の操作と同じ郵便受けに預けられ、裏方PCが取り出して採点に使う。
 
 - **観客のなりすまし対策として、チームごとの4桁の合言葉が要る。** 裏方PCの起動時に作られ、
@@ -186,7 +189,7 @@ CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchの�
 | ファイル | 読み取ると開く画面 | 使い方 |
 |---|---|---|
 | `audience.png` / `.svg` | 観客ページ | クラス委員が掲げる・各室長に送る |
-| `player.png` / `.svg` | 出演者の回答画面（予備） | Scratch の端末が使えないときに控室・ステージ袖で使う（観客には見せない） |
+| `player.png` / `.svg` | 出演者の回答画面（予備） | ステージの端末が使えないときに控室・ステージ袖で使う（観客には見せない） |
 
 URLを変えたら作り直す（依存に足さず、その場でだけ `qrcode` を使う）。
 
@@ -226,9 +229,10 @@ for n, u in {'audience': 'https://suzuleague-cloud.onrender.com/suzuleague.html'
 `suzuleague.cloud`（スモークテスト）/ `loadtest` のすべてで共通に効く。
 
 ルームIDについて: TurboWarp cloudは任意の文字列IDで「部屋」を作れる。
-開発中は `suzuleague-dev` を使い、**本番はScratch担当が用意した
-プロジェクトのID `1364239598`**に切り替える（Scratch側は本物のプロジェクトIDでしか繋げないため）。
-本番プロジェクト: <https://scratch.mit.edu/projects/1364239598/>（TurboWarpで開くときは
+開発中は `suzuleague-dev` を使い、**本番はScratch担当のプロジェクトのID `1364239598`**に切り替える
+（元のプロジェクトを TurboWarp で開くと、プロジェクトIDがそのままルームIDになるため）。
+観客ページと Render から配るステージ画面には、書き出すときにこのルームIDを埋め込む。
+元のプロジェクト: <https://scratch.mit.edu/projects/1364239598/>（TurboWarpで直接開くときは
 末尾に `?cloud_host=wss://suzuleague-cloud.onrender.com` を必ず付ける）。
 
 ### チーム名・メンバーを設定する
@@ -288,7 +292,8 @@ URLの扱いで事故りやすい点を先回りして処理してある。
   当日まで気付けない類の事故なので、Python側で先に弾いている
 - `ws://localhost:9080` など**ローカルホストへの平文wsは許可**（下記の手元検証用）
 
-**Scratch側**は URL に `?cloud_host=wss://...` を付けて開く。Python側と同じ値を使うこと。
+Render から配る画面（観客ページ・ステージ画面）は、配っているサーバにそのままつなぐので設定は要らない。
+**元のプロジェクトを TurboWarp で直接開くとき**だけ、URL に `?cloud_host=wss://...` を付ける。Python側と同じ値を使うこと。
 片方だけ切り替えると、エラーは出ないまま互いの変数が見えない状態になる。
 
 ### 手元でcloud-serverを動かして試す
@@ -323,9 +328,8 @@ uv run python -m suzuleague.loadtest --cloud-host ws://localhost:9080 --ramp 10,
 # 1. 書き出す（隣に cloud-server がクローンしてある前提。場所が違えば --server-dir）
 uv run python -m suzuleague.publish --room-id 1364239598
 
-# 2. cloud-server で差分を確認してブランチを切り、PRを作る
-cd ../cloud-server && git switch -c update-pages && git add public && git commit -m "画面を更新" && git push -u origin update-pages
-#   → master にマージすると Render が自動でデプロイする（約90秒）
+# 2. cloud-server で差分を確認してコミットし、master に push する（Render が自動でデプロイする。約90秒）
+cd ../cloud-server && git add public && git commit -m "画面を更新" && git push
 
 # 3. 本番の画面が手元から作ったものと一致するか確かめる
 uv run python -m suzuleague.publish --room-id 1364239598 --check
@@ -450,14 +454,19 @@ uv run pytest -k exhibition   # 絞り込み例
 | `tests/test_audience.py` | 観客ページの生成（正解を埋め込まない・ルームIDと問題文の埋め込み） |
 | `tests/test_teams.py` | チーム構成JSONの読み込みと検証 |
 | `tests/test_cloud_host.py` | 接続先サーバの解決、送信用接続からの受信（`CloudReceiver`：複数メッセージ・接続直後のまとめ送りの読み捨て） |
+| `tests/test_cloud.py` | cloud への送信（`CloudBridge`）：値を文字列で送る・SEQ を最後に送る・回答だけを単独で送る |
+| `tests/test_stage.py` | ステージ画面の作り直し：大画面用から回答を送れない・クラウド変数の初期値・ブロックのつながり・元の作りが変わったときのエラー・本番との照合 |
 | `tests/test_dashboard.py` | サーバが寝ているときに起こして接続し直す |
 | `tests/test_savefile.py` | 進行の保存と途中からの再開：全4チーム20問のどの瞬間でも読み戻した画面が一致する、チーム構成・問題・バルーンの食い違いを拒む、合言葉の引き継ぎ、続きの説明（アプリのダイアログ用） |
+
+`test_stage.py` は、頼っているメッセージと変数だけを持つ小さなプロジェクトで確かめている。
+本物のプロジェクトから作った画面の動きは、[作り直したあとに確かめること](#作り直したあとに確かめること)の手順で見る。
 
 cloud通信層（`cloud.py`）の接続部分は実サーバ依存のためユニットテスト対象外。
 変更したら上記スモークテスト＋E2Eで確認すること。**Scratch → Python の回答の経路は、本物の Scratch
 （TurboWarp で開いた本番プロジェクト）か、生の WebSocket で `S2P_ANSWER` を書いて確かめる**（落とし穴7）。
 
-## 既知の落とし穴（scratchattach × TurboWarp）
+## 既知の落とし穴（scratchattach × TurboWarp × Scratch）
 
 実測で確認済みの罠。**どれもエラーを出さずに静かに失敗する**ので必読。
 
@@ -529,12 +538,35 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 数字キーの回答が Python に届くことを確認した。**Scratch → Python の経路は、シミュレータではなく
 本物の Scratch か、生の WebSocket で `S2P_ANSWER` を書いて確かめること**。
 
+### 8. 値を数値で送ると、Scratch がコスチュームを番号で選ぶ
+
+Scratch の「コスチュームを（`☁ P2S_ROUND`）にする」は、値が文字列ならコスチュームの**名前**で、
+数値なら**番号**で選ぶ。裏方PCが数値で送っていたあいだ、問題番号の表示が1つ前にずれていた
+（3問目なのに「2」が光る。2026-10-13 に実機で確認）。Scratch のエディタで変数に値を入れて試すと
+文字列になるので、Scratch担当の手元では再現しない。
+
+`CloudBridge._set_var` が値を文字列にして送っている。数値に戻さないこと。
+
+### 9. TurboWarp Packager は、☁ で始まる変数をすべてクラウド変数にする
+
+project.json でクラウドの印を外しても、名前が ☁ で始まるステージの変数は、書き出すとクラウド変数に戻る。
+大画面用のステージ画面から回答（`S2P_ANSWER`）を送れなくするには、**名前から ☁ を外す**
+（`stage.py` の `_drop_unused_cloud_variables`）。
+
+### 10. 「止める」と別のメッセージを同じコマで送ると、後のメッセージの受け手も止まる
+
+Scratch で「スプライトの他のスクリプトを止める」を受け手に持つメッセージを送り、同じコマで別のメッセージを送ると、
+あとのメッセージで動き始めたばかりのスクリプトまで止まる。ステージ画面の組み立て直しでは、
+`作り直し_止める` と `初期化` のあいだに0.1秒の「待つ」を入れている。入れないと背景と正解の印が元に戻らない。
+
 ## 通信仕様を変更するとき
 
 1. `src/suzuleague/protocol.py` の変数定義・エンコードを変更
 2. `docs/protocol.md`（Scratch担当との共有仕様書）を同時に更新
 3. `tests/test_protocol.py` を更新
-4. **Scratch担当に変更をDiscordで連絡**（Scratch側の改修が必要なため）
+4. ステージ画面が使う変数なら、`src/suzuleague/stage.py`（スプライト「通信」のスクリプト）を合わせて直し、
+   [作り直して](#ステージ画面を作り直す)配り直す
+5. 元のプロジェクトを TurboWarp で直接開く使い方に影響するなら、**Scratch担当にDiscordで連絡**する
 
 ## リリース（本番投入）チェックリスト
 
@@ -554,18 +586,8 @@ websocket-client が pong を返す機会がなく、1〜2分ごとに切られ�
 - [x] ~~**観客ページを本番room IDで再生成してデプロイ**~~ → **完了**（2026-08-06）。
       本番配信中のページが `1364239598` を向いていることを `curl` で実確認済み
 
-      **問題を差し替えたときは再生成が必要**（問題文がページに埋め込まれているため）。
-      手順は以下。
-
-      ```bash
-      uv run python -m suzuleague.audience --room-id 1364239598 \
-        -o ../cloud-server/public/suzuleague.html
-      ```
-
-      cloud-server（`inouekoshi/cloud-server`）の `master` に push すると Render が
-      自動デプロイする（実測で**push から約90秒**で反映）。デプロイ後は
-      `curl -s https://suzuleague-cloud.onrender.com/suzuleague.html | grep 'var ROOM'`
-      で `1364239598` になっていることを必ず確認する
+      **問題を差し替えたときは書き出し直す**（問題文がページに埋め込まれているため）。
+      手順は[観客用ページを更新する](#観客用ページを更新する)。
 - [ ] `uv run python -m suzuleague.publish --room-id 1364239598 --check` で、本番の画面が最新であることを確認
 - [x] ~~観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行~~ → **完了**（2026-10-06）
 - [ ] QRコードを印刷する（`docs/qr/print.html`。クラス委員が掲げる）

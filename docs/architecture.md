@@ -219,9 +219,9 @@ Scratchプロジェクト側に専用テンプレートの組み込みが必要�
 ### 3. 問題文はID参照方式
 
 クラウド変数は数値しか送れず、日本語テキストのエンコードは重い。
-そこで**問題文マスタはPython側**（`questions.py`）に持ち、Scratchへは問題IDのみ送る。
-Scratch側は行番号=問題IDのリストを持ち、`uv run python -m suzuleague.questions` で
-生成した貼り付け用テキストを取り込む。問題を差し替えたら双方の更新が必要な点に注意。
+そこで**問題文マスタはPython側**（`questions.py`）に持ち、画面へは番号だけを送る。
+観客ページは書き出すときに問題文を埋め込み、ステージ画面は問題文を画像（スプライト「問題」のコスチューム）で持つ。
+問題を差し替えたら、`questions.py`・ステージ画面の画像・観客ページの3か所の更新が必要な点に注意。
 
 ### 4. ~~ダッシュボードはまずCLI~~ → 司会がスマホで操作する司会者画面に（2026-10-04）
 
@@ -241,7 +241,7 @@ CLIは予備の操作手段として残している。
 scratchattachの一括送信 `set_vars()` は複数JSONを1つのWebSocketフレームに詰めるが、
 TurboWarpサーバはこれを不正フレームとして無視し、**以降その接続からの送信を
 すべて破棄する**（エラーは出ない。実測で確認済み）。そのため必ず `set_var()` で
-1変数ずつ送る。詳細は [development.md の「既知の落とし穴」](./development.md#既知の落とし穴scratchattach--turbowarp) を参照。
+1変数ずつ送る。詳細は [development.md の「既知の落とし穴」](./development.md#既知の落とし穴scratchattach--turbowarp--scratch) を参照。
 
 ### 6. スマホから裏方PCへは直接つながず、Render を郵便受けにする
 
@@ -282,6 +282,7 @@ flowchart TD
     hostm["host.py<br>司会者画面・回答画面の中継（UI層）"]
     pub["publish.py<br>画面の書き出し・本番との照合"]
     stg["stage.py<br>ステージ画面の作り直し<br>（Scratch のプロジェクト → HTML）"]
+    sb["sb3.py<br>Scratch のブロックを組み立てる道具"]
     ctrl["controller.py<br>進行操作の窓口（ロック）"]
     sim["sim_scratch.py<br>Scratch側シミュレータ（開発用）"]
     cloud_["cloud.py<br>クラウド変数の接続（通信層）"]
@@ -298,6 +299,7 @@ flowchart TD
     pub --> aud
     pub --> hostm
     stg --> pub
+    stg --> sb
     aud --> q
     sim --> cloud_
     sim --> q
@@ -322,6 +324,8 @@ flowchart TD
 | `labels.py` | ステートの表示名・「次へ」の案内・チームの挑戦状況（CLIと画面で共通） | engine, models |
 | `audience.py` | 観客ページの生成（問題文を埋め込む。正解は埋め込まない） | questions |
 | `publish.py` | 3画面を cloud-server の `public/` に書き出す・本番と照合する | audience, host |
+| `stage.py` | Scratch担当のプロジェクトからステージ画面（大画面用・出演者用）を作る。スプライト「通信」のスクリプトを入れ替え、TurboWarp Packager（`tools/stage-packager`）で `public/stage/` に書き出す・本番と照合する | sb3, publish |
+| `sb3.py` | Scratch のプロジェクト（project.json）のブロックを Python の式で組み立てる道具。スズリーグ固有の知識は持たない | — |
 | `sim_scratch.py` | Scratch側のフリをする開発ツール | cloud, questions |
 
 画面（`host.html`・`player.html`・`audience_template.html`）は外部ライブラリを使わない1ファイル完結のHTML。
@@ -340,7 +344,7 @@ sequenceDiagram
     participant H as 司会者画面
     participant B as 裏方PC（controller・engine）
     participant TW as cloud サーバ
-    participant S as Scratch画面（出演者）
+    participant S as ステージ画面（出演者用・大画面用）
     participant A as 観客ページ
 
     H->>B: 次へ（出題へ）※Render経由
@@ -355,20 +359,20 @@ sequenceDiagram
     B->>B: 採点（バルーン -= |正解-回答|）
     B->>TW: P2S_*（CORRECT公開）
     TW-->>S: バルーンが割れる演出
-    TW-->>A: 正解を配信 → 自己採点・成績を送信
+    TW-->>A: 正解を配信 → 成績を送信。画面に出すのは15秒後（大画面のゲージが止まってから）
 ```
 
 ## 制約・リスクと対応
 
 | 制約 | 対応 |
 |---|---|
-| クラウド変数は全員切断で値が消える | 司会者画面の「Scratch に今の状態を送り直す」（CLIの `resync`）で全状態を再送できる。ただし今の Scratch 側は、チームの途中の状態をいきなり受けると画面を組み立てられない（[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)） |
+| クラウド変数は全員切断で値が消える | 司会者画面の「Scratch に今の状態を送り直す」（CLIの `resync`）で全状態を再送できる。作り直したステージ画面は、どの段階の状態を受けても画面を組み立て直す |
 | ~~同一IPからの接続頻度制限~~（公開サーバ実測: 連発すると1〜2分接続不可） | **解消済み**。この制限は公開サーバ前段のインフラ由来で、セルフホストには存在しない（ソースで確認） |
 | 裏方PCのPythonが止まる＝進行不能 | 司会者画面に「PCの応答なし」が出る。`HEARTBEAT` 変数（15秒毎更新）でも死活を検知できる。進行は操作のたびに `launcher/run/game-*.json` に保存しているので、**アプリを開き直して「続きから」を選べば落ちる前の状態から再開できる**（[#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51)） |
 | ~~送信用の接続が1〜2分ごとに切られ、直後の送信が黙って消える~~（2026-10-04 E2Eで発見） | **解消済み**。送信用接続を読み続けて ping に応答する（[落とし穴6](./development.md#6-送るだけの接続は12分ごとに切られ直後の送信が黙って消える)） |
 | ~~1部屋あたり128クライアントの上限~~（2026-07-22 実測） | **解消済み**。セルフホストで `MAX_CLIENTS=300` に設定。150接続まで実測確認。詳細は下記 |
 | ~~Scratch からの回答が Python に届かない~~（scratchattach の受信が自前サーバを無視していた。2026-10-04 発見） | **解消済み**。受信を自前の `CloudReceiver` に置き換え（[落とし穴7](./development.md#7-scratchattach-の受信は自前サーバを指定しても公開サーバにつながる)） |
-| Render が止まると全員の画面が止まる（大画面がないので、スマホが唯一の画面） | 裏方PC上でサーバを動かして Cloudflare Quick Tunnel で公開する代替手段を確認済み（[手順](./development.md#本番サーバが落ちたときの代替手段)） |
+| Render が止まると全員の画面が止まる（ステージ画面も Render から配っている） | 裏方PC上でサーバを動かして Cloudflare Quick Tunnel で公開する代替手段を確認済み（[手順](./development.md#本番サーバが落ちたときの代替手段)） |
 
 ## 同時接続数の上限とセルフホスト方針
 

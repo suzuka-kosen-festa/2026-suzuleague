@@ -30,8 +30,8 @@
 | [**しくみの図解**](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/2026-suzuleague/blob/main/docs/explainer.html) | システムの仕組みを図で説明（専門用語なし） | **全員（プログラム未経験でも読める）** |
 | [docs/status.md](docs/status.md) | 進捗状況・残タスク・未解決の論点・リスク | 全員（現状把握） |
 | [docs/users.md](docs/users.md) | 使う人（司会・出演者・観客など）と、それぞれが見る画面 | 全員（画面や機能を足す前に読む） |
-| [docs/demo/README.md](docs/demo/README.md) | 10/7デモの段取り（端末・準備・本編・困ったとき） | デモをする人 |
-| [docs/scratch/README.md](docs/scratch/README.md) | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト・これまでの修正依頼） | Scratch担当 |
+| [docs/demo/README.md](docs/demo/README.md) | デモ・リハーサルの段取り（端末・準備・本編・困ったとき） | デモやリハーサルをする人 |
+| [docs/scratch/README.md](docs/scratch/README.md) | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト・これまでの依頼の経緯） | Scratch担当 |
 | [docs/architecture.md](docs/architecture.md) | 全体構成・設計判断の理由・レイヤー構造・データフロー | 全員（まず読む） |
 | [docs/game-rules.md](docs/game-rules.md) | ゲームルール・進行ステートの遷移図・採点仕様 | 全員 |
 | [docs/protocol.md](docs/protocol.md) | クラウド変数の通信仕様と、スマホ画面が使う HTTPS API | Scratch担当・開発者 |
@@ -76,6 +76,9 @@ uv run suzuleague --offline --web
 | `src/suzuleague/host.py` | 司会者画面・回答画面の中継（Render 経由）・出演者の合言葉・予備サーバ |
 | `src/suzuleague/host.html` / `player.html` | 司会者画面・出演者の回答画面 |
 | `src/suzuleague/publish.py` | 3画面の cloud-server への書き出しと本番との照合 |
+| `src/suzuleague/stage.py` | ステージ画面（大画面用・出演者用）を Scratch のプロジェクトから作り、書き出す・本番と照合する |
+| `src/suzuleague/sb3.py` | Scratch のプロジェクトのブロックを組み立てる道具（`stage.py` が使う） |
+| `tools/stage-packager/` | ステージ画面を HTML に書き出す TurboWarp Packager（Node.js。`stage.py` が呼ぶ） |
 | `src/suzuleague/savefile.py` | 進行の保存と、裏方PCを起動し直したときの途中からの再開 |
 | `src/suzuleague/labels.py` | ステートの表示名（CLIと画面で共通） |
 | `src/suzuleague/dashboard.py` | 起動とCLIダッシュボード（中継・予備サーバも立ち上げる） |
@@ -84,9 +87,9 @@ uv run suzuleague --offline --web
 | `src/suzuleague/audience.py` | 観客ページの生成（問題文を埋め込む） |
 | `src/suzuleague/audience_template.html` | 観客ページ（自己採点・観客ランキング・全体結果） |
 | `src/suzuleague/loadtest.py` | 同時接続数・観客ランキングの一斉送信の負荷テスト（開発用） |
-| `tests/` | ユニットテスト（ネットワーク不要。146件） |
+| `tests/` | ユニットテスト（ネットワーク不要。188件） |
 | `launcher/` | ダッシュボードの起動アプリ（`スズリーグ.app`）とターミナル版（`*.command`） |
-| `docs/scratch/` | Scratch担当に渡す問題文リストと取り込み手順 |
+| `docs/scratch/` | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト） |
 | `docs/qr/` | QRコードと印刷用ページ |
 
 ## 開発体制
