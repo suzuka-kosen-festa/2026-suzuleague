@@ -238,8 +238,7 @@ class Run:
         self.pages = (self.play, self.view)
 
     def seq(self) -> int:
-        """最後に送った P2S_SEQ（まだ何も送っていなければ 0）。"""
-        return self.bridge._seq
+        return self.bridge.seq
 
     def _on_answer(self, percent: int) -> None:
         self.received.append(percent)

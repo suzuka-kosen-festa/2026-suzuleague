@@ -44,7 +44,7 @@ class TestBuild:
         html = build("room", QuestionSet(questions))
 
         # 埋め込まれた問題テーブルを取り出し、値が問題文だけであることを確認する
-        m = re.search(r"var QUESTIONS = (\{.*?\n\});", html, re.S)
+        m = re.search(r"var QUESTIONS = (\{.*?\n\});", html, re.DOTALL)
         assert m, "問題テーブルが見つからない"
         table = json.loads(m.group(1))
         assert len(table) == 20
@@ -55,7 +55,7 @@ class TestBuild:
     def test_audience_never_writes_s2p(self, html):
         """観客が S2P_* を書くと挑戦者の回答として採点されてしまう。"""
         # 送信しているのは handshake のみ
-        sends = re.findall(r"ws\.send\((.*?)\);", html, re.S)
+        sends = re.findall(r"ws\.send\((.*?)\);", html, re.DOTALL)
         assert len(sends) == 1
         assert "handshake" in sends[0]
         assert "S2P" not in sends[0]

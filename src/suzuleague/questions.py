@@ -77,10 +77,6 @@ SPARE_QUESTIONS: list[Question] = [
     Question(110, "SNSのサブスクリプションを1つ以上登録している人は何パーセント？", 63, SURVEY_2),
 ]
 
-# 旧名の互換用エイリアス（プロトタイプ期のサンプル問題は本番データに差し替え済み）
-SAMPLE_QUESTIONS = PRODUCTION_QUESTIONS
-
-
 class QuestionSet:
     """チーム×ラウンドへの問題割り当てを管理する。"""
 

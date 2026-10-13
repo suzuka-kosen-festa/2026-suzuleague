@@ -47,7 +47,6 @@ from typing import Any
 
 from . import stage_result
 from .publish import DEFAULT_SERVER_DIR, PRODUCTION_URL
-from .teams import load_teams
 from .sb3 import (
     Block,
     Menu,
@@ -83,15 +82,16 @@ from .sb3 import (
     receivers,
     rename_stage_variables,
     repeat,
+    repeat_until,
     script_blocks,
     set_var,
     stage_of,
     stop_other_scripts,
-    repeat_until,
     wait,
     when,
     when_else,
 )
+from .teams import load_teams
 
 SCRATCH_PROJECT_ID = "1364239598"
 VARIANTS = {"view": "大画面用（入力なし）", "play": "出演者用（入力あり）"}
@@ -140,6 +140,18 @@ FAILED_ROUND = "☁ P2S_FAILED_ROUND"
 
 class StageError(ProjectError):
     """元のプロジェクトや Packager の出力が想定と違っていて、作り直せない。"""
+
+
+def _optional_target(project: dict[str, Any], name: str) -> dict[str, Any] | None:
+    """スプライトがあれば返す（なければ None。なくても作り直しは止めない直しに使う）。"""
+    try:
+        return find_target(project, name)
+    except ProjectError:
+        return None
+
+
+def _has_variable(target: dict[str, Any] | None, name: str) -> bool:
+    return target is not None and any(v[0] == name for v in target["variables"].values())
 
 
 # ---- 元のプロジェクトを取ってくる ------------------------------------
@@ -221,10 +233,8 @@ def _put_team_names(project: dict[str, Any], team_names: dict[int, str], notes: 
     """
     if not team_names:
         return
-    try:
-        costumes = {c["name"]: c for c in find_target(project, "UI")["costumes"]}
-    except ProjectError:
-        costumes = {}
+    ui = _optional_target(project, "UI")
+    costumes = {c["name"]: c for c in ui["costumes"]} if ui else {}
     for team, name in sorted(team_names.items()):
         costume = costumes.get(f"チーム{team}")
         if costume is None:
@@ -444,11 +454,7 @@ def _clones_ready(project: dict[str, Any]) -> list[Block]:
     スプライトが札を出してしまい、次の段階で消える。重い端末ではコマが遅く、決まった秒数では足りない。
     Scratch 側の作りが変わって -1 にならなくても止まらないよう、3秒ほどで待つのをやめる。
     """
-    try:
-        ui = find_target(project, "UI")
-    except ProjectError:
-        return []
-    if not any(v[0] == "役割" for v in ui["variables"].values()):
+    if not _has_variable(_optional_target(project, "UI"), "役割"):
         return []
     return [
         set_var("待ち", 0),
@@ -551,8 +557,8 @@ def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
 
     # エキシビションの回答受付で開き直したときも音楽を戻す（元の 途中復帰_出題UI同期 は出題と回答受付のときだけ）
     stage = stage_of(project)
-    if any(b.get("mutation", {}).get("proccode") == "1を再生" for b in blocks_of(stage).values()) and any(
-        v[0] == "再生中" for v in stage["variables"].values()
+    if _has_variable(stage, "再生中") and any(
+        b.get("mutation", {}).get("proccode") == "1を再生" for b in blocks_of(stage).values()
     ):
         Scripts(project, "Stage").add(
             on_message("途中復帰_出題UI同期"),
@@ -580,7 +586,7 @@ def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
         )
 
     # ゲームオーバーのあとは、残りの風船を正解発表のときだけ出す（元は ゲームオーバーの演出の中で始めている）
-    if "UI" in names and any(v[0] == "役割" for v in find_target(project, "UI")["variables"].values()):
+    if _has_variable(_optional_target(project, "UI"), "役割"):
         Scripts(project, "UI").add(
             on_message("作り直し_ゲームオーバー後"),
             when(
@@ -657,15 +663,8 @@ def _add_rebuild_cleared_text(project: dict[str, Any], notes: list[str]) -> None
 
     元は スプライト UI_結果演出 の 役割 1 のクローンが、結果_クリア でコスチューム Perfect_cleared を大きくしながら出す。
     """
-    try:
-        target = find_target(project, "UI_結果演出")
-    except ProjectError:
-        target = None
-    if (
-        target is None
-        or not any(v[0] == "役割" for v in target["variables"].values())
-        or not any(c["name"] == "Perfect_cleared" for c in target["costumes"])
-    ):
+    target = _optional_target(project, "UI_結果演出")
+    if not _has_variable(target, "役割") or not any(c["name"] == "Perfect_cleared" for c in target["costumes"]):
         notes.append("開き直したときの CLEARED の文字（#59）は出しません（UI_結果演出 の 役割 か Perfect_cleared がない）")
         return
     Scripts(project, "UI_結果演出").add(

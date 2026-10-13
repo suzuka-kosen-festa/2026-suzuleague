@@ -253,6 +253,11 @@ class CloudBridge:
         self._heartbeat_thread = threading.Thread(target=beat, daemon=True)
         self._heartbeat_thread.start()
 
+    @property
+    def seq(self) -> int:
+        """最後に送った P2S_SEQ（まだ何も送っていなければ 0）。"""
+        return self._seq
+
     # ---- 送信 ----------------------------------------------------
 
     def push(self, snapshot: Snapshot) -> int:

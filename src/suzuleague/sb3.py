@@ -181,10 +181,6 @@ def list_length(list_name: str) -> Block:
     return Block("data_lengthoflist", fields={"LIST": Var(list_name)})
 
 
-def show_list(list_name: str) -> Block:
-    return Block("data_showlist", fields={"LIST": Var(list_name)})
-
-
 def hide_list(list_name: str) -> Block:
     return Block("data_hidelist", fields={"LIST": Var(list_name)})
 

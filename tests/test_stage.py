@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from typing import ClassVar
 
 import pytest
 
@@ -545,7 +546,7 @@ class TestCheck:
 class TestTeamNames:
     """クラウド変数は数値しか送れないので、チーム名は書き出すときに絵として埋め込む（#59）。"""
 
-    NAMES = {1: "スズカ<&>", 3: "とても長いチームの名前ですよ本当に長い"}
+    NAMES: ClassVar[dict[int, str]] = {1: "スズカ<&>", 3: "とても長いチームの名前ですよ本当に長い"}
 
     def _with_tags(self) -> dict:
         source = make_project()
@@ -579,7 +580,7 @@ class TestTeamNames:
         for team, name in self.NAMES.items():
             for costume in (stage_result.team_tag(team, name), stage_result._card(team, name)):
                 root = ElementTree.fromstring(costume.svg)
-                text = [e for e in root.iter() if e.tag.endswith("text") and e.text == name][0]
+                text = next(e for e in root.iter() if e.tag.endswith("text") and e.text == name)
                 width = stage_result._text_width(name, float(text.get("font-size")))
                 assert width <= float(root.get("width")), costume.name
 
