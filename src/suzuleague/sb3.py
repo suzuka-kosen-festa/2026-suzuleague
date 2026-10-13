@@ -10,6 +10,7 @@ Scratch のステージ画面を作り直す stage.py から使う。スズリ�
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -97,6 +98,10 @@ def divide(a: Any, b: Any) -> Block:
     return Block("operator_divide", {"NUM1": a, "NUM2": b})
 
 
+def times(a: Any, b: Any) -> Block:
+    return Block("operator_multiply", {"NUM1": a, "NUM2": b})
+
+
 def absolute(a: Any) -> Block:
     return Block("operator_mathop", {"NUM": a}, {"OPERATOR": "abs"})
 
@@ -157,6 +162,14 @@ def add_to(list_name: str, item: Any) -> Block:
     return Block("data_addtolist", {"ITEM": item}, {"LIST": Var(list_name)})
 
 
+def item(index: Any, list_name: str) -> Block:
+    return Block("data_itemoflist", {"INDEX": index}, {"LIST": Var(list_name)})
+
+
+def list_length(list_name: str) -> Block:
+    return Block("data_lengthoflist", fields={"LIST": Var(list_name)})
+
+
 def show_list(list_name: str) -> Block:
     return Block("data_showlist", fields={"LIST": Var(list_name)})
 
@@ -171,6 +184,16 @@ def stop_other_scripts() -> Block:
         fields={"STOP_OPTION": "other scripts in sprite"},
         mutation={"tagName": "mutation", "children": [], "hasnext": "true"},
     )
+
+
+def create_clone() -> Block:
+    """自分自身のクローンを作る。"""
+    menu = Menu("control_create_clone_of_menu", "CLONE_OPTION", "_myself_")
+    return Block("control_create_clone_of", {"CLONE_OPTION": menu})
+
+
+def on_clone_start() -> Block:
+    return Block("control_start_as_clone")
 
 
 def on_flag() -> Block:
@@ -410,3 +433,64 @@ def rename_stage_variables(project: dict[str, Any], renamed: dict[str, str]) -> 
     for monitor in project.get("monitors", []):
         if monitor.get("id") in renamed:
             monitor["params"]["VARIABLE"] = renamed[monitor["id"]]
+
+
+# ---- スプライトを足す ------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Costume:
+    """SVG で作ったコスチューム。center は絵の中での回転の中心（ふつうは絵のまんなか）。"""
+
+    name: str
+    svg: str
+    center: tuple[float, float]
+
+    @property
+    def data(self) -> bytes:
+        return self.svg.encode("utf-8")
+
+    @property
+    def md5ext(self) -> str:
+        """sb3 の中でのファイル名（中身の MD5 + 拡張子）。"""
+        return hashlib.md5(self.data, usedforsecurity=False).hexdigest() + ".svg"
+
+
+def add_sprite(project: dict[str, Any], name: str, costumes: list[Costume]) -> dict[str, Any]:
+    """隠れた状態のスプライトを、いちばん手前の層に足す。スクリプトは Scripts(project, name) で足す。"""
+    if any(t["name"] == name for t in project["targets"]):
+        raise ProjectError(f"スプライト「{name}」はすでにあります")
+    target = {
+        "isStage": False,
+        "name": name,
+        "variables": {},
+        "lists": {},
+        "broadcasts": {},
+        "blocks": {},
+        "comments": {},
+        "currentCostume": 0,
+        "costumes": [
+            {
+                "name": c.name,
+                "bitmapResolution": 1,
+                "dataFormat": "svg",
+                "assetId": c.md5ext.removesuffix(".svg"),
+                "md5ext": c.md5ext,
+                "rotationCenterX": c.center[0],
+                "rotationCenterY": c.center[1],
+            }
+            for c in costumes
+        ],
+        "sounds": [],
+        "volume": 100,
+        "layerOrder": max(t.get("layerOrder", 0) for t in project["targets"]) + 1,
+        "visible": False,
+        "x": 0,
+        "y": 0,
+        "size": 100,
+        "direction": 90,
+        "draggable": False,
+        "rotationStyle": "all around",
+    }
+    project["targets"].append(target)
+    return target

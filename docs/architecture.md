@@ -325,6 +325,7 @@ flowchart TD
 | `audience.py` | 観客ページの生成（問題文を埋め込む。正解は埋め込まない） | questions |
 | `publish.py` | 3画面を cloud-server の `public/` に書き出す・本番と照合する | audience, host |
 | `stage.py` | Scratch担当のプロジェクトからステージ画面（大画面用・出演者用）を作る。スプライト「通信」のスクリプトを入れ替え、TurboWarp Packager（`tools/stage-packager`）で `public/stage/` に書き出す・本番と照合する | sb3, publish |
+| `stage_result.py` | ステージ画面の全体結果（チームごとの残りバルーン・順位・優勝）。元の得点表の代わりに足すスプライトと、その絵（SVG） | sb3 |
 | `sb3.py` | Scratch のプロジェクト（project.json）のブロックを Python の式で組み立てる道具。スズリーグ固有の知識は持たない | — |
 | `sim_scratch.py` | Scratch側のフリをする開発ツール | cloud, questions |
 

@@ -25,3 +25,4 @@ launcher/run/
 
 # ステージ画面の書き出しに使う TurboWarp Packager
 tools/stage-packager/node_modules/
+tools/stage-packager/.assets/

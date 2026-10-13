@@ -6,6 +6,8 @@
 - view（大画面用）: 入力なし。テンキーを外し、出演者の回答は ☁ P2S_ANSWER から出す
 - play（出演者用）: 入力あり。テンキーで答える
 
+全体結果の画面だけは元のものを使わず、stage_result.py で作ったものに置き換える。
+
 どちらも、裏方PCとやり取りする「通信」スプライトのスクリプトだけを、ここで組み立てた
 ものに入れ替える。元のスクリプトは「チーム紹介から順に見てきた」前提で画面を積み上げるので、
 途中で開き直すと崩れた（#52）。入れ替え後は次のように動く。
@@ -43,6 +45,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from . import stage_result
 from .publish import DEFAULT_SERVER_DIR, PRODUCTION_URL
 from .sb3 import (
     Block,
@@ -79,7 +82,6 @@ from .sb3 import (
     repeat,
     script_blocks,
     set_var,
-    show_list,
     stage_of,
     stop_other_scripts,
     wait,
@@ -100,7 +102,6 @@ REQUIRED_MESSAGES = (
     "4_正解発表",
     "5_ラウンド結果表示",
     "6_チーム結果",
-    "8_終了",
     "途中復帰_背景同期",
     "途中復帰_出題UI同期",
     "途中復帰_入力監視開始",
@@ -188,6 +189,7 @@ def transform(project: dict[str, Any], variant: str) -> tuple[dict[str, Any], li
     _replace_communication(project, variant)
     _add_rebuild_helpers(project)
     _keep_keypad_on_first_question(project, notes)
+    stage_result.add_result_screen(project)
     if variant == "view":
         for name in INPUT_SPRITES:
             target = find_target(project, name)
@@ -350,8 +352,7 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
             when(no(eq(Var("点"), 999)), add_to("得点表", plus(Var("点"), 0))),
             change_var("桁", 3),
         ),
-        broadcast("8_終了"),
-        show_list("得点表"),
+        broadcast(stage_result.SHOW_MESSAGE),  # 全体結果の画面は stage_result.py のスプライトが出す
     )
 
     # 今の状態だけから画面を組み立てる。開き直したとき・送り直されたとき・チームが替わるときに通る
@@ -500,14 +501,45 @@ def digest(project: dict[str, Any]) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
-def _run_packager(project: dict[str, Any], room_id: str, title: str) -> bytes:
+ASSET_URL = "https://assets.scratch.mit.edu/internalapi/asset/{md5ext}/get/"
+ASSET_CACHE = PACKAGER_DIR / ".assets"  # 元のプロジェクトの絵と音。中身で名前が決まるので、一度取れば使い回せる
+
+
+def _fetch_asset(md5ext: str) -> bytes:
+    cached = ASSET_CACHE / md5ext
+    if cached.exists():
+        return cached.read_bytes()
+    req = urllib.request.Request(ASSET_URL.format(md5ext=md5ext), headers={"User-Agent": "suzuleague-stage"})
+    with urllib.request.urlopen(req, timeout=120) as res:
+        data = res.read()
+    ASSET_CACHE.mkdir(exist_ok=True)
+    cached.write_bytes(data)
+    return data
+
+
+def build_sb3(project: dict[str, Any], extra_assets: dict[str, bytes], fetch=_fetch_asset) -> bytes:
+    """project.json と素材を1つの sb3（zip）にまとめる。
+
+    ここで足した素材（extra_assets）は Scratch のサーバにないので、Packager に project.json だけを
+    渡すと取ってこられない。元の素材も一緒に入れた sb3 を渡す。
+    """
+    names = sorted({a["md5ext"] for t in project["targets"] for a in (*t["costumes"], *t["sounds"])})
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("project.json", json.dumps(project, ensure_ascii=False))
+        for name in names:
+            archive.writestr(name, extra_assets[name] if name in extra_assets else fetch(name))
+    return data.getvalue()
+
+
+def _run_packager(sb3: bytes, room_id: str, title: str) -> bytes:
     """TurboWarp Packager で、HTML と素材をまとめた zip を作る。"""
     if not (PACKAGER_DIR / "node_modules").is_dir():
         print("  TurboWarp Packager を入れています（最初の1回だけ）…")
         subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=PACKAGER_DIR, check=True)
     with tempfile.TemporaryDirectory() as tmp:
-        source, packed = Path(tmp) / "project.json", Path(tmp) / "stage.zip"
-        source.write_text(json.dumps(project, ensure_ascii=False), encoding="utf-8")
+        source, packed = Path(tmp) / "project.sb3", Path(tmp) / "stage.zip"
+        source.write_bytes(sb3)
         subprocess.run(
             ["node", str(PACKAGER_DIR / "pack.js"), str(source), str(packed), room_id, title],
             cwd=PACKAGER_DIR,
@@ -549,7 +581,8 @@ def build(server_dir: Path, room_id: str, project_id: str = SCRATCH_PROJECT_ID) 
         for note in notes:
             print(f"  ! {note}")
         print(f"  {label} を書き出しています…")
-        packed = _run_packager(made, room_id, f"スズリーグ ステージ {label}")
+        sb3 = build_sb3(made, stage_result.assets())
+        packed = _run_packager(sb3, room_id, f"スズリーグ ステージ {label}")
         version = {"source": project_id, "source_modified": modified, "room": room_id, "digest": digest(made)}
         write_variant(packed, public / "stage" / variant, version)
         print(f"  → public/stage/{variant}/")

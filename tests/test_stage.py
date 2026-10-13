@@ -12,7 +12,7 @@ import zipfile
 
 import pytest
 
-from suzuleague import stage
+from suzuleague import stage, stage_result
 
 
 def _hat(message_id: str, message: str, next_id: str | None = None) -> dict:
@@ -257,6 +257,66 @@ class TestTransform:
     def test_unknown_variant(self):
         with pytest.raises(ValueError):
             stage.transform(make_project(), "audience")
+
+
+class TestResultScreen:
+    """全体結果は、元の得点表ではなく、ここで足したスプライトが出す。"""
+
+    def test_sprite_uses_only_bundled_assets(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        sprite = stage.find_target(made, stage_result.SPRITE)
+        bundled = stage_result.assets()
+        assert sprite["visible"] is False
+        assert {c["md5ext"] for c in sprite["costumes"]} == set(bundled)
+        names = [c["name"] for c in sprite["costumes"]]
+        assert len(names) == len(set(names))
+        for needed in ("背景", "カード1", "カード5", "数0", "数9", "順位1", "ゲームオーバー", "優勝", "金枠"):
+            assert needed in names
+
+    def test_costumes_are_valid_svg(self):
+        from xml.etree import ElementTree
+
+        for costume in stage_result.costumes():
+            root = ElementTree.fromstring(costume.svg)
+            assert root.tag.endswith("svg"), costume.name
+            assert costume.center == (float(root.get("width")) / 2, float(root.get("height")) / 2)
+
+    def test_final_state_shows_our_screen_not_the_list(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        blocks = stage.find_target(made, "通信")["blocks"].values()
+        sent = {b["inputs"]["BROADCAST_INPUT"][1][1] for b in blocks if b["opcode"] == "event_broadcast"}
+        assert stage_result.SHOW_MESSAGE in sent
+        assert "8_終了" not in sent  # 元の得点表（リストが見出しに重なる）は出さない
+        assert not [b for b in blocks if b["opcode"] == "data_showlist"]
+
+    def test_existing_sprite_with_the_same_name_is_an_error(self):
+        source = make_project()
+        source["targets"].append(_sprite(stage_result.SPRITE))
+        with pytest.raises(stage.ProjectError):
+            stage.transform(source, "view")
+
+
+class TestBuildSb3:
+    def test_bundles_project_original_and_added_assets(self):
+        made, _ = stage.transform(make_project(), "view")
+        made["targets"][0]["costumes"] = [{"name": "空", "md5ext": "aaa.svg"}]
+        made["targets"][0]["sounds"] = [{"name": "音", "md5ext": "bbb.wav"}]
+        fetched = []
+
+        def fetch(md5ext: str) -> bytes:
+            fetched.append(md5ext)
+            return b"original:" + md5ext.encode()
+
+        packed = stage.build_sb3(made, stage_result.assets(), fetch)
+        with zipfile.ZipFile(io.BytesIO(packed)) as archive:
+            names = set(archive.namelist())
+            assert json.loads(archive.read("project.json"))["targets"][0]["name"] == "Stage"
+            assert archive.read("aaa.svg") == b"original:aaa.svg"
+            assert archive.read("bbb.wav") == b"original:bbb.wav"
+            for md5ext, data in stage_result.assets().items():
+                assert archive.read(md5ext) == data
+        assert sorted(fetched) == ["aaa.svg", "bbb.wav"]  # 足した素材は取りに行かない
+        assert names == {"project.json", "aaa.svg", "bbb.wav", *stage_result.assets()}
 
 
 class TestFirstQuestionKeypad:

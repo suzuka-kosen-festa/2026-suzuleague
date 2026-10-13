@@ -1,6 +1,6 @@
-// project.json を TurboWarp Packager で HTML（zip）に書き出す。
-// 使い方: node pack.js <project.json> <出力.zip> <ルームID> <タイトル>
-// src/suzuleague/stage.py から呼ばれる。素材は Scratch のサーバから取ってくる。
+// sb3 を TurboWarp Packager で HTML（zip）に書き出す。
+// 使い方: node pack.js <project.sb3> <出力.zip> <ルームID> <タイトル>
+// src/suzuleague/stage.py から呼ばれる。素材は sb3 の中に入っている。
 const fs = require('fs');
 const Packager = require('@turbowarp/packager');
 
