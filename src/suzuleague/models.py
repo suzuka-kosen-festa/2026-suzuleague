@@ -57,3 +57,11 @@ class Team:
     @property
     def finished_rounds(self) -> int:
         return len(self.results)
+
+    @property
+    def failed_round(self) -> int:
+        """ゲームオーバーになった問題（1-5）。なっていなければ0。"""
+        for r in self.results:
+            if not r.exhibition and r.balloons_after <= 0:
+                return r.round_no
+        return 0

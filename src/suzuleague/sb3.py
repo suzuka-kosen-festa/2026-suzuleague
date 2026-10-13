@@ -54,6 +54,8 @@ class Block:
 BOOL_INPUTS = {
     ("control_if", "CONDITION"),
     ("control_if_else", "CONDITION"),
+    ("control_wait_until", "CONDITION"),
+    ("control_repeat_until", "CONDITION"),
     ("operator_and", "OPERAND1"),
     ("operator_and", "OPERAND2"),
     ("operator_or", "OPERAND1"),
@@ -144,6 +146,15 @@ def repeat(times: Any, *body: Block) -> Block:
 
 def wait(seconds: float) -> Block:
     return Block("control_wait", {"DURATION": seconds})
+
+
+def repeat_until(cond: Block, *body: Block) -> Block:
+    return Block("control_repeat_until", {"CONDITION": cond}, stacks={"SUBSTACK": list(body)})
+
+
+def of_sprite(sprite: str, variable: str) -> Block:
+    """（スプライトの変数）。クローンではなく元のスプライトの値。"""
+    return Block("sensing_of", {"OBJECT": Menu("sensing_of_object_menu", "OBJECT", sprite)}, {"PROPERTY": variable})
 
 
 def broadcast(name: str) -> Block:
@@ -346,6 +357,18 @@ class Scripts:
         }
         self.blocks[hat_id]["inputs"]["custom_block"] = [1, proto_id]
         self.blocks[hat_id]["next"] = self._put_stack(list(body), hat_id)
+
+    def insert_after(self, block_id: str, *body: Block) -> None:
+        """すでにあるブロック（ハットでもよい）のすぐ下に、ブロックを差し込む。"""
+        block = self.blocks[block_id]
+        first = self._put_stack(list(body), block_id)
+        last = first
+        while self.blocks[last]["next"]:
+            last = self.blocks[last]["next"]
+        self.blocks[last]["next"] = block["next"]
+        if block["next"]:
+            self.blocks[block["next"]]["parent"] = last
+        block["next"] = first
 
     def wrap_in_if(self, block_id: str, cond: Block) -> None:
         """すでにあるブロック1つを「もし cond なら」で包む（前後のつながりは保つ）。"""

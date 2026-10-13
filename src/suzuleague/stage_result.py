@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+from html import escape
 from typing import Any
 
 from .sb3 import (
@@ -106,16 +107,50 @@ def _background() -> Costume:
     return _costume("背景", 480, 360, body)
 
 
-def _card(team: int) -> Costume:
+def _text_width(text: str, font_size: float) -> float:
+    """文字の幅の見積もり（日本語は1文字ぶん、英数字はその6割）。端末のフォントで出すので目安。"""
+    return sum(1.0 if ord(c) > 0x2E7F else 0.6 for c in text) * font_size
+
+
+def _fitting_size(text: str, largest: float, width: float) -> float:
+    """width に収まる文字の大きさ（largest より大きくはしない）。"""
+    return round(min(largest, width / max(_text_width(text, 1), 1)), 1)
+
+
+def _card(team: int, name: str | None = None) -> Costume:
     color = TEAM_COLORS[team - 1]
+    if name:
+        # チーム名が決まっていれば、番号の代わりに名前を出す（長い名前は縮める）
+        size = _fitting_size(name, 17, CARD_W - 14)
+        title = f'<text x="{CARD_W / 2}" y="{26 + size * 0.36:.1f}" text-anchor="middle" font-size="{size}" fill="#1a1a1a" {JP}>{escape(name)}</text>'
+    else:
+        title = (
+            f'<text x="34" y="33" text-anchor="middle" font-size="13" fill="#1a1a1a" {JP}>チーム</text>'
+            f'<text x="76" y="38" text-anchor="middle" font-size="30" fill="#1a1a1a" {LATIN}>{team}</text>'
+        )
     body = (
         f'<rect x="2.5" y="2.5" width="{CARD_W - 5}" height="{CARD_H - 5}" rx="10" fill="{NAVY}" stroke="#ffffff" stroke-width="3"/>'
         f'<path d="M4,48 V13 a9,9 0 0 1 9,-9 H{CARD_W - 13} a9,9 0 0 1 9,9 V48 Z" fill="{color}"/>'
-        f'<text x="34" y="33" text-anchor="middle" font-size="13" fill="#1a1a1a" {JP}>チーム</text>'
-        f'<text x="76" y="38" text-anchor="middle" font-size="30" fill="#1a1a1a" {LATIN}>{team}</text>'
+        f"{title}"
         f'<text x="{CARD_W / 2}" y="68" text-anchor="middle" font-size="10.5" fill="#b9c8ef" {JP}>残りバルーン</text>'
     )
     return _costume(f"カード{team}", CARD_W, CARD_H, body)
+
+
+TAG_H = 42
+TAG_TOP = 184.8  # 元の札（コスチューム「チームN」）と同じ高さに出す（回転の中心から絵の上端まで）
+
+
+def team_tag(team: int, name: str) -> Costume:
+    """チーム紹介と出題中に上に出る札。元の札（「チーム1」の絵）と同じ形で、チーム名を書く。"""
+    size = _fitting_size(name, 18, 456 - 24)
+    width = max(98.0, round(_text_width(name, size) + 24, 1))
+    body = (
+        f'<rect x="1.75" y="4.8" width="{width - 3.5}" height="35.37" fill="{TEAM_COLORS[team - 1]}" fill-opacity="0.75" '
+        'stroke="#000000" stroke-opacity="0.2" stroke-width="3.5"/>'
+        f'<text x="{width / 2}" y="{22.5 + size * 0.36:.1f}" text-anchor="middle" font-size="{size}" fill="#000000" {JP}>{escape(name)}</text>'
+    )
+    return Costume(f"チーム{team}", _svg(width, TAG_H, body), (width / 2, TAG_TOP))
 
 
 def _digit(digit: int) -> Costume:
@@ -158,10 +193,11 @@ def _gold_frame() -> Costume:
     return _costume("金枠", CARD_W, CARD_H, body)
 
 
-def costumes() -> list[Costume]:
+def costumes(team_names: dict[int, str] | None = None) -> list[Costume]:
+    names = team_names or {}
     return [
         _background(),
-        *(_card(team) for team in range(1, 6)),
+        *(_card(team, names.get(team)) for team in range(1, 6)),
         *(_digit(d) for d in range(10)),
         *(_rank(rank) for rank in range(1, 6)),
         _game_over(),
@@ -170,9 +206,10 @@ def costumes() -> list[Costume]:
     ]
 
 
-def assets() -> dict[str, bytes]:
-    """この画面のために足す素材（sb3 の中でのファイル名 → 中身）。"""
-    return {c.md5ext: c.data for c in costumes()}
+def assets(team_names: dict[int, str] | None = None) -> dict[str, bytes]:
+    """この画面のために足す素材（sb3 の中でのファイル名 → 中身）。チームの札も含む。"""
+    added = [*costumes(team_names), *(team_tag(team, name) for team, name in (team_names or {}).items())]
+    return {c.md5ext: c.data for c in added}
 
 
 # ---- スクリプト ------------------------------------------------------
@@ -207,9 +244,9 @@ def _in_card(dy: float) -> Block:
     return plus(CARD_Y, times(dy / 100, Var("倍率")))
 
 
-def add_result_screen(project: dict[str, Any]) -> None:
+def add_result_screen(project: dict[str, Any], team_names: dict[int, str] | None = None) -> None:
     """スプライト「結果発表」を足す。「結果_出す」を受けると、リスト「得点表」から画面を作る。"""
-    add_sprite(project, SPRITE, costumes())
+    add_sprite(project, SPRITE, costumes(team_names))
     s = Scripts(project, SPRITE)
     # スプライトだけの変数。クローンは、作られたときの値を自分の分として持つ
     for name in ("役", "番", "桁目", "点", "倍率", "横", "数", "最大", "順位", "比"):

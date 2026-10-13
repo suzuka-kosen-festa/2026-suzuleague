@@ -46,6 +46,7 @@ class Snapshot:
     balloons: int  # 現在チームのバルーン残数
     answer: int = -1  # 出演者の回答% (届いていなければ-1。出題のたびに-1に戻る)
     scores: tuple[int, ...] = ()  # チームごとの残りバルーン（チーム番号順。5問を終えていないチームは-1）
+    failed_round: int = 0  # 現在チームがゲームオーバーになった問題 (1-5。なっていなければ0)
 
 
 class GameEngine:
@@ -131,6 +132,7 @@ class GameEngine:
                 t.balloons if t.finished_rounds >= ROUNDS_PER_TEAM else -1
                 for t in sorted(self.teams, key=lambda t: t.number)
             ),
+            failed_round=team.failed_round if team else 0,
         )
 
     def winners(self) -> list[Team]:

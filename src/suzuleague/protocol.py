@@ -20,6 +20,7 @@ VAR_P2S_CORRECT = "P2S_CORRECT"  # 正解% (非公開時は-1)
 VAR_P2S_BALLOONS = "P2S_BALLOONS"  # 現在チームのバルーン残数
 VAR_P2S_ANSWER = "P2S_ANSWER"  # 出演者の回答% (届いていなければ-1)。大画面用のScratch画面が読む
 VAR_P2S_SCORES = "P2S_SCORES"  # 全チームの残りバルーン（encode_scores の形）。全体結果の得点表に使う
+VAR_P2S_FAILED_ROUND = "P2S_FAILED_ROUND"  # 現在チームがゲームオーバーになった問題 (1-5。なっていなければ0)。開き直したときに GAME OVER の文字を出すのに使う
 VAR_HEARTBEAT = "HEARTBEAT"  # Python生存確認 (epoch秒)
 
 # Scratch → Python（Scratchのみが書く）
@@ -75,6 +76,7 @@ def encode_snapshot(snapshot: Snapshot, seq: int) -> dict[str, int]:
         VAR_P2S_BALLOONS: snapshot.balloons,
         VAR_P2S_ANSWER: snapshot.answer,
         VAR_P2S_SCORES: encode_scores(snapshot.scores),
+        VAR_P2S_FAILED_ROUND: snapshot.failed_round,
         VAR_P2S_SEQ: seq,
     }
 

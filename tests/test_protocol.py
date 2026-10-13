@@ -26,6 +26,7 @@ class TestEncodeSnapshot:
             "P2S_BALLOONS": 54,
             "P2S_ANSWER": -1,
             "P2S_SCORES": 1,
+            "P2S_FAILED_ROUND": 0,
             "P2S_SEQ": 12,
         }
 
@@ -65,6 +66,32 @@ class TestEncodeScores:
             engine.advance()
         assert engine.state is State.TEAM_RESULT
         assert protocol.encode_snapshot(engine.snapshot(), 1)["P2S_SCORES"] == 1100999999999
+
+
+class TestFailedRound:
+    """開き直したステージ画面が、その問題で GAME OVER になったかを知るための値。"""
+
+    def test_round_of_game_over_then_kept_through_exhibition(self):
+        from suzuleague.engine import GameEngine
+
+        engine = GameEngine(initial_balloons=10)
+        engine.advance()
+        engine.advance()  # チーム1の1問目
+        seen = []
+        for _ in range(5):
+            engine.advance()
+            question = engine.current_question
+            # 2問目で50以上ずれてゲームオーバー、そのあとはエキシビション（採点なし）
+            far = 0 if question.correct >= 50 else 100
+            engine.submit_answer(far if engine.snapshot().round_no == 2 else question.correct)
+            engine.advance()
+            seen.append(protocol.encode_snapshot(engine.snapshot(), 1)["P2S_FAILED_ROUND"])
+            engine.advance()
+            engine.advance()
+        assert engine.current_team.balloons == 0
+        assert seen == [0, 2, 2, 2, 2]
+        engine.advance()  # 次のチーム
+        assert engine.snapshot().failed_round == 0
 
 
 class TestParsePercent:

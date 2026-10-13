@@ -47,6 +47,7 @@ from typing import Any
 
 from . import stage_result
 from .publish import DEFAULT_SERVER_DIR, PRODUCTION_URL
+from .teams import load_teams
 from .sb3 import (
     Block,
     Menu,
@@ -60,6 +61,7 @@ from .sb3 import (
     broadcast,
     call,
     change_var,
+    create_clone,
     delete_all,
     divide,
     either,
@@ -74,6 +76,7 @@ from .sb3 import (
     lt,
     minus,
     no,
+    of_sprite,
     on_flag,
     on_message,
     plus,
@@ -84,6 +87,7 @@ from .sb3 import (
     set_var,
     stage_of,
     stop_other_scripts,
+    repeat_until,
     wait,
     when,
     when_else,
@@ -92,6 +96,7 @@ from .sb3 import (
 SCRATCH_PROJECT_ID = "1364239598"
 VARIANTS = {"view": "大画面用（入力なし）", "play": "出演者用（入力あり）"}
 PACKAGER_DIR = Path(__file__).resolve().parents[2] / "tools" / "stage-packager"
+DEFAULT_TEAMS = Path(__file__).resolve().parents[2] / "teams.json"  # アプリの「本番」が読むのと同じファイル
 
 # 「通信」が各スプライトへ送るメッセージ。受け手がなくなっていたら元の作りが変わっている
 REQUIRED_MESSAGES = (
@@ -123,12 +128,14 @@ CLOUD_DEFAULTS = {
     "☁ P2S_BALLOONS": "0",
     "☁ P2S_ANSWER": "-1",
     "☁ P2S_SCORES": "1",
+    "☁ P2S_FAILED_ROUND": "0",
     "☁ S2P_ANSWER": "0",
     "☁ S2P_SEQ": "0",
 }
 
 STATE, TEAM, ROUND, QID = "☁ P2S_STATE", "☁ P2S_TEAM", "☁ P2S_ROUND", "☁ P2S_QID"
 CORRECT, BALLOONS, ANSWER, SCORES = "☁ P2S_CORRECT", "☁ P2S_BALLOONS", "☁ P2S_ANSWER", "☁ P2S_SCORES"
+FAILED_ROUND = "☁ P2S_FAILED_ROUND"
 
 
 class StageError(ProjectError):
@@ -177,8 +184,13 @@ def check_source(project: dict[str, Any]) -> None:
 # ---- 作り直し --------------------------------------------------------
 
 
-def transform(project: dict[str, Any], variant: str) -> tuple[dict[str, Any], list[str]]:
-    """元のプロジェクトから view / play の画面を作る。当てられなかった直しの説明も返す。"""
+def transform(
+    project: dict[str, Any], variant: str, team_names: dict[int, str] | None = None
+) -> tuple[dict[str, Any], list[str]]:
+    """元のプロジェクトから view / play の画面を作る。当てられなかった直しの説明も返す。
+
+    team_names（チーム番号 → チーム名）を渡すと、札と全体結果のカードに番号の代わりに名前を出す。
+    """
     if variant not in VARIANTS:
         raise ValueError(f"画面の種類は {' / '.join(VARIANTS)} のどちらか: {variant!r}")
     check_source(project)
@@ -187,9 +199,11 @@ def transform(project: dict[str, Any], variant: str) -> tuple[dict[str, Any], li
 
     _set_cloud_variables(project)
     _replace_communication(project, variant)
-    _add_rebuild_helpers(project)
+    _add_rebuild_helpers(project, notes)
     _keep_keypad_on_first_question(project, notes)
-    stage_result.add_result_screen(project)
+    _show_first_question_with_start_sound(project, notes)
+    stage_result.add_result_screen(project, team_names)
+    _put_team_names(project, team_names or {}, notes)
     if variant == "view":
         for name in INPUT_SPRITES:
             target = find_target(project, name)
@@ -198,6 +212,41 @@ def transform(project: dict[str, Any], variant: str) -> tuple[dict[str, Any], li
             target["visible"] = False
     _drop_unused_cloud_variables(project, variant)
     return project, notes
+
+
+def _put_team_names(project: dict[str, Any], team_names: dict[int, str], notes: list[str]) -> None:
+    """チーム紹介と出題中に出る札（スプライト UI のコスチューム「チームN」）を、チーム名を書いた絵にする（#59）。
+
+    クラウド変数は数値しか送れないので、名前は書き出すときに絵として埋め込む。
+    """
+    if not team_names:
+        return
+    try:
+        costumes = {c["name"]: c for c in find_target(project, "UI")["costumes"]}
+    except ProjectError:
+        costumes = {}
+    for team, name in sorted(team_names.items()):
+        costume = costumes.get(f"チーム{team}")
+        if costume is None:
+            notes.append(f"チーム{team}の札に名前を出していません（スプライト UI にコスチューム「チーム{team}」がない）")
+            continue
+        tag = stage_result.team_tag(team, name)
+        costume |= {
+            "assetId": tag.md5ext.removesuffix(".svg"),
+            "md5ext": tag.md5ext,
+            "dataFormat": "svg",
+            "bitmapResolution": 1,
+            "rotationCenterX": tag.center[0],
+            "rotationCenterY": tag.center[1],
+        }
+
+
+def team_names_from(teams: list[Any]) -> dict[int, str]:
+    """チーム構成から、札に出す名前だけを取り出す。名前が決まっていない（既定の「チームN」）チームは入れない。
+
+    メンバーの氏名は個人情報なので、画面には入れない。元の札があるのはチーム1〜5。
+    """
+    return {t.number: t.name for t in teams if t.name != f"チーム{t.number}" and 1 <= t.number <= len(stage_result.TEAM_COLORS)}
 
 
 def _set_cloud_variables(project: dict[str, Any]) -> None:
@@ -237,7 +286,7 @@ def _answering(*states: int) -> Block:
 
 
 # 「通信」だけが使う変数。「見た〜」は、最後に処理した状態
-COMMUNICATION_VARIABLES = ("見たSEQ", "見たANSWER", "見たSTATE", "見たTEAM", "見たROUND", "見たQID", "順に進んだ", "桁", "点", "控え")
+COMMUNICATION_VARIABLES = ("見たSEQ", "見たANSWER", "見たSTATE", "見たTEAM", "見たROUND", "見たQID", "順に進んだ", "桁", "点", "控え", "待ち")
 
 
 def _replace_communication(project: dict[str, Any], variant: str) -> None:
@@ -260,7 +309,7 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
     _define_advance(s, exhibition)
     _define_show_answer(s)
     _define_show_scores(s)
-    _define_rebuild(s, exhibition)
+    _define_rebuild(s, exhibition, _clones_ready(project))
     if variant == "play":
         _add_answer_sender(s)
 
@@ -387,7 +436,27 @@ def _define_show_scores(s: Scripts) -> None:
     )
 
 
-def _define_rebuild(s: Scripts, exhibition: list[Block]) -> None:
+def _clones_ready(project: dict[str, Any]) -> list[Block]:
+    """初期化 のあと、スプライト UI が札や風船の役割のクローンを作り終えるまで待つブロック。
+
+    UI は 初期化 で役割 1〜8 のクローンを1コマに1つずつ作り、最後に元のスプライトの 役割 を -1 にする。
+    作り終える前に 1_チーム紹介 などを送ると、札のクローン（役割 7）がまだなく、作っている途中の元の
+    スプライトが札を出してしまい、次の段階で消える。重い端末ではコマが遅く、決まった秒数では足りない。
+    Scratch 側の作りが変わって -1 にならなくても止まらないよう、3秒ほどで待つのをやめる。
+    """
+    try:
+        ui = find_target(project, "UI")
+    except ProjectError:
+        return []
+    if not any(v[0] == "役割" for v in ui["variables"].values()):
+        return []
+    return [
+        set_var("待ち", 0),
+        repeat_until(either(eq(of_sprite("UI", "役割"), -1), gt(Var("待ち"), 30)), wait(0.1), change_var("待ち", 1)),
+    ]
+
+
+def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Block]) -> None:
     """今の状態だけから画面を組み立てる。開き直したとき・送り直されたとき・チームが替わるときに通る。"""
     s.define(
         "画面を作り直す",
@@ -402,6 +471,7 @@ def _define_rebuild(s: Scripts, exhibition: list[Block]) -> None:
         hide_list("得点表"),
         broadcast("初期化"),
         wait(0.5),
+        *clones_ready,
         when(
             gt(Var(STATE), 0),
             set_var("風船の数", Var(BALLOONS)),
@@ -449,6 +519,12 @@ def _define_rebuild(s: Scripts, exhibition: list[Block]) -> None:
                         [broadcast("演出_バルーン破裂完了")],  # 音楽を戻す
                     ),
                     when(eq(Var(STATE), 6), wait(0.1), broadcast("6_チーム結果")),
+                    # その場かぎりの演出で出ていた文字（GAME OVER はこの問題でなったときだけ。CLEARED はチーム結果で消える）
+                    when(eq(Var(FAILED_ROUND), Var(ROUND)), broadcast(GAME_OVER_TEXT_MESSAGE)),
+                    when(
+                        both(both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)), lt(Var(STATE), 6)),
+                        broadcast(CLEARED_TEXT_MESSAGE),
+                    ),
                 ),
                 wait(0.1),
                 set_var("復帰描画中", 0),
@@ -467,9 +543,23 @@ def _add_answer_sender(s: Scripts) -> None:
     )
 
 
-def _add_rebuild_helpers(project: dict[str, Any]) -> None:
+def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
     """作り直しのときに要る受け手を、演出のスプライトに足す。"""
     names = {t["name"] for t in project["targets"]}
+    _add_rebuild_game_over_text(project, notes)
+    _add_rebuild_cleared_text(project, notes)
+
+    # エキシビションの回答受付で開き直したときも音楽を戻す（元の 途中復帰_出題UI同期 は出題と回答受付のときだけ）
+    stage = stage_of(project)
+    if any(b.get("mutation", {}).get("proccode") == "1を再生" for b in blocks_of(stage).values()) and any(
+        v[0] == "再生中" for v in stage["variables"].values()
+    ):
+        Scripts(project, "Stage").add(
+            on_message("途中復帰_出題UI同期"),
+            when(both(eq(Var(STATE), 7), eq(Var("再生中"), 0)), call("1を再生")),
+        )
+    else:
+        notes.append("エキシビションの回答受付で開き直したときの音楽（#59）は戻しません（ステージに「1を再生」がない）")
 
     # 動いている途中の演出（ゲージ・風船を割る数え下げ・音楽の繰り返し）を止める
     for name in ("Stage", "調整・制御", "正解", "GameOver"):
@@ -506,6 +596,90 @@ def _add_rebuild_helpers(project: dict[str, Any]) -> None:
         )
 
 
+GAME_OVER_TEXT_MESSAGE = "作り直し_ゲームオーバー文字"
+CLEARED_TEXT_MESSAGE = "作り直し_クリア文字"
+
+
+def _literal(blocks: dict[str, Any], value: Any) -> str | None:
+    """入力に直接書かれた値（ブロックが入っていれば None）。"""
+    if isinstance(value, list) and len(value) > 1 and isinstance(value[1], list) and value[1][0] in (4, 5, 6, 7, 8, 10):
+        return str(value[1][1])
+    return None
+
+
+def _add_rebuild_game_over_text(project: dict[str, Any], notes: list[str]) -> None:
+    """開き直したときに、その問題で出ていた「GAME OVER」の文字を、音と待ちなしで並べ直す（#59）。
+
+    元の演出（スプライト GameOver が 結果_ゲームオーバー で並べる）から、文字・大きさ・位置・間隔を読み取る。
+    文字はクローンで出て、クローンになったときの演出（大きくなる）は元のものがそのまま動く。
+    """
+    found = [(t, top) for t, top in receivers(project, "結果_ゲームオーバー") if t["name"] == "GameOver"]
+    if not found:
+        notes.append("開き直したときの GAME OVER の文字（#59）は出しません（スプライト GameOver が 結果_ゲームオーバー を受けていない）")
+        return
+    target, top_id = found[0]
+    blocks = blocks_of(target)
+    size = start = None
+    letters: list[str] = []
+    proccode = None
+    for block_id in script_blocks(target, top_id):
+        block = blocks[block_id]
+        if block["opcode"] == "looks_setsizeto":
+            size = _literal(blocks, block["inputs"].get("SIZE"))
+        elif block["opcode"] == "motion_gotoxy":
+            start = (_literal(blocks, block["inputs"].get("X")), _literal(blocks, block["inputs"].get("Y")))
+        elif block["opcode"] == "procedures_call":
+            values = [_literal(blocks, v) for v in block["inputs"].values()]
+            if len(values) == 1 and values[0] is not None:
+                letters.append(values[0])
+                proccode = block["mutation"]["proccode"]
+    step = None
+    for block_id, block in blocks.items():
+        if block["opcode"] == "procedures_prototype" and block["mutation"]["proccode"] == proccode:
+            for inner in script_blocks(target, block["parent"]):
+                if blocks[inner]["opcode"] == "motion_changexby":
+                    step = _literal(blocks, blocks[inner]["inputs"].get("DX"))
+    if not letters or size is None or start is None or None in start or step is None:
+        notes.append("開き直したときの GAME OVER の文字（#59）は出しません（元の演出から文字の並べ方を読み取れない）")
+        return
+    body = [Block("looks_setsizeto", {"SIZE": size}), Block("motion_gotoxy", {"X": start[0], "Y": start[1]})]
+    for letter_name in letters:
+        body += [
+            Block("looks_switchcostumeto", {"COSTUME": letter_name}),
+            create_clone(),
+            Block("motion_changexby", {"DX": step}),
+        ]
+    Scripts(project, "GameOver").add(on_message(GAME_OVER_TEXT_MESSAGE), *body)
+
+
+def _add_rebuild_cleared_text(project: dict[str, Any], notes: list[str]) -> None:
+    """開き直したときに、最後の問題のあとに出ていた「CLEARED」の文字を、音と動きなしで出す（#59）。
+
+    元は スプライト UI_結果演出 の 役割 1 のクローンが、結果_クリア でコスチューム Perfect_cleared を大きくしながら出す。
+    """
+    try:
+        target = find_target(project, "UI_結果演出")
+    except ProjectError:
+        target = None
+    if (
+        target is None
+        or not any(v[0] == "役割" for v in target["variables"].values())
+        or not any(c["name"] == "Perfect_cleared" for c in target["costumes"])
+    ):
+        notes.append("開き直したときの CLEARED の文字（#59）は出しません（UI_結果演出 の 役割 か Perfect_cleared がない）")
+        return
+    Scripts(project, "UI_結果演出").add(
+        on_message(CLEARED_TEXT_MESSAGE),
+        when(
+            eq(Var("役割"), 1),
+            Block("looks_switchcostumeto", {"COSTUME": "Perfect_cleared"}),
+            Block("looks_setsizeto", {"SIZE": 100}),
+            Block("looks_cleargraphiceffects"),
+            Block("looks_show"),
+        ),
+    )
+
+
 def _keep_keypad_on_first_question(project: dict[str, Any], notes: list[str]) -> None:
     """各チームの1問目で、早く回答受付に進めてもテンキーが消えないようにする（#53）。
 
@@ -525,6 +699,50 @@ def _keep_keypad_on_first_question(project: dict[str, Any], notes: list[str]) ->
                 Scripts(project, target["name"]).wrap_in_if(block_id, eq(Var("回答中"), 0))
                 return
     notes.append("1問目のテンキーの直し（#53）は当てていません（効果音のあとで 回答中 を 0.1 にするブロックが見つからない）")
+
+
+def _show_first_question_with_start_sound(project: dict[str, Any], notes: list[str]) -> None:
+    """各チームの1問目で、登場の効果音を鳴らし始めたらすぐ問題文を出す（#59）。
+
+    元は効果音（約8秒）を鳴らし終えてから 出題_開始 を送るので、問題文が出るまで待たされる。
+    鳴らし始めたらすぐ送るようにし、出題_開始 で始まるステージの音楽は、効果音と重ならないよう
+    効果音の長さだけ待ってから始める（正解発表や作り直しで止まれば、待っている音楽も始まらない）。
+    """
+    for target, top_id in receivers(project, "演出_風船登場開始"):
+        blocks = blocks_of(target)
+        for block_id in script_blocks(target, top_id):
+            block = blocks[block_id]
+            after = blocks.get(block["next"] or "")
+            if block["opcode"] != "sound_playuntildone" or not after or _broadcast_name(after) != "出題_開始":
+                continue
+            seconds = _sound_seconds(target, block)
+            music = [b for t, b in receivers(project, "出題_開始") if t["isStage"]]
+            if seconds is None or not music:
+                break
+            block["opcode"] = "sound_play"
+            for hat_id in music:
+                Scripts(project, "Stage").insert_after(hat_id, wait(seconds))
+            return
+    notes.append("1問目を効果音と同時に出す直し（#59）は当てていません（効果音を鳴らし終えてから 出題_開始 を送るブロックが見つからない）")
+
+
+def _broadcast_name(block: dict[str, Any]) -> str | None:
+    if block["opcode"] not in ("event_broadcast", "event_broadcastandwait"):
+        return None
+    value = block["inputs"].get("BROADCAST_INPUT", [None, None])[1]
+    return value[1] if isinstance(value, list) and value[0] == 11 else None
+
+
+def _sound_seconds(target: dict[str, Any], block: dict[str, Any]) -> float | None:
+    """「終わるまで〜の音を鳴らす」の音の長さ（秒）。音を名前で選んでいないときは None。"""
+    menu = target["blocks"].get(block["inputs"].get("SOUND_MENU", [None, None])[1] or "")
+    if not isinstance(menu, dict):
+        return None
+    name = menu["fields"].get("SOUND_MENU", [None])[0]
+    for sound in target["sounds"]:
+        if sound["name"] == name and sound.get("rate") and sound.get("sampleCount"):
+            return round(sound["sampleCount"] / sound["rate"], 2)
+    return None
 
 
 # ---- 書き出し --------------------------------------------------------
@@ -605,18 +823,20 @@ def write_variant(packed: bytes, out_dir: Path, version: dict[str, str]) -> None
     (out_dir / "version.json").write_text(json.dumps(version, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def build(server_dir: Path, room_id: str, project_id: str = SCRATCH_PROJECT_ID) -> None:
+def build(
+    server_dir: Path, room_id: str, project_id: str = SCRATCH_PROJECT_ID, team_names: dict[int, str] | None = None
+) -> None:
     public = server_dir / "public"
     if not public.is_dir():
         raise FileNotFoundError(f"{public} がありません（cloud-server の場所を --server-dir で指定）")
     project, modified = fetch_project(project_id)
     print(f"元のプロジェクト: {project_id}（最終更新 {modified}）")
     for variant, label in VARIANTS.items():
-        made, notes = transform(project, variant)
+        made, notes = transform(project, variant, team_names)
         for note in notes:
             print(f"  ! {note}")
         print(f"  {label} を書き出しています…")
-        sb3 = build_sb3(made, stage_result.assets())
+        sb3 = build_sb3(made, stage_result.assets(team_names))
         packed = _run_packager(sb3, room_id, f"スズリーグ ステージ {label}")
         version = {"source": project_id, "source_modified": modified, "room": room_id, "digest": digest(made)}
         write_variant(packed, public / "stage" / variant, version)
@@ -624,12 +844,14 @@ def build(server_dir: Path, room_id: str, project_id: str = SCRATCH_PROJECT_ID) 
     print(f"→ {server_dir} で差分を確認してコミットし、master に入れると Render がデプロイします")
 
 
-def check(base_url: str, room_id: str, project_id: str = SCRATCH_PROJECT_ID) -> list[str]:
+def check(
+    base_url: str, room_id: str, project_id: str = SCRATCH_PROJECT_ID, team_names: dict[int, str] | None = None
+) -> list[str]:
     """本番で配信中の画面が、今の Scratch プロジェクトから作ったものと同じか。食い違いを返す。"""
     project, modified = fetch_project(project_id)
     problems = []
     for variant, label in VARIANTS.items():
-        made, _ = transform(project, variant)
+        made, _ = transform(project, variant, team_names)
         url = f"{base_url.rstrip('/')}/stage/{variant}/version.json"
         try:
             live = _get_json(url)
@@ -639,7 +861,11 @@ def check(base_url: str, room_id: str, project_id: str = SCRATCH_PROJECT_ID) -> 
         if live.get("room") != room_id:
             problems.append(f"{label}: ルームIDが違います（本番 {live.get('room')}）")
         elif live.get("digest") != digest(made):
-            newer = "Scratch 側が更新されています" if live.get("source_modified") != modified else "作り方が変わっています"
+            newer = (
+                "Scratch 側が更新されています"
+                if live.get("source_modified") != modified
+                else "作り方かチーム名が変わっています"
+            )
             problems.append(f"{label}: 本番の中身が手元から作ったものと違います（{newer}）")
     return problems
 
@@ -650,11 +876,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--server-dir", type=Path, default=DEFAULT_SERVER_DIR, help="cloud-server のクローン先")
     parser.add_argument("--check", action="store_true", help="書き出さずに、本番で配信中の画面と照合する")
     parser.add_argument("--url", default=PRODUCTION_URL, help="--check で照合する先")
+    parser.add_argument(
+        "--teams",
+        type=Path,
+        default=DEFAULT_TEAMS,
+        help="チーム名を読むチーム構成（既定はリポジトリ直下の teams.json。なければ「チームN」のまま）",
+    )
     args = parser.parse_args(argv)
 
     try:
+        team_names = team_names_from(load_teams(args.teams)) if args.teams.exists() else {}
+        print(f"チーム名: {'・'.join(team_names.values()) if team_names else '（入れない。「チームN」のまま）'}")
         if args.check:
-            problems = check(args.url, args.room_id)
+            problems = check(args.url, args.room_id, team_names=team_names)
             for p in problems:
                 print(f"✗ {p}")
             if problems:
@@ -662,8 +896,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             print(f"✓ {args.url} のステージ画面 {len(VARIANTS)} 件は、今の Scratch プロジェクトから作ったものと一致しています")
             return 0
-        build(args.server_dir, args.room_id)
-    except ProjectError as e:
+        build(args.server_dir, args.room_id, team_names=team_names)
+    except (ProjectError, ValueError) as e:
         print(f"✗ {e}")
         return 1
     return 0

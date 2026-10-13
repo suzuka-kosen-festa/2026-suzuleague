@@ -29,6 +29,22 @@ def _hat(message_id: str, message: str, next_id: str | None = None) -> dict:
     }
 
 
+def _block(opcode: str, parent: str | None, *, next_id: str | None = None, top: bool = False, shadow: bool = False,
+           inputs: dict | None = None, fields: dict | None = None, mutation: dict | None = None) -> dict:
+    block = {
+        "opcode": opcode,
+        "next": next_id,
+        "parent": parent,
+        "inputs": inputs or {},
+        "fields": fields or {},
+        "shadow": shadow,
+        "topLevel": top,
+    }
+    if mutation:
+        block["mutation"] = {"tagName": "mutation", "children": [], "warp": "false"} | mutation
+    return block
+
+
 def _sprite(name: str, blocks: dict | None = None) -> dict:
     return {
         "isStage": False,
@@ -46,7 +62,7 @@ def _sprite(name: str, blocks: dict | None = None) -> dict:
 
 def make_project() -> dict:
     """元のプロジェクトのうち、作り直しが頼っている部分だけを持つもの。"""
-    messages = [*stage.REQUIRED_MESSAGES, "回答_確定", "7_エキシビジョン回答受付"]
+    messages = [*stage.REQUIRED_MESSAGES, "回答_確定", "7_エキシビジョン回答受付", "出題_開始", "結果_ゲームオーバー"]
     broadcasts = {f"m{i}": name for i, name in enumerate(messages)}
     msg_id = {name: i for i, name in broadcasts.items()}
 
@@ -58,22 +74,33 @@ def make_project() -> dict:
         "s1": ["☁ S2P_SEQ", 29, True],
         "s2": ["☁ S2P_ACK", "1", True],
     }
+    variables["v-play"] = ["再生中", "0"]
     stage_target = _sprite("Stage") | {
         "isStage": True,
         "variables": variables,
         "lists": {"l0": ["★入力した文字", []], "l1": ["得点表", []]},
         "broadcasts": broadcasts,
+        # 出題_開始 で音楽（1を再生）を始める
+        "blocks": {
+            "music-hat": _hat(msg_id["出題_開始"], "出題_開始", "music-call"),
+            "music-call": _block("procedures_call", "music-hat", mutation={"proccode": "1を再生", "argumentids": "[]"}),
+            "music-def": _block("procedures_definition", None, top=True, inputs={"custom_block": [1, "music-proto"]}),
+            "music-proto": _block("procedures_prototype", "music-def", mutation={"proccode": "1を再生", "argumentids": "[]"}),
+        },
     }
 
-    # 演出: すべてのメッセージを受け取る。登場の演出は最後に 回答中 を 0.1 にする
+    # 演出: すべてのメッセージを受け取る。登場の演出は、効果音を鳴らし終えてから 出題_開始 を送り、
+    # 最後に 回答中 を 0.1 にする
     show = {f"hat{i}": _hat(msg_id[name], name) for i, name in enumerate(stage.REQUIRED_MESSAGES)}
     intro = next(k for k, b in show.items() if b["fields"]["BROADCAST_OPTION"][0] == "演出_風船登場開始")
-    show[intro]["next"] = "start"
+    show[intro]["next"] = "sound"
+    show["sound"] = _block("sound_playuntildone", intro, next_id="start", inputs={"SOUND_MENU": [1, "sound-menu"]})
+    show["sound-menu"] = _block("sound_sounds_menu", "sound", fields={"SOUND_MENU": ["start", None]}, shadow=True)
     show["start"] = {
         "opcode": "event_broadcast",
         "next": "back",
-        "parent": intro,
-        "inputs": {"BROADCAST_INPUT": [1, [11, "初期化", msg_id["初期化"]]]},
+        "parent": "sound",
+        "inputs": {"BROADCAST_INPUT": [1, [11, "出題_開始", msg_id["出題_開始"]]]},
         "fields": {},
         "shadow": False,
         "topLevel": False,
@@ -101,8 +128,26 @@ def make_project() -> dict:
             "topLevel": False,
         },
     }
+    # GameOver: 結果_ゲームオーバー で、文字を1つずつクローンにして横に並べる
+    game_over = {
+        "go-hat": _hat(msg_id["結果_ゲームオーバー"], "結果_ゲームオーバー", "go-wait"),
+        "go-wait": _block("control_wait", "go-hat", next_id="go-size", inputs={"DURATION": [1, [5, "3"]]}),
+        "go-size": _block("looks_setsizeto", "go-wait", next_id="go-goto", inputs={"SIZE": [1, [4, "70"]]}),
+        "go-goto": _block("motion_gotoxy", "go-size", next_id="go-G", inputs={"X": [1, [4, "-192.5"]], "Y": [1, [4, "0"]]}),
+        "go-G": _block("procedures_call", "go-goto", next_id="go-A", inputs={"arg": [1, [10, "G"]]}, mutation={"proccode": "文字 %s", "argumentids": '["arg"]'}),
+        "go-A": _block("procedures_call", "go-G", inputs={"arg": [1, [10, "A3"]]}, mutation={"proccode": "文字 %s", "argumentids": '["arg"]'}),
+        "go-def": _block("procedures_definition", None, top=True, next_id="go-step", inputs={"custom_block": [1, "go-proto"]}),
+        "go-proto": _block("procedures_prototype", "go-def", mutation={"proccode": "文字 %s", "argumentids": '["arg"]'}),
+        "go-step": _block("motion_changexby", "go-def", inputs={"DX": [1, [4, "55"]]}),
+    }
+    cleared = _sprite("UI_結果演出") | {
+        "variables": {"r0": ["役割", "0"]},
+        "costumes": [{"name": "Perfect_cleared", "md5ext": "c.svg"}],
+    }
+    show_target = _sprite("演出", show) | {"sounds": [{"name": "start", "rate": 22050, "sampleCount": 182364, "md5ext": "s.wav"}]}
+
     flag = {"opcode": "event_whenflagclicked", "next": None, "parent": None, "inputs": {}, "fields": {}, "shadow": False, "topLevel": True}
-    targets = [stage_target, _sprite("演出", show), _sprite("通信", old), _sprite("問題")]
+    targets = [stage_target, show_target, _sprite("通信", old), _sprite("問題"), _sprite("GameOver", game_over), cleared]
     targets += [_sprite(name, {"flag": dict(flag)}) for name in stage.INPUT_SPRITES]
     return {"targets": targets, "monitors": [], "extensions": [], "meta": {"semver": "3.0.0"}}
 
@@ -315,8 +360,9 @@ class TestBuildSb3:
             assert archive.read("bbb.wav") == b"original:bbb.wav"
             for md5ext, data in stage_result.assets().items():
                 assert archive.read(md5ext) == data
-        assert sorted(fetched) == ["aaa.svg", "bbb.wav"]  # 足した素材は取りに行かない
-        assert names == {"project.json", "aaa.svg", "bbb.wav", *stage_result.assets()}
+        original = {"aaa.svg", "bbb.wav", "c.svg", "s.wav"}  # c.svg・s.wav は make_project のスプライトの素材
+        assert sorted(fetched) == sorted(original)  # 足した素材は取りに行かない
+        assert names == {"project.json", *original, *stage_result.assets()}
 
 
 class TestFirstQuestionKeypad:
@@ -342,6 +388,83 @@ class TestFirstQuestionKeypad:
         blocks["start"]["next"] = None
         _, notes = stage.transform(source, variant)
         assert len(notes) == 1 and "#53" in notes[0]
+
+
+def blocks_with(project: dict, target_name: str, opcode: str) -> list[dict]:
+    return [b for b in stage.find_target(project, target_name)["blocks"].values() if b["opcode"] == opcode]
+
+
+def broadcasts_in(project: dict, target_name: str) -> set[str]:
+    return {b["inputs"]["BROADCAST_INPUT"][1][1] for b in blocks_with(project, target_name, "event_broadcast")}
+
+
+class TestFirstQuestionStartSound:
+    """各チームの1問目は、登場の効果音を鳴らし始めたらすぐ問題文を出す（#59）。"""
+
+    def test_question_starts_with_the_sound_and_music_waits_for_it(self, variant):
+        made, notes = stage.transform(make_project(), variant)
+        assert notes == []
+        blocks = stage.find_target(made, "演出")["blocks"]
+        assert blocks["sound"]["opcode"] == "sound_play"
+        assert blocks["sound"]["next"] == "start"
+        stage_blocks = made["targets"][0]["blocks"]
+        wait = stage_blocks[stage_blocks["music-hat"]["next"]]
+        assert wait["opcode"] == "control_wait"
+        assert wait["inputs"]["DURATION"][1][1] == str(round(182364 / 22050, 2))  # 効果音の長さ
+        assert wait["next"] == "music-call" and stage_blocks["music-call"]["parent"] == stage_blocks["music-hat"]["next"]
+
+    def test_unknown_sound_is_reported_and_left_as_is(self, variant):
+        source = make_project()
+        stage.find_target(source, "演出")["sounds"] = []
+        made, notes = stage.transform(source, variant)
+        assert len(notes) == 1 and "効果音と同時" in notes[0]
+        assert stage.find_target(made, "演出")["blocks"]["sound"]["opcode"] == "sound_playuntildone"
+
+
+class TestRebuildEndOfRoundText:
+    """開き直したときも、その場かぎりの演出で出ていた GAME OVER と CLEARED の文字を出す（#59）。"""
+
+    def test_game_over_letters_are_laid_out_like_the_original(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        blocks = stage.find_target(made, "GameOver")["blocks"]
+        (hat,) = [b for b in blocks.values() if b["opcode"] == "event_whenbroadcastreceived"
+                  and b["fields"]["BROADCAST_OPTION"][0] == stage.GAME_OVER_TEXT_MESSAGE]
+        order, block = [], blocks[hat["next"]]
+        while True:
+            order.append(block["opcode"])
+            if block["opcode"] == "looks_switchcostumeto":
+                order.append(block["inputs"]["COSTUME"][1][1])
+            if not block["next"]:
+                break
+            block = blocks[block["next"]]
+        assert order == [
+            "looks_setsizeto", "motion_gotoxy",
+            "looks_switchcostumeto", "G", "control_create_clone_of", "motion_changexby",
+            "looks_switchcostumeto", "A3", "control_create_clone_of", "motion_changexby",
+        ]
+        assert not [o for o in order if o.startswith(("sound_", "control_wait"))]  # 音と待ちは入れない
+
+    def test_cleared_text_is_shown_by_the_original_clone(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        hats = [b for b in blocks_with(made, "UI_結果演出", "event_whenbroadcastreceived")
+                if b["fields"]["BROADCAST_OPTION"][0] == stage.CLEARED_TEXT_MESSAGE]
+        assert len(hats) == 1
+
+    def test_rebuild_sends_both(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        sent = broadcasts_in(made, "通信")
+        assert {stage.GAME_OVER_TEXT_MESSAGE, stage.CLEARED_TEXT_MESSAGE} <= sent
+
+    def test_missing_pieces_are_reported_not_fatal(self, variant):
+        source = make_project()
+        source["targets"] = [t for t in source["targets"] if t["name"] not in ("GameOver", "UI_結果演出")]
+        _, notes = stage.transform(source, variant)
+        assert len(notes) == 2 and all("#59" in n for n in notes)
+
+    def test_exhibition_music_is_restarted(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        calls = blocks_with(made, "Stage", "procedures_call")
+        assert len([c for c in calls if c["mutation"]["proccode"] == "1を再生"]) == 2
 
 
 class TestCheckSource:
@@ -417,3 +540,82 @@ class TestCheck:
     def test_wrong_room(self, monkeypatch):
         self._patch(monkeypatch, {v: self._version(v, room="suzuleague-dev") for v in stage.VARIANTS})
         assert len(stage.check("https://example.invalid", "room")) == 2
+
+
+class TestTeamNames:
+    """クラウド変数は数値しか送れないので、チーム名は書き出すときに絵として埋め込む（#59）。"""
+
+    NAMES = {1: "スズカ<&>", 3: "とても長いチームの名前ですよ本当に長い"}
+
+    def _with_tags(self) -> dict:
+        source = make_project()
+        ui = _sprite("UI") | {
+            "costumes": [
+                {"name": f"チーム{n}", "md5ext": f"t{n}.svg", "assetId": f"t{n}", "dataFormat": "svg",
+                 "rotationCenterX": 49.2, "rotationCenterY": 184.8}
+                for n in range(1, 6)
+            ]
+        }
+        source["targets"].append(ui)
+        return source
+
+    def test_tags_and_cards_show_the_names(self, variant):
+        made, notes = stage.transform(self._with_tags(), variant, self.NAMES)
+        assert notes == []
+        tags = {c["name"]: c for c in stage.find_target(made, "UI")["costumes"]}
+        assets = stage_result.assets(self.NAMES)
+        for team, name in self.NAMES.items():
+            svg = assets[tags[f"チーム{team}"]["md5ext"]].decode()
+            assert "スズカ&lt;&amp;&gt;" in svg if team == 1 else name in svg
+            assert tags[f"チーム{team}"]["rotationCenterY"] == stage_result.TAG_TOP
+        assert tags["チーム2"]["md5ext"] == "t2.svg"  # 名前のないチームは元の札のまま
+        cards = {c["name"]: c["md5ext"] for c in stage.find_target(made, stage_result.SPRITE)["costumes"]}
+        assert self.NAMES[3] in assets[cards["カード3"]].decode()
+        assert "チーム" in assets[cards["カード2"]].decode()
+
+    def test_long_names_are_shrunk_to_fit(self):
+        from xml.etree import ElementTree
+
+        for team, name in self.NAMES.items():
+            for costume in (stage_result.team_tag(team, name), stage_result._card(team, name)):
+                root = ElementTree.fromstring(costume.svg)
+                text = [e for e in root.iter() if e.tag.endswith("text") and e.text == name][0]
+                width = stage_result._text_width(name, float(text.get("font-size")))
+                assert width <= float(root.get("width")), costume.name
+
+    def test_names_change_the_digest_but_no_names_keeps_the_original(self):
+        plain, _ = stage.transform(self._with_tags(), "view")
+        empty, _ = stage.transform(self._with_tags(), "view", {})
+        named, _ = stage.transform(self._with_tags(), "view", self.NAMES)
+        assert stage.digest(plain) == stage.digest(empty) != stage.digest(named)
+
+    def test_only_decided_names_are_used(self):
+        from suzuleague.models import Team
+
+        teams = [Team(1, "チーム1", ["氏名"]), Team(2, "ほし組", ["氏名"]), Team(9, "番外")]
+        assert stage.team_names_from(teams) == {2: "ほし組"}
+
+    def test_missing_tag_costume_is_reported(self, variant):
+        _, notes = stage.transform(make_project(), variant, {1: "ほし組"})
+        assert len(notes) == 1 and "チーム1" in notes[0]
+
+
+class TestRebuildWaitsForClones:
+    """開き直したとき、UI が札のクローンを作り終えてから画面を組み立てる（重い端末で札が消えた）。"""
+
+    def test_waits_for_ui_with_a_limit(self, variant):
+        source = make_project()
+        source["targets"].append(_sprite("UI") | {"variables": {"r": ["役割", "-1"]}})
+        made, _ = stage.transform(source, variant)
+        blocks = stage.find_target(made, "通信")["blocks"]
+        (loop,) = [b for b in blocks.values() if b["opcode"] == "control_repeat_until"]
+        cond = blocks[loop["inputs"]["CONDITION"][1]]
+        assert cond["opcode"] == "operator_or"
+        sensing = [b for b in blocks.values() if b["opcode"] == "sensing_of"]
+        assert len(sensing) == 1 and sensing[0]["fields"]["PROPERTY"][0] == "役割"
+        menu = blocks[sensing[0]["inputs"]["OBJECT"][1]]
+        assert menu["fields"]["OBJECT"][0] == "UI" and menu["shadow"] is True
+
+    def test_no_wait_without_ui(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        assert not blocks_with(made, "通信", "control_repeat_until")
