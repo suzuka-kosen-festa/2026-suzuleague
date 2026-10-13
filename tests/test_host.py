@@ -223,6 +223,30 @@ class TestController:
         assert controller.engine.state is State.TEAM_INTRO
         assert len(errors) == 1
 
+    def test_answer_is_sent_without_touching_the_sequence(self):
+        """回答が届いたら回答だけを送る（状態の送り直しはしない。Scratch のテンキーが出直すため）。"""
+
+        class RecordingBridge:
+            def __init__(self):
+                self.pushed, self.answers = [], []
+
+            def push(self, snapshot):
+                self.pushed.append(snapshot)
+
+            def push_answer(self, snapshot):
+                self.answers.append(snapshot.answer)
+
+        bridge = RecordingBridge()
+        engine = make_engine()
+        advance_to(engine, State.ANSWERING)
+        controller = GameController(engine, bridge)
+        controller.answer(45)
+        controller.answer(62)  # 受付中は上書きできる
+        assert bridge.answers == [45, 62]
+        assert bridge.pushed == []
+        controller.advance()
+        assert bridge.pushed[-1].answer == 62
+
     def test_expect_state_mismatch(self):
         controller = GameController(make_engine())
         with pytest.raises(GameError):

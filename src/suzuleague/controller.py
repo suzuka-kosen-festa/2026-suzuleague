@@ -12,7 +12,7 @@ import time
 from collections.abc import Callable
 
 from .cloud import CloudBridge
-from .engine import GameEngine, GameError, State
+from .engine import GameEngine, GameError, Snapshot, State
 
 
 # 本番で「次へ」を受け付ける最短の間隔（秒）。これより短い間隔で続けて届いた分は取り消す。
@@ -73,6 +73,7 @@ class GameController:
         with self.lock:
             self.engine.submit_answer(percent)
             self._changed()
+        self._push(lambda bridge, snapshot: bridge.push_answer(snapshot))
 
     def _changed(self) -> None:
         if self.on_change:
@@ -88,12 +89,15 @@ class GameController:
             raise GameError(f"送り直せませんでした（{type(e).__name__}）") from e
 
     def push_state(self) -> None:
+        self._push(lambda bridge, snapshot: bridge.push(snapshot))
+
+    def _push(self, send: Callable[[CloudBridge, Snapshot], object]) -> None:
         if self.bridge is None:
             return
         try:
             with self.lock:
                 snapshot = self.engine.snapshot()
-            self.bridge.push(snapshot)
+            send(self.bridge, snapshot)
         except Exception as e:  # 通信失敗で進行を止めない（resyncで再送できる）
             if self._on_push_error:
                 self._on_push_error(e)

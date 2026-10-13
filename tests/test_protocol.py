@@ -24,6 +24,8 @@ class TestEncodeSnapshot:
             "P2S_QID": 8,
             "P2S_CORRECT": 67,
             "P2S_BALLOONS": 54,
+            "P2S_ANSWER": -1,
+            "P2S_SCORES": 1,
             "P2S_SEQ": 12,
         }
 
@@ -38,6 +40,31 @@ class TestEncodeSnapshot:
         snap = Snapshot(State.ANSWERING, 1, 1, 1, -1, 100)
         for value in protocol.encode_snapshot(snap, seq=1).values():
             assert isinstance(value, int)
+
+
+class TestEncodeScores:
+    def test_three_digits_per_team_after_a_leading_one(self):
+        assert protocol.encode_scores((38, 0, -1, -1)) == 1038000999999
+
+    def test_full_and_single_team(self):
+        assert protocol.encode_scores((100,)) == 1100
+        assert protocol.encode_scores(()) == 1
+
+    def test_snapshot_carries_only_finished_teams(self):
+        from suzuleague.engine import GameEngine
+
+        engine = GameEngine()
+        engine.advance()
+        engine.advance()  # チーム1の1問目
+        for _ in range(5):
+            engine.advance()
+            engine.submit_answer(engine.current_question.correct)  # ぴったり → 100のまま
+            engine.advance()
+            engine.advance()
+            assert engine.snapshot().scores == ((100, -1, -1, -1) if engine.current_team.finished_rounds == 5 else (-1,) * 4)
+            engine.advance()
+        assert engine.state is State.TEAM_RESULT
+        assert protocol.encode_snapshot(engine.snapshot(), 1)["P2S_SCORES"] == 1100999999999
 
 
 class TestParsePercent:

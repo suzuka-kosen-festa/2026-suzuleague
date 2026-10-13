@@ -18,6 +18,8 @@ VAR_P2S_ROUND = "P2S_ROUND"  # 現在のラウンド (1-5, 未開始0)
 VAR_P2S_QID = "P2S_QID"  # 問題ID (出題前0)
 VAR_P2S_CORRECT = "P2S_CORRECT"  # 正解% (非公開時は-1)
 VAR_P2S_BALLOONS = "P2S_BALLOONS"  # 現在チームのバルーン残数
+VAR_P2S_ANSWER = "P2S_ANSWER"  # 出演者の回答% (届いていなければ-1)。大画面用のScratch画面が読む
+VAR_P2S_SCORES = "P2S_SCORES"  # 全チームの残りバルーン（encode_scores の形）。全体結果の得点表に使う
 VAR_HEARTBEAT = "HEARTBEAT"  # Python生存確認 (epoch秒)
 
 # Scratch → Python（Scratchのみが書く）
@@ -33,6 +35,24 @@ class ProtocolError(Exception):
     """不正なcloud変数値を受信した。"""
 
 
+SCORE_DIGITS = 3  # 1チームぶんの桁数
+SCORE_NOT_FINISHED = 999  # まだ5問を終えていないチーム
+
+
+def encode_scores(scores: tuple[int, ...]) -> int:
+    """全チームの残りバルーンを1つの数にまとめる（cloud変数は数値しか送れないため）。
+
+    先頭に 1 を置き、チーム番号順に3桁ずつ並べる。5問を終えていないチームは 999。
+    例: チーム1が38・チーム2が0・チーム3と4はまだ → 1038000999999
+    先頭の 1 は、頭の 0 が落ちないようにするための目印。
+    """
+    digits = "".join(
+        f"{SCORE_NOT_FINISHED if s < 0 else min(s, SCORE_NOT_FINISHED - 1):0{SCORE_DIGITS}d}"
+        for s in scores
+    )
+    return int("1" + digits)
+
+
 def encode_snapshot(snapshot: Snapshot, seq: int) -> dict[str, int]:
     """エンジンのスナップショットをcloud変数の辞書に変換する。
 
@@ -46,6 +66,8 @@ def encode_snapshot(snapshot: Snapshot, seq: int) -> dict[str, int]:
         VAR_P2S_QID: snapshot.question_id,
         VAR_P2S_CORRECT: snapshot.correct,
         VAR_P2S_BALLOONS: snapshot.balloons,
+        VAR_P2S_ANSWER: snapshot.answer,
+        VAR_P2S_SCORES: encode_scores(snapshot.scores),
         VAR_P2S_SEQ: seq,
     }
 

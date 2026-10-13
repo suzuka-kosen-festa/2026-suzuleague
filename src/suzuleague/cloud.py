@@ -271,8 +271,19 @@ class CloudBridge:
         self._seq += 1
         self._last_snapshot = snapshot
         for name, value in protocol.encode_snapshot(snapshot, self._seq).items():
-            self.cloud.set_var(name, value)
+            self._set_var(name, value)
         return self._seq
+
+    def push_answer(self, snapshot: Snapshot) -> None:
+        """届いた回答（P2S_ANSWER）だけを送る。P2S_SEQ は進めない。
+
+        大画面用のScratch画面（入力なし）が、出演者の回答を画面に出すのに使う。
+        SEQを進めると、出演者のScratch画面が回答受付をやり直してテンキーを出し直すため、
+        この変数だけを送る。大画面用の画面は P2S_ANSWER の変化を直接見ている。
+        """
+        assert self.cloud is not None, "connect()前にpush_answerされました"
+        self._last_snapshot = snapshot  # 送り直し（resync）でも同じ回答が届くように
+        self._set_var(protocol.VAR_P2S_ANSWER, snapshot.answer)
 
     def resync(self) -> int | None:
         """最後に送った状態を再送する（Scratch側のリロード後などに使う）。"""
@@ -281,8 +292,15 @@ class CloudBridge:
         return self.push(self._last_snapshot)
 
     def _set_var(self, name: str, value: int) -> None:
+        """cloud変数を1つ送る。値は文字列にして送る。
+
+        数値のまま送ると、Scratch側の「コスチュームを（☁ P2S_ROUND）にする」が
+        コスチュームの名前ではなく番号で選ばれ、問題番号の表示が1つ前にずれる
+        （2026-10-13 に実機で確認）。Scratch本体のcloud変数も値を文字列で持つので、
+        Scratch担当が手元で試したときと同じ動きになるよう文字列にそろえる。
+        """
         assert self.cloud is not None
-        self.cloud.set_var(name, value)
+        self.cloud.set_var(name, str(value))
 
     # ---- 受信 ----------------------------------------------------
 

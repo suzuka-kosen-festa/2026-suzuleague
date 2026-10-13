@@ -44,6 +44,8 @@ class Snapshot:
     question_id: int  # 現在の問題ID (出題前は0)
     correct: int  # 正解% (REVEAL以降のみ有効、それ以外は-1)
     balloons: int  # 現在チームのバルーン残数
+    answer: int = -1  # 出演者の回答% (届いていなければ-1。出題のたびに-1に戻る)
+    scores: tuple[int, ...] = ()  # チームごとの残りバルーン（チーム番号順。5問を終えていないチームは-1）
 
 
 class GameEngine:
@@ -110,6 +112,11 @@ class GameEngine:
         team = self.current_team
         q = self.current_question
         reveal_states = (State.REVEAL, State.ROUND_RESULT)
+        answer: int | None = None
+        if self.state in (State.ANSWERING, State.EXHIBITION_ANSWERING):
+            answer = self._pending_answer
+        elif self.state in (*reveal_states, State.TEAM_RESULT) and self._last_result:
+            answer = self._last_result.answer
         return Snapshot(
             state=self.state,
             team_no=team.number if team else 0,
@@ -117,6 +124,11 @@ class GameEngine:
             question_id=q.id if q else 0,
             correct=q.correct if (q and self.state in reveal_states) else -1,
             balloons=team.balloons if team else 0,
+            answer=-1 if answer is None else answer,
+            scores=tuple(
+                t.balloons if t.finished_rounds >= ROUNDS_PER_TEAM else -1
+                for t in sorted(self.teams, key=lambda t: t.number)
+            ),
         )
 
     def winner(self) -> Team | None:

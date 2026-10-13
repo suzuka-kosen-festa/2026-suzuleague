@@ -231,6 +231,27 @@ class TestSnapshotAndWinner:
         engine.advance()  # 次のQUESTION
         assert engine.snapshot().correct == -1
 
+    def test_answer_is_shared_from_arrival_to_team_result(self):
+        """出演者の回答は届いたときから出し、次の問題で-1に戻す（大画面用の画面が読む）。"""
+        engine = make_engine()
+        engine.advance()
+        engine.advance()  # QUESTION
+        for round_no in range(1, 6):
+            assert engine.snapshot().answer == -1
+            engine.advance()  # ANSWERING
+            assert engine.snapshot().answer == -1
+            engine.submit_answer(30 + round_no)
+            assert engine.snapshot().answer == 30 + round_no
+            engine.advance()  # REVEAL
+            assert engine.snapshot().answer == 30 + round_no
+            engine.advance()  # ROUND_RESULT
+            assert engine.snapshot().answer == 30 + round_no
+            engine.advance()  # 次のQUESTION / TEAM_RESULT
+        assert engine.state is State.TEAM_RESULT
+        assert engine.snapshot().answer == 35
+        engine.advance()  # 次のチームのTEAM_INTRO
+        assert engine.snapshot().answer == -1
+
     def test_winner_is_max_balloons_among_cleared(self):
         engine = make_engine()
         # チーム1: 毎回10ダメージ → 残50
