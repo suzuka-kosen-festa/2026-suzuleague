@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import math
 import secrets
 import threading
 import time
@@ -168,10 +169,14 @@ def _shows_question(engine: GameEngine) -> bool:
     return engine.current_question is not None and engine.state is not State.TEAM_INTRO
 
 
-def build_player_state(engine: GameEngine) -> dict[str, Any]:
-    """出演者の回答画面に出す状態。誰でも見られるので、**正解は発表後だけ**入れる。"""
+def build_player_state(engine: GameEngine, *, hold_reveal: bool = False) -> dict[str, Any]:
+    """出演者の回答画面に出す状態。誰でも見られるので、**正解は発表後だけ**入れる。
+
+    hold_reveal のあいだ（ステージ画面が正解発表の演出をしているあいだ）は、正解発表の段階でも
+    正解を入れない。残りバルーンも発表前の数にする（減った数から正解との差が分かるため）。
+    """
     question = engine.current_question
-    return {
+    state = {
         "state": int(engine.state),
         "state_label": STATE_LABELS[engine.state],
         "team": _team_info(engine.current_team),
@@ -192,17 +197,46 @@ def build_player_state(engine: GameEngine) -> dict[str, Any]:
         "finished": engine.state is State.FINISHED,
         "winner": _winner_info(engine),
     }
+    if hold_reveal and engine.state is State.REVEAL:
+        _hide_reveal(state, engine)
+    return state
+
+
+def _hide_reveal(state: dict[str, Any], engine: GameEngine) -> None:
+    """正解と、今の問題で減ったバルーンを、発表前の見え方に戻す（revealed は観客ランキング用なので戻さない）。"""
+    team = engine.current_team
+    result = engine.last_result
+    if team is None or result is None:
+        return
+    bonus = engine.perfect_bonus if result.is_perfect and not result.exhibition else 0
+    before = Team(
+        number=team.number,
+        name=team.name,
+        balloons=result.balloons_after + result.damage - bonus,
+        results=team.results[:-1],
+    )
+    state["result"] = None
+    state["team"] = _team_info(before)
+    state["teams"] = [
+        {**entry, "balloons": before.balloons, "finished_rounds": before.finished_rounds, "status": team_status_label(before)}
+        if entry["number"] == team.number
+        else entry
+        for entry in state["teams"]
+    ]
 
 
 def build_host_state(
     engine: GameEngine,
     last_command: dict[str, Any] | None = None,
     player_codes: TeamCodes | None = None,
+    hold_remaining: float = 0.0,
 ) -> dict[str, Any]:
     """司会者画面に出す状態。正解も含む（画面側で押したときだけ表示する）。
 
     `player` は出演者の回答画面向けの公開用の状態で、Render がそのまま配る。
     `player_code` は Render が出演者の回答を受け付けるときの照合に使う。
+    `hold_remaining` は正解発表の演出が終わるまでの残り秒数（GameController.hold_remaining）。
+    残っているあいだは `hold` に秒数を入れ、司会者画面は「次へ」を押せなくする。
     """
     team = engine.current_team
     question = engine.current_question
@@ -233,12 +267,13 @@ def build_host_state(
         "finished": engine.state is State.FINISHED,
         "winner": _winner_info(engine),
         "last_command": last_command,
+        "hold": math.ceil(hold_remaining),
         "player_code": (
             player_codes.for_team(team.number)
             if player_codes and team and engine.state is not State.FINISHED
             else None
         ),
-        "player": build_player_state(engine),
+        "player": build_player_state(engine, hold_reveal=hold_remaining > 0),
     }
 
 
@@ -393,7 +428,10 @@ class HostRelay:
 
         with self.controller.lock:
             state = build_host_state(
-                self.controller.engine, self._last_command, self.player_codes
+                self.controller.engine,
+                self._last_command,
+                self.player_codes,
+                self.controller.hold_remaining(),
             )
         fingerprint = json.dumps(state, sort_keys=True, ensure_ascii=False)
         now = self._clock()
@@ -474,7 +512,10 @@ def serve_local(
             elif path == "/api/host/state":
                 with controller.lock:
                     state = build_host_state(
-                        controller.engine, session["last_command"], player_codes
+                        controller.engine,
+                        session["last_command"],
+                        player_codes,
+                        controller.hold_remaining(),
                     )
                 self._send_json(200, {"state": state, "age": 0})
             else:

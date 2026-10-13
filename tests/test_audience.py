@@ -11,6 +11,7 @@ import re
 
 import pytest
 
+from suzuleague import protocol
 from suzuleague.audience import build
 from suzuleague.models import Question
 from suzuleague.questions import QuestionSet
@@ -25,6 +26,7 @@ class TestBuild:
     def test_placeholders_are_replaced(self, html):
         assert "__QUESTIONS__" not in html
         assert "__ROOM__" not in html
+        assert "__REVEAL_DELAY_MS__" not in html
 
     def test_room_id_is_embedded(self, html):
         assert '"suzuleague-test"' in html
@@ -59,10 +61,16 @@ class TestBuild:
         assert "S2P" not in sends[0]
 
     def test_reveal_waits_for_scratch_animation(self, html):
-        """Scratch 画面より先に正解を出さない（ゲージの演出は実測で最長13.5秒）。"""
+        """ステージ画面より先に正解を出さない（ゲージの演出は実測で最長13.7秒）。"""
         m = re.search(r"var REVEAL_DELAY_MS = (\d+);", html)
         assert m, "正解発表の待ち時間が見つからない"
-        assert int(m.group(1)) >= 13_500
+        assert int(m.group(1)) == protocol.REVEAL_SECONDS * 1000  # 司会の「次へ」を止める長さと同じ
+        assert int(m.group(1)) >= 13_700
+
+    def test_stage_answer_comes_from_the_cloud_variable(self, html):
+        """ステージの回答は P2S_ANSWER から出す（演出のあいだ、公開用の状態には結果が入らないため）。"""
+        assert 'num("P2S_ANSWER")' in html
+        assert html.count('fetch("api/player/state"') == 1  # 全体結果の表示だけ
 
     def test_no_external_resources(self, html):
         """会場ネットワークに依存しないよう外部読み込みを持たない。"""

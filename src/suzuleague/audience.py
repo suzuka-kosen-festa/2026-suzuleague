@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .protocol import REVEAL_SECONDS
 from .questions import QuestionSet
 
 TEMPLATE_PATH = Path(__file__).parent / "audience_template.html"
@@ -26,6 +27,7 @@ TEMPLATE_PATH = Path(__file__).parent / "audience_template.html"
 # テンプレート側のプレースホルダ。JSリテラルとして置換する
 PLACEHOLDER_QUESTIONS = "__QUESTIONS__"
 PLACEHOLDER_ROOM = "__ROOM__"
+PLACEHOLDER_REVEAL_DELAY = "__REVEAL_DELAY_MS__"
 
 
 def build(room_id: str, question_set: QuestionSet | None = None) -> str:
@@ -37,10 +39,11 @@ def build(room_id: str, question_set: QuestionSet | None = None) -> str:
     qs = question_set or QuestionSet()
     html = TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    for placeholder in (PLACEHOLDER_QUESTIONS, PLACEHOLDER_ROOM):
+    for placeholder in (PLACEHOLDER_QUESTIONS, PLACEHOLDER_ROOM, PLACEHOLDER_REVEAL_DELAY):
         if placeholder not in html:
             raise ValueError(f"テンプレートに {placeholder} がありません")
 
     html = html.replace(PLACEHOLDER_QUESTIONS, qs.export_audience_json())
     html = html.replace(PLACEHOLDER_ROOM, json.dumps(room_id)[1:-1])
+    html = html.replace(PLACEHOLDER_REVEAL_DELAY, str(round(REVEAL_SECONDS * 1000)))
     return html

@@ -42,7 +42,7 @@ from .host import (
     serve_local,
 )
 from .labels import NEXT_HINTS, STATE_LABELS, team_status_label
-from .protocol import ACK_ANIMATION_DONE
+from .protocol import ACK_ANIMATION_DONE, REVEAL_SECONDS
 from .questions import ROUNDS_PER_TEAM
 from .teams import ENV_TEAMS, resolve_teams
 
@@ -64,6 +64,7 @@ class Dashboard:
         engine: GameEngine,
         bridge: CloudBridge | None,
         min_advance_interval: float = MIN_ADVANCE_INTERVAL,
+        reveal_hold: float = 0.0,
     ) -> None:
         self.engine = engine
         self.bridge = bridge
@@ -76,6 +77,7 @@ class Dashboard:
                 f"[red]cloud送信失敗: {e}（resyncで再送できます）[/]"
             ),
             min_advance_interval=min_advance_interval,
+            reveal_hold=reveal_hold,
         )
 
     # ---- cloudイベント（イベントスレッドから呼ばれる） ----------
@@ -297,6 +299,15 @@ def main() -> None:
         help="--save-file の続きから始める（付けなければ最初から。前回の保存は .prev に残す）",
     )
     parser.add_argument(
+        "--reveal-hold",
+        type=float,
+        default=None,
+        help=(
+            "正解発表のあと「次へ」を受け付けない秒数。ステージ画面の演出が終わるのを待つ"
+            f"（既定は {REVEAL_SECONDS:g}。--offline のときは 0。ステージ画面を使わないなら 0）"
+        ),
+    )
+    parser.add_argument(
         "--perfect-bonus",
         type=int,
         default=0,
@@ -325,7 +336,8 @@ def main() -> None:
             )
         except ValueError as e:
             parser.error(str(e))
-    dashboard = Dashboard(engine, bridge)
+    reveal_hold = args.reveal_hold if args.reveal_hold is not None else (0.0 if args.offline else REVEAL_SECONDS)
+    dashboard = Dashboard(engine, bridge, reveal_hold=reveal_hold)
     holder.append(dashboard)
 
     # 続きから始めるなら、cloud へ最初の状態を送る前に読み戻す（読み戻した状態をそのまま配る）

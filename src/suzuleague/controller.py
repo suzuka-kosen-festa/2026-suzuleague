@@ -7,6 +7,7 @@ CLIダッシュボード・司会者画面（スマホ）・Scratchからの回�
 
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections.abc import Callable
@@ -29,6 +30,7 @@ class GameController:
         on_push_error: Callable[[Exception], None] | None = None,
         on_change: Callable[[], None] | None = None,
         min_advance_interval: float = 0.0,
+        reveal_hold: float = 0.0,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.engine = engine
@@ -40,6 +42,9 @@ class GameController:
         self._min_advance_interval = min_advance_interval
         self._clock = clock
         self._last_advance: float | None = None
+        # 正解発表のあと、ステージ画面の演出が終わるまで次へ進ませない秒数（本番は protocol.REVEAL_SECONDS）
+        self._reveal_hold = reveal_hold
+        self._revealed_at: float | None = None
 
     def advance(self, expect_state: int | None = None) -> State:
         """進行を1段階進める。
@@ -53,6 +58,11 @@ class GameController:
                 raise GameError(
                     "画面の表示が古いため操作を取り消しました（もう進んでいます）"
                 )
+            holding = self.hold_remaining()
+            if holding > 0:
+                raise GameError(
+                    f"正解発表の演出中です（あと{math.ceil(holding)}秒）。大画面に正解が出てから押してください"
+                )
             now = self._clock()
             if (
                 self._last_advance is not None
@@ -63,9 +73,22 @@ class GameController:
                 )
             state = self.engine.advance()
             self._last_advance = now
+            self._revealed_at = now if state is State.REVEAL else None
             self._changed()
         self.push_state()
         return state
+
+    def hold_remaining(self) -> float:
+        """正解発表の演出が終わるまでの残り秒数（待たなくてよければ 0）。
+
+        このあいだは「次へ」を受け付けず、予備の回答画面にも正解を出さない。
+        ステージ画面より先に、ほかの画面で答えが分かってしまうのを防ぐ。
+        裏方PCを起動し直して正解発表から再開したときは、いつ発表したか分からないので待たない。
+        """
+        with self.lock:
+            if self.engine.state is not State.REVEAL or self._revealed_at is None:
+                return 0.0
+            return max(0.0, self._reveal_hold - (self._clock() - self._revealed_at))
 
     def answer(self, percent: int) -> None:
         """回答を受け付ける。確定は advance() の正解発表時。"""

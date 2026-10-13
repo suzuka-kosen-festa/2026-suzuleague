@@ -88,7 +88,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/audience.py` | 観客ページの生成（問題文を埋め込む） |
 | `src/suzuleague/audience_template.html` | 観客ページ（自己採点・観客ランキング・全体結果） |
 | `src/suzuleague/loadtest.py` | 同時接続数・観客ランキングの一斉送信の負荷テスト（開発用） |
-| `tests/` | ユニットテスト（ネットワーク不要。195件） |
+| `tests/` | ユニットテスト（ネットワーク不要。201件） |
 | `launcher/` | ダッシュボードの起動アプリ（`スズリーグ.app`）とターミナル版（`*.command`） |
 | `docs/scratch/` | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト） |
 | `docs/qr/` | QRコードと印刷用ページ |

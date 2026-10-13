@@ -266,6 +266,36 @@ class TestController:
         controller.advance()
         assert controller.engine.state is State.QUESTION
 
+    def test_holds_next_while_the_stage_plays_the_reveal(self):
+        """正解発表の演出のあいだは進めない（大画面より先に、ほかの画面で正解が出ないように）。"""
+        now = [100.0]
+        engine = make_engine()
+        advance_to(engine, State.ANSWERING)
+        controller = GameController(engine, reveal_hold=15.0, clock=lambda: now[0])
+        assert controller.hold_remaining() == 0  # 正解発表の前は待たない
+        controller.answer(40)
+        controller.advance()
+        assert engine.state is State.REVEAL
+        assert controller.hold_remaining() == 15.0
+        now[0] += 13.2
+        with pytest.raises(GameError, match="あと2秒"):
+            controller.advance()
+        assert engine.state is State.REVEAL
+        now[0] += 1.8
+        assert controller.hold_remaining() == 0
+        controller.advance()
+        assert engine.state is State.ROUND_RESULT
+        assert controller.hold_remaining() == 0
+
+    def test_no_hold_after_restart_in_reveal(self):
+        """起動し直して正解発表から再開したときは、いつ発表したか分からないので待たせない。"""
+        engine = make_engine()
+        advance_to(engine, State.REVEAL)
+        controller = GameController(engine, reveal_hold=15.0)
+        assert controller.hold_remaining() == 0
+        controller.advance()
+        assert engine.state is State.ROUND_RESULT
+
     def test_no_interval_by_default(self):
         controller = GameController(make_engine())
         controller.advance()
@@ -274,6 +304,29 @@ class TestController:
 
 
 class TestHostRelay:
+    def test_posts_the_result_to_players_when_the_hold_ends(self):
+        """演出が終わったら、操作がなくても状態を送り直す（予備の回答画面に正解を出す）。"""
+        now = [0.0]
+        engine = make_engine()
+        advance_to(engine, State.ANSWERING)
+        controller = GameController(engine, reveal_hold=15.0, clock=lambda: now[0])
+        transport = FakeTransport()
+        relay = HostRelay(controller, transport, clock=lambda: now[0])
+        controller.answer(40)
+        controller.advance()
+        relay.step()
+        assert transport.posted[-1]["hold"] == 15
+        assert transport.posted[-1]["player"]["result"] is None
+        now[0] += 0.4
+        relay.step()
+        count = len(transport.posted)
+        assert transport.posted[-1]["hold"] == 15  # 秒が変わらなければ送り直さない
+        now[0] += 14.7
+        relay.step()
+        assert len(transport.posted) == count + 1
+        assert transport.posted[-1]["hold"] == 0
+        assert transport.posted[-1]["player"]["result"]["correct"] == 50
+
     def test_commands_queued_before_start_are_skipped(self):
         """裏方PCの再起動後に、古い「次へ」が一気に流れ込まない。"""
         transport = FakeTransport()
@@ -363,6 +416,42 @@ class TestPlayerState:
         engine.advance()
         assert build_player_state(engine)["result"]["correct"] == 87
         assert build_player_state(engine)["revealed"] == 1
+
+    def test_reveal_is_hidden_from_players_while_the_stage_plays_it(self):
+        """演出のあいだは、正解も、正解との差が分かる残りバルーンも出さない。"""
+        qs = QuestionSet([Question(i + 1, f"Q{i + 1}", 87, "テスト") for i in range(20)])
+        engine = GameEngine(question_set=qs)
+        advance_to(engine, State.ANSWERING)
+        engine.submit_answer(40)
+        engine.advance()  # 正解発表（47個割れて残り53）
+
+        held = build_host_state(engine, hold_remaining=12.3)
+        assert held["hold"] == 13
+        assert held["result"]["correct"] == 87  # 司会者画面には出す（押したときだけ見える）
+        player = held["player"]
+        assert player["state"] == int(State.REVEAL)
+        assert player["result"] is None
+        assert "87" not in json.dumps(player)
+        assert player["team"] == {"number": 1, "name": "チーム1", "balloons": 100, "failed": False}
+        assert player["teams"][0] == {
+            "number": 1, "name": "チーム1", "balloons": 100, "finished_rounds": 0, "status": "未挑戦"
+        }
+        assert player["revealed"] == 1  # 観客ランキング用の数は、発表した時点で進める
+
+        shown = build_host_state(engine, hold_remaining=0)
+        assert shown["hold"] == 0
+        assert shown["player"]["result"]["correct"] == 87
+        assert shown["player"]["team"]["balloons"] == 53
+        assert shown["player"] == build_player_state(engine)
+
+    def test_hidden_reveal_restores_balloons_before_a_perfect_bonus(self):
+        qs = QuestionSet([Question(i + 1, f"Q{i + 1}", 50, "テスト") for i in range(20)])
+        engine = GameEngine(question_set=qs, perfect_bonus=10)
+        advance_to(engine, State.ANSWERING)
+        engine.submit_answer(50)
+        engine.advance()
+        assert engine.current_team.balloons == 110
+        assert build_player_state(engine, hold_reveal=True)["team"]["balloons"] == 100
 
     def test_host_state_carries_code_and_player_part(self):
         engine = make_engine()
