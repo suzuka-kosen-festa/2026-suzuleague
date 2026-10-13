@@ -600,7 +600,7 @@ GAME_OVER_TEXT_MESSAGE = "作り直し_ゲームオーバー文字"
 CLEARED_TEXT_MESSAGE = "作り直し_クリア文字"
 
 
-def _literal(blocks: dict[str, Any], value: Any) -> str | None:
+def _literal(value: Any) -> str | None:
     """入力に直接書かれた値（ブロックが入っていれば None）。"""
     if isinstance(value, list) and len(value) > 1 and isinstance(value[1], list) and value[1][0] in (4, 5, 6, 7, 8, 10):
         return str(value[1][1])
@@ -625,11 +625,11 @@ def _add_rebuild_game_over_text(project: dict[str, Any], notes: list[str]) -> No
     for block_id in script_blocks(target, top_id):
         block = blocks[block_id]
         if block["opcode"] == "looks_setsizeto":
-            size = _literal(blocks, block["inputs"].get("SIZE"))
+            size = _literal(block["inputs"].get("SIZE"))
         elif block["opcode"] == "motion_gotoxy":
-            start = (_literal(blocks, block["inputs"].get("X")), _literal(blocks, block["inputs"].get("Y")))
+            start = (_literal(block["inputs"].get("X")), _literal(block["inputs"].get("Y")))
         elif block["opcode"] == "procedures_call":
-            values = [_literal(blocks, v) for v in block["inputs"].values()]
+            values = [_literal(v) for v in block["inputs"].values()]
             if len(values) == 1 and values[0] is not None:
                 letters.append(values[0])
                 proccode = block["mutation"]["proccode"]
@@ -638,7 +638,7 @@ def _add_rebuild_game_over_text(project: dict[str, Any], notes: list[str]) -> No
         if block["opcode"] == "procedures_prototype" and block["mutation"]["proccode"] == proccode:
             for inner in script_blocks(target, block["parent"]):
                 if blocks[inner]["opcode"] == "motion_changexby":
-                    step = _literal(blocks, blocks[inner]["inputs"].get("DX"))
+                    step = _literal(blocks[inner]["inputs"].get("DX"))
     if not letters or size is None or start is None or None in start or step is None:
         notes.append("開き直したときの GAME OVER の文字（#59）は出しません（元の演出から文字の並べ方を読み取れない）")
         return
