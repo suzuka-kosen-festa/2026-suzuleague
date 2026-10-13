@@ -531,12 +531,20 @@ def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Bloc
                         both(both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)), lt(Var(STATE), 6)),
                         broadcast(CLEARED_TEXT_MESSAGE),
                     ),
-                    # その問題でゲームオーバー・クリアになった正解発表では、元の演出が問題文などを隠している
-                    # （ラウンド結果でまた出す）。上で ラウンド結果 まで出したので、同じものを隠し直す
+                    # その問題でゲームオーバー・クリアになった正解発表では、元の演出が問題文などを隠し、回答中 を 4 にしている
+                    # （ラウンド結果でまた出す）。上で ラウンド結果 まで出したので、同じようにし直す
                     when(
                         eq(Var(STATE), 4),
-                        when(eq(Var(FAILED_ROUND), Var(ROUND)), broadcast(GAME_OVER_HIDE_MESSAGE)),
-                        when(both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)), broadcast(CLEARED_HIDE_MESSAGE)),
+                        when(
+                            eq(Var(FAILED_ROUND), Var(ROUND)),
+                            set_var("回答中", 4),  # ゲームオーバーのあとの「残り」は 回答中 が 3 のときだけ出る
+                            broadcast(GAME_OVER_HIDE_MESSAGE),
+                        ),
+                        when(
+                            both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)),
+                            set_var("回答中", 4),
+                            broadcast(CLEARED_HIDE_MESSAGE),
+                        ),
                     ),
                 ),
                 wait(0.1),
