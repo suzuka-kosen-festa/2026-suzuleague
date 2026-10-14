@@ -19,10 +19,10 @@ Scratch担当がプロジェクトを直すたびに、ステージ画面を作�
     uv run --with playwright python -m playwright install chromium
 
     uv run --with playwright python tools/stage_check.py
-    uv run --with playwright python tools/stage_check.py --quick      # 1チームだけ（約3分）
+    uv run --with playwright python tools/stage_check.py --quick      # 1チームだけ（約7分）
     uv run --with playwright python tools/stage_check.py --headed     # ブラウザを見ながら
 
-通しで10分ほどかかる（正解発表の演出を毎回待つため）。音は確かめられないので、実機で聞く。
+通しで20分ほどかかる（正解発表の演出を毎回待つため）。音は確かめられないので、実機で聞く。
 """
 
 from __future__ import annotations

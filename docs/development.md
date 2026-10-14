@@ -395,7 +395,10 @@ uv run --with playwright python tools/stage_check.py            # 通し（3チ�
 uv run --with playwright python tools/stage_check.py --quick    # 1チームだけ（約7分）
 ```
 
-最後に「N 件 OK、0 件 NG」と出ればよい。確かめていること:
+最後に「N 件 OK、0 件 NG」と出ればよい。
+「Executable doesn't exist」で止まったら、Playwright の版が上がって、入れてあるブラウザと合わなくなっている。上の「ブラウザを入れる」をやり直す。
+
+確かめていること:
 
 - 段階ごとに、問題文・問題番号・チームの札・残りバルーン・予想が裏方PCと合う
 - 各チームの1問目で、問題文がすぐ出る（登場の効果音を待たない）

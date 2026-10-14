@@ -492,6 +492,9 @@ def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Bloc
                 set_var("回答中", 0.1),  # 0 のままだと数字のクローンが出ない
                 broadcast("途中復帰_背景同期"),
                 broadcast("途中復帰_出題UI同期"),
+                when(eq(Var(STATE), 2), broadcast(QUESTION_HIDE_GAUGE_MESSAGE)),  # 出題のあいだはゲージが出ていない
+                # ゲームオーバーになった問題のあいだは、「エキシビションモード」の表示はまだ出ていない（次の問題から出る）
+                when(eq(Var(FAILED_ROUND), Var(ROUND)), broadcast(EXHIBITION_LABEL_HIDE_MESSAGE)),
                 wait(0.6),
                 broadcast("途中復帰_入力監視開始"),
                 when(lt(Var(BALLOONS), 1), broadcast("作り直し_ゲームオーバー後")),
@@ -612,6 +615,22 @@ def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
             ),
         )
 
+    # 元の 途中復帰_出題UI同期 は、どの段階でもゲージを正解発表の絵（ゲージ_3）にして出す（10/13 の版から）。
+    # 順に進んだときは、ゲージは回答受付で初めて出るので、出題の段階では隠し直す
+    if "UI_オーバーレイ" in names:
+        Scripts(project, "UI_オーバーレイ").add(
+            on_message(QUESTION_HIDE_GAUGE_MESSAGE),
+            when(eq(Block("looks_costumenumbername", fields={"NUMBER_NAME": "name"}), "ゲージ_3"), Block("looks_hide")),
+        )
+
+    # 元の 途中復帰_出題UI同期 は、エキシビション が 1 なら「エキシビションモード」の表示を出す（10/13 の版から）。
+    # 順に進んだときは次の問題（進行_次の問題へ）で初めて出るので、ゲームオーバーになった問題のあいだは隠し直す
+    if "UI" in names:
+        Scripts(project, "UI").add(
+            on_message(EXHIBITION_LABEL_HIDE_MESSAGE),
+            when(eq(Block("looks_costumenumbername", fields={"NUMBER_NAME": "name"}), "エキシビションモード"), Block("looks_hide")),
+        )
+
     # GAME OVER の文字はクローンのまま残り、次のチームになっても消えない
     if "GameOver" in names:
         Scripts(project, "GameOver").add(
@@ -623,6 +642,8 @@ GAME_OVER_TEXT_MESSAGE = "作り直し_ゲームオーバー文字"
 CLEARED_TEXT_MESSAGE = "作り直し_クリア文字"
 GAME_OVER_HIDE_MESSAGE = "作り直し_ゲームオーバーで隠す"
 CLEARED_HIDE_MESSAGE = "作り直し_クリアで隠す"
+QUESTION_HIDE_GAUGE_MESSAGE = "作り直し_出題でゲージを隠す"
+EXHIBITION_LABEL_HIDE_MESSAGE = "作り直し_エキシビション表示を隠す"
 
 
 def _mirror_simple_receivers(project: dict[str, Any], source: str, message: str) -> None:

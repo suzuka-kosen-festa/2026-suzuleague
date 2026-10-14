@@ -666,3 +666,61 @@ class TestRebuildHidesLikeTheEnding:
         made, _ = stage.transform(self._with_endings(), variant)
         sent = broadcasts_in(made, "通信")
         assert {stage.GAME_OVER_HIDE_MESSAGE, stage.CLEARED_HIDE_MESSAGE} <= sent
+
+
+class TestRebuildHidesGaugeWhileShowingQuestion:
+    """出題の段階で開き直したら、元の 途中復帰_出題UI同期 が出したゲージを隠し直す（順に進めば回答受付で初めて出る）。"""
+
+    def test_overlay_hides_the_gauge_on_the_message(self, variant):
+        source = make_project()
+        source["targets"].append(_sprite("UI_オーバーレイ"))
+        made, _ = stage.transform(source, variant)
+        ((target, hat),) = stage.receivers(made, stage.QUESTION_HIDE_GAUGE_MESSAGE)
+        assert target["name"] == "UI_オーバーレイ"
+        blocks = target["blocks"]
+        guard = blocks[blocks[hat]["next"]]
+        cond = blocks[guard["inputs"]["CONDITION"][1]]
+        costume = blocks[cond["inputs"]["OPERAND1"][1]]
+        assert costume["opcode"] == "looks_costumenumbername" and costume["fields"]["NUMBER_NAME"][0] == "name"
+        assert cond["inputs"]["OPERAND2"][1][1] == "ゲージ_3"
+        assert blocks[guard["inputs"]["SUBSTACK"][1]]["opcode"] == "looks_hide"
+
+    def test_rebuild_sends_it_only_while_showing_the_question(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        blocks = stage.find_target(made, "通信")["blocks"]
+        (sender,) = [
+            b for b in blocks.values()
+            if b["opcode"] == "event_broadcast" and b["inputs"]["BROADCAST_INPUT"][1][1] == stage.QUESTION_HIDE_GAUGE_MESSAGE
+        ]
+        guard = blocks[sender["parent"]]
+        cond = blocks[guard["inputs"]["CONDITION"][1]]
+        assert cond["opcode"] == "operator_equals"
+        assert cond["inputs"]["OPERAND1"][1][1] == stage.STATE and cond["inputs"]["OPERAND2"][1][1] == "2"
+
+
+class TestRebuildHidesExhibitionLabelInTheFailedRound:
+    """ゲームオーバーになった問題で開き直したら、「エキシビションモード」の表示を隠し直す（順に進めば次の問題から出る）。"""
+
+    def test_ui_hides_the_label_on_the_message(self, variant):
+        source = make_project()
+        source["targets"].append(_sprite("UI"))
+        made, _ = stage.transform(source, variant)
+        ((target, hat),) = stage.receivers(made, stage.EXHIBITION_LABEL_HIDE_MESSAGE)
+        assert target["name"] == "UI"
+        blocks = target["blocks"]
+        guard = blocks[blocks[hat]["next"]]
+        cond = blocks[guard["inputs"]["CONDITION"][1]]
+        assert blocks[cond["inputs"]["OPERAND1"][1]]["opcode"] == "looks_costumenumbername"
+        assert cond["inputs"]["OPERAND2"][1][1] == "エキシビションモード"
+        assert blocks[guard["inputs"]["SUBSTACK"][1]]["opcode"] == "looks_hide"
+
+    def test_rebuild_sends_it_only_in_the_failed_round(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        blocks = stage.find_target(made, "通信")["blocks"]
+        (sender,) = [
+            b for b in blocks.values()
+            if b["opcode"] == "event_broadcast" and b["inputs"]["BROADCAST_INPUT"][1][1] == stage.EXHIBITION_LABEL_HIDE_MESSAGE
+        ]
+        cond = blocks[blocks[sender["parent"]]["inputs"]["CONDITION"][1]]
+        assert cond["opcode"] == "operator_equals"
+        assert {cond["inputs"][k][1][1] for k in ("OPERAND1", "OPERAND2")} == {stage.FAILED_ROUND, stage.ROUND}
