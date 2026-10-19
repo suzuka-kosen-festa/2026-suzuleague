@@ -841,6 +841,8 @@
           <div class="chalk"><span class="k">P2S_QID<span class="note">問題の背番号</span></span><span class="v">17</span></div>
           <div class="chalk"><span class="k">P2S_BALLOONS<span class="note">残りバルーン</span></span><span class="v">62</span></div>
           <div class="chalk"><span class="k">P2S_CORRECT<span class="note">正解％（隠し中は−1）</span></span><span class="v">-1</span></div>
+          <div class="chalk"><span class="k">P2S_ANSWER<span class="note">大画面に出す出演者の答え</span></span><span class="v">45</span></div>
+          <div class="chalk"><span class="k">P2S_SCORES<span class="note">全チームの残りバルーン</span></span><span class="v">…</span></div>
           <div class="chalk"><span class="k">S2P_ANSWER<span class="note">Scratch画面からの回答</span></span><span class="v">45</span></div>
           <div class="chalk"><span class="k">HEARTBEAT<span class="note">裏方PCの生存確認</span></span><span class="v">…</span></div>
         </div>
@@ -1008,7 +1010,7 @@
             <tr>
               <td class="tool">pytest</td>
               <td>自動テスト</td>
-              <td class="why">採点・進行・合言葉・画面に送る中身・黒板の読み取り・ステージ画面の作り直しなどを188項目に分けて自動確認。1秒かからず全部通る</td>
+              <td class="why">採点・進行・合言葉・画面に送る中身・黒板の読み取り・ステージ画面の作り直しなどを241項目に分けて自動確認。1秒かからず全部通る</td>
             </tr>
             <tr>
               <td class="tool">uv</td>
@@ -1168,6 +1170,7 @@
       <p>
         10月初めのデモ会で「足りない」と言われた画面は、10月4日にすべて作り終えて公開しました。
         10月13日のデモ会で出た3つの指摘にも、その日のうちに手を入れています。
+        大画面はモニターに決まり、会場リハーサルは今週おこないます。
       </p>
     </div>
 
@@ -1207,19 +1210,19 @@
           <div class="prog-row">
             <span class="prog-name">ステージ画面（出演者用・大画面用）</span>
             <span class="prog-track"><span class="prog-fill" style="width:85%"></span></span>
-            <span class="prog-state">実機での確認待ち</span>
+            <span class="prog-state">最新版の取り込み・実機確認待ち</span>
           </div>
           <div class="prog-row">
             <span class="prog-name">当日の体制とリハーサル</span>
-            <span class="prog-track"><span class="prog-fill" style="width:40%"></span></span>
-            <span class="prog-state">日程待ち</span>
+            <span class="prog-track"><span class="prog-fill" style="width:60%"></span></span>
+            <span class="prog-state">今週リハーサル</span>
           </div>
         </div>
       </div>
       <figcaption>
         画面はまずスマホと同じ大きさの画面で全4チーム20問を最後まで自動で動かし、
         10月6日と12日には本物のスマホとScratch画面で、最後の結果発表まで通して動くことを確かめた。
-        ステージ画面は10月13日に作り直した。本物の端末と大画面で通す確認が残っている。
+        ステージ画面は10月13日に作り直し、10月14日にScratch担当の更新を取り込んだ。本物の端末と大画面で通す確認が残っている。
       </figcaption>
     </figure>
 
@@ -1239,6 +1242,20 @@
         <li><strong>同点の優勝</strong> ─ 残りバルーンが同じなら、そのチームすべてを優勝にしました（どの画面でも同じ）。</li>
         <li><strong>確かめ方</strong> ─ ステージ画面を自動で3チームぶん動かし、場面ごとに正しく出るかを調べる仕組みを作りました。Scratch担当がプロジェクトを直すたびに、同じ確認をすぐ繰り返せます。</li>
       </ul>
+
+      <h3>Scratch担当がプロジェクトを直したら</h3>
+      <p>
+        ステージ画面の絵と演出はScratch担当のものなので、向こうがプロジェクトを直したら、こちらで作り直して本番に出します。
+        作り直すたびに3チームぶんの自動の確認を通してから出すので、確かめていない画面が本番に出ることはありません。
+      </p>
+      <ul class="plain">
+        <li><strong>10月14日</strong> ─ 前日の更新（ゲームオーバーのあとの「エキシビションモード」の表示など）を取り込みました。確認で、途中で開き直すと画面が2か所ずれることが分かったので、こちらで補ってから出しました。</li>
+        <li><strong>10月18日</strong> ─ また更新があり、チーム名の札の出し方と数字キーの入力の作りが変わりました。今度は作り直しのコマンドが「作りが変わっています」と出て止まりました。<strong>本番では、前の版から作った画面がそのまま動いています</strong>。新しい版に合わせる作業は、リハーサルまでに済ませます。</li>
+      </ul>
+      <p>
+        作り直しが止まるのは、壊れた画面を黙って出さないための仕掛けです。
+        こちらが名前で頼っているメッセージや変数がなくなると、そこで止めて、何がなくなったかを表示します。
+      </p>
 
       <h3>通しで動かして、初めて見つかった不具合</h3>
       <p>
@@ -1262,15 +1279,16 @@
 
       <h3>まだ決まっていないこと</h3>
       <ul class="plain">
-        <li><strong>リハーサルの日程</strong> ─ 会場のWi-Fiでつながるかは、会場でしか確かめられません。</li>
+        <li><strong>リハーサルの細かい段取り</strong> ─ 今週おこなうことは決まりました。会場のWi-Fiでつながるかは会場でしか確かめられないので、そこで確かめます。</li>
         <li><strong>チーム名と登場順</strong> ─ 決まりしだい設定ファイルを書き換え、ステージ画面を作り直す（コマンド1つ）だけなので、直前でも間に合います。チーム名は大画面の札と結果発表にも出ます。</li>
-        <li><strong>大画面の機材</strong> ─ プロジェクターかモニターか、つなぐパソコンをだれが用意するか、音をどの端末から出すかを確認中です。</li>
+        <li><strong>大画面につなぐパソコンと音</strong> ─ モニターにつなぐパソコンをだれが用意するか、音を大画面と出演者の端末のどちらから出すかを確認中です（両方から出すと二重に聞こえます）。</li>
         <li><strong>裏方のパソコンの番をする人</strong> ─ 進行は司会がスマホで操作します。パソコンはアプリを開くだけで動き出すのでコマンドの知識は要りませんが、動いているかを見る人が1人いると安心です。</li>
       </ul>
 
       <h3>決まったこと</h3>
       <ul class="plain">
         <li><strong>出演者の画面を大画面にも映す</strong>（10月13日決定。10月4日の「プロジェクターは使わない」を改めた）。司会と観客はスマホ、出演者はステージに置いた端末のステージ画面で見て、その数字キーで答える</li>
+        <li><strong>大画面はモニター</strong>。数字キーのないステージ画面を、つないだパソコンのブラウザで開いて映す</li>
         <li><strong>進行は司会がスマホで操作する</strong>。台本は紙で持ち、画面には出さない</li>
         <li><strong>観客ランキングを作る</strong>。20問のズレの合計が少ない人が上位。答えなかった問題は1問50として数える</li>
         <li><strong>1チーム5問は変えない</strong>（7月24日決定） ─ 人数の少ないチームは1人が2〜3問答えます。誰が答えるかは<strong>当日その場で司会が指名</strong>します。</li>
@@ -1307,7 +1325,7 @@
   <div class="end">
     <p>
       <b>この資料について</b><br>
-      鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」進行システムの技術解説。2026年10月14日時点の状況にもとづく。<br>
+      鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」進行システムの技術解説。2026年10月19日時点の状況にもとづく。<br>
       画面とサーバ: <code>https://suzuleague-cloud.onrender.com</code>（観客ページ <code>/suzuleague.html</code>、ステージ画面 <code>/stage/view/</code>・<code>/stage/play/</code>）<br>
       詳細な仕様は開発リポジトリの docs/architecture.md・docs/protocol.md を参照。
     </p>
