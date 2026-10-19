@@ -98,10 +98,10 @@ VARIANTS = {"view": "大画面用（入力なし）", "play": "出演者用（�
 PACKAGER_DIR = Path(__file__).resolve().parents[2] / "tools" / "stage-packager"
 DEFAULT_TEAMS = Path(__file__).resolve().parents[2] / "teams.json"  # アプリの「本番」が読むのと同じファイル
 
-# 「通信」が各スプライトへ送るメッセージ。受け手がなくなっていたら元の作りが変わっている
+# 「通信」が各スプライトへ送るメッセージ。受け手がなくなっていたら元の作りが変わっている。
+# 1_チーム紹介 も送るが、10/18 の版から受け手がない（チーム名の札は ☁ P2S_TEAM を見て出し続ける）ので、ここには入れない
 REQUIRED_MESSAGES = (
     "初期化",
-    "1_チーム紹介",
     "演出_風船登場開始",
     "進行_次の問題へ",
     "4_正解発表",
@@ -114,6 +114,7 @@ REQUIRED_MESSAGES = (
 )
 REQUIRED_VARIABLES = ("回答中", "風船の数", "予想%", "正解%", "誤差", "エキシビション", "途中復帰", "復帰描画中")
 REQUIRED_LISTS = ("★入力した文字", "得点表")
+HIDE_GUESS = "予想%消して"  # 1 のあいだ予想の数字を隠す（ゲームオーバー・クリアの正解発表。10/18 の版から）
 INPUT_SPRITES = ("キー", "決定", "delete")  # テンキー・GO・Delete
 
 # 開いた直後（裏方PCからまだ何も届いていないとき）の値。元のプロジェクトには保存したときの
@@ -319,7 +320,7 @@ def _replace_communication(project: dict[str, Any], variant: str) -> None:
     _define_advance(s, exhibition)
     _define_show_answer(s)
     _define_show_scores(s)
-    _define_rebuild(s, exhibition, _clones_ready(project))
+    _define_rebuild(s, exhibition, _clones_ready(project), _has_variable(stage_of(project), HIDE_GUESS))
     if variant == "play":
         _add_answer_sender(s)
 
@@ -462,8 +463,13 @@ def _clones_ready(project: dict[str, Any]) -> list[Block]:
     ]
 
 
-def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Block]) -> None:
-    """今の状態だけから画面を組み立てる。開き直したとき・送り直されたとき・チームが替わるときに通る。"""
+def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Block], hide_guess: bool) -> None:
+    """今の状態だけから画面を組み立てる。開き直したとき・送り直されたとき・チームが替わるときに通る。
+
+    hide_guess は、元のプロジェクトに 予想%消して があるか（あれば、ゲームオーバー・クリアの正解発表で 1 にする）。
+    """
+    guess_shown = [set_var(HIDE_GUESS, 0)] if hide_guess else []
+    guess_hidden = [set_var(HIDE_GUESS, 1)] if hide_guess else []
     s.define(
         "画面を作り直す",
         broadcast("作り直し_止める"),
@@ -474,6 +480,7 @@ def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Bloc
         set_var("途中復帰", 0),
         when(gt(Var(STATE), 1), set_var("途中復帰", 1)),  # 1 のあいだはタイトルのロゴを出さない
         delete_all("★入力した文字"),
+        *guess_shown,
         hide_list("得点表"),
         broadcast("初期化"),
         wait(0.5),
@@ -534,6 +541,10 @@ def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Bloc
                         both(both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)), lt(Var(STATE), 6)),
                         broadcast(CLEARED_TEXT_MESSAGE),
                     ),
+                    when(
+                        both(both(eq(Var(STATE), 4), lt(Var(BALLOONS), 1)), no(eq(Var(FAILED_ROUND), Var(ROUND)))),
+                        broadcast(EXHIBITION_LABEL_SHOW_MESSAGE),  # エキシビションの正解発表（ラウンド結果で隠れた）
+                    ),
                     # その問題でゲームオーバー・クリアになった正解発表では、元の演出が問題文などを隠し、回答中 を 4 にしている
                     # （ラウンド結果でまた出す）。上で ラウンド結果 まで出したので、同じようにし直す
                     when(
@@ -541,11 +552,13 @@ def _define_rebuild(s: Scripts, exhibition: list[Block], clones_ready: list[Bloc
                         when(
                             eq(Var(FAILED_ROUND), Var(ROUND)),
                             set_var("回答中", 4),  # ゲームオーバーのあとの「残り」は 回答中 が 3 のときだけ出る
+                            *guess_hidden,
                             broadcast(GAME_OVER_HIDE_MESSAGE),
                         ),
                         when(
                             both(eq(Var(ROUND), 5), gt(Var(BALLOONS), 0)),
                             set_var("回答中", 4),
+                            *guess_hidden,
                             broadcast(CLEARED_HIDE_MESSAGE),
                         ),
                     ),
@@ -615,21 +628,23 @@ def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
             ),
         )
 
-    # 元の 途中復帰_出題UI同期 は、どの段階でもゲージを正解発表の絵（ゲージ_3）にして出す（10/13 の版から）。
-    # 順に進んだときは、ゲージは回答受付で初めて出るので、出題の段階では隠し直す
-    if "UI_オーバーレイ" in names:
+    # 元の 途中復帰_出題UI同期 は、出題の段階でもゲージ（UI_オーバーレイ の役割2）を出す。順に進んだときは、
+    # ゲージは回答受付で初めて出るので、出題の段階では隠し直す。10/18 の版では絵がクローンを作ったときのまま
+    # （コスチューム1）なので、絵の名前では見分けられない
+    if _has_variable(_optional_target(project, "UI_オーバーレイ"), "役割"):
         Scripts(project, "UI_オーバーレイ").add(
-            on_message(QUESTION_HIDE_GAUGE_MESSAGE),
-            when(eq(Block("looks_costumenumbername", fields={"NUMBER_NAME": "name"}), "ゲージ_3"), Block("looks_hide")),
+            on_message(QUESTION_HIDE_GAUGE_MESSAGE), when(eq(Var("役割"), 2), Block("looks_hide"))
         )
 
-    # 元の 途中復帰_出題UI同期 は、エキシビション が 1 なら「エキシビションモード」の表示を出す（10/13 の版から）。
-    # 順に進んだときは次の問題（進行_次の問題へ）で初めて出るので、ゲームオーバーになった問題のあいだは隠し直す
-    if "UI" in names:
-        Scripts(project, "UI").add(
-            on_message(EXHIBITION_LABEL_HIDE_MESSAGE),
-            when(eq(Block("looks_costumenumbername", fields={"NUMBER_NAME": "name"}), "エキシビションモード"), Block("looks_hide")),
-        )
+    # 「エキシビションモード」の表示（10/13 の版から）。元の 途中復帰_出題UI同期 は、残りが0なら出す。
+    # 順に進んだときは次の問題（進行_次の問題へ）で初めて出るので、ゲームオーバーになった問題のあいだは隠し直す。
+    # 10/18 の版からはラウンド結果で隠すので、組み立て直しでラウンド結果まで送るエキシビションの正解発表では出し直す
+    label_role = _exhibition_label_role(project)
+    if label_role is not None:
+        is_label = eq(Var("役割"), label_role)
+        ui = Scripts(project, "UI")
+        ui.add(on_message(EXHIBITION_LABEL_HIDE_MESSAGE), when(is_label, Block("looks_hide")))
+        ui.add(on_message(EXHIBITION_LABEL_SHOW_MESSAGE), when(is_label, Block("looks_show")))
 
     # GAME OVER の文字はクローンのまま残り、次のチームになっても消えない
     if "GameOver" in names:
@@ -638,39 +653,85 @@ def _add_rebuild_helpers(project: dict[str, Any], notes: list[str]) -> None:
         )
 
 
+def _exhibition_label_role(project: dict[str, Any]) -> str | None:
+    """「エキシビションモード」の表示を受け持つ、スプライト UI のクローンの役割（なければ None）。
+
+    「もし 役割 = N なら … コスチュームを エキシビションモード にする」の N。絵の名前では見分けられない。
+    何もしない役割のクローンも、元のスプライトの絵（保存したときの絵が エキシビションモード）を引き継いでいるため。
+    """
+    ui = _optional_target(project, "UI")
+    if ui is None:
+        return None
+    blocks = blocks_of(ui)
+    for block_id, block in blocks.items():
+        if block["opcode"] != "looks_switchcostumeto" or not _is_simple_look(blocks, block):
+            continue
+        if _copy_simple_look(blocks, block).inputs["COSTUME"].value != "エキシビションモード":
+            continue
+        enclosing = _enclosing_if(blocks, block_id)
+        role = _role_condition(blocks, enclosing) if enclosing is not None else None
+        if role is not None:
+            return role
+    return None
+
+
+def _enclosing_if(blocks: dict[str, Any], block_id: str) -> dict[str, Any] | None:
+    """block_id を中に持つ「もし」のブロック（なければ None）。前のブロックをたどって、並びの先頭の親を見る。"""
+    while True:
+        parent_id = blocks[block_id]["parent"]
+        if parent_id is None:
+            return None
+        parent = blocks[parent_id]
+        if parent["next"] != block_id:  # 前のブロックではなく、中に持っている親
+            return parent if parent["opcode"] == "control_if" else None
+        block_id = parent_id
+
+
 GAME_OVER_TEXT_MESSAGE = "作り直し_ゲームオーバー文字"
 CLEARED_TEXT_MESSAGE = "作り直し_クリア文字"
 GAME_OVER_HIDE_MESSAGE = "作り直し_ゲームオーバーで隠す"
 CLEARED_HIDE_MESSAGE = "作り直し_クリアで隠す"
 QUESTION_HIDE_GAUGE_MESSAGE = "作り直し_出題でゲージを隠す"
 EXHIBITION_LABEL_HIDE_MESSAGE = "作り直し_エキシビション表示を隠す"
+EXHIBITION_LABEL_SHOW_MESSAGE = "作り直し_エキシビション表示を出す"
 
 
 def _mirror_simple_receivers(project: dict[str, Any], source: str, message: str) -> None:
     """source を受ける「隠す・絵を替えるだけ」のスクリプトを、message でも同じように動くようにする。
 
     元の演出は、結果_ゲームオーバー・結果_クリア で問題文や問題枠を隠す（音や動きのある受け手もある）。
-    開き直したときは、そのうち「隠すだけ」「役割が N なら隠す・絵を替えるだけ」のものだけを、音と動きなしでやり直したい。
-    形が違う受け手（音・待ち・動き）は写さない。
+    開き直したときは、そのうち「隠す・絵を替える・最前面へ出すだけ」「役割が N なら同じことをするだけ」のものだけを、
+    音と動きなしでやり直したい。形が違う受け手（音・待ち・動き）は写さない。
     """
     for target, top_id in receivers(project, source):
         blocks = blocks_of(target)
+        looks = _simple_looks(blocks, blocks[top_id]["next"])
+        if looks:
+            Scripts(project, target["name"]).add(on_message(message), *looks)
+            continue
         first = blocks.get(blocks[top_id]["next"] or "")
         if first is None or first["next"]:
             continue
-        if _is_simple_look(blocks, first):
-            Scripts(project, target["name"]).add(on_message(message), _copy_simple_look(blocks, first))
-            continue
         role = _role_condition(blocks, first)
-        inner = blocks.get(first["inputs"].get("SUBSTACK", [None, None])[1] or "")
-        if role is not None and inner is not None and not inner["next"] and _is_simple_look(blocks, inner):
-            Scripts(project, target["name"]).add(
-                on_message(message), when(eq(Var("役割"), role), _copy_simple_look(blocks, inner))
-            )
+        looks = _simple_looks(blocks, first["inputs"].get("SUBSTACK", [None, None])[1])
+        if role is not None and looks:
+            Scripts(project, target["name"]).add(on_message(message), when(eq(Var("役割"), role), *looks))
+
+
+def _simple_looks(blocks: dict[str, Any], block_id: str | None) -> list[Block]:
+    """block_id から続くブロックが、すべて「隠す・絵を替える・最前面へ出す」なら、その写しを返す（違えば空）。"""
+    looks: list[Block] = []
+    while block_id:
+        block = blocks.get(block_id)
+        if block is None or not _is_simple_look(blocks, block):
+            return []
+        looks.append(_copy_simple_look(blocks, block))
+        block_id = block["next"]
+    return looks
 
 
 def _is_simple_look(blocks: dict[str, Any], block: dict[str, Any]) -> bool:
-    if block["opcode"] == "looks_hide":
+    if block["opcode"] in ("looks_hide", "looks_gotofrontback"):
         return True
     if block["opcode"] != "looks_switchcostumeto":
         return False
@@ -681,6 +742,8 @@ def _is_simple_look(blocks: dict[str, Any], block: dict[str, Any]) -> bool:
 def _copy_simple_look(blocks: dict[str, Any], block: dict[str, Any]) -> Block:
     if block["opcode"] == "looks_hide":
         return Block("looks_hide")
+    if block["opcode"] == "looks_gotofrontback":
+        return Block("looks_gotofrontback", fields={"FRONT_BACK": block["fields"]["FRONT_BACK"][0]})
     costume = blocks[block["inputs"]["COSTUME"][1]]["fields"]["COSTUME"][0]
     return Block("looks_switchcostumeto", {"COSTUME": Menu("looks_costume", "COSTUME", costume)})
 

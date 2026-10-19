@@ -662,6 +662,31 @@ class TestRebuildHidesLikeTheEnding:
         assert guard["opcode"] == "control_if"
         assert overlay[guard["inputs"]["SUBSTACK"][1]]["opcode"] == "looks_hide"
 
+    def test_receivers_bringing_to_front_are_mirrored(self, variant):
+        """10/18 の版から、役割5の受け手は「最前面へ」のあとで絵を替える。2つ続いても写す。"""
+        source = self._with_endings()
+        overlay = stage.find_target(source, "UI_オーバーレイ")
+        go_id = next(k for k, v in source["targets"][0]["broadcasts"].items() if v == "結果_ゲームオーバー")
+        overlay["blocks"] |= {
+            "f-hat": _hat(go_id, "結果_ゲームオーバー", "f-if"),
+            "f-if": _block("control_if", "f-hat", inputs={"CONDITION": [2, "f-eq"], "SUBSTACK": [2, "f-front"]}),
+            "f-eq": _block("operator_equals", "f-if", inputs={"OPERAND1": [3, [12, "役割", "r1"], [10, ""]], "OPERAND2": [1, [10, "5"]]}),
+            "f-front": _block("looks_gotofrontback", "f-if", next_id="f-hide") | {"fields": {"FRONT_BACK": ["front", None]}},
+            "f-hide": _block("looks_hide", "f-front"),
+        }
+        made, _ = stage.transform(source, variant)
+        overlay = stage.find_target(made, "UI_オーバーレイ")["blocks"]
+        bodies = []
+        for target, hat in stage.receivers(made, stage.GAME_OVER_HIDE_MESSAGE):
+            if target["name"] == "UI_オーバーレイ":
+                block_id = overlay[overlay[hat]["next"]]["inputs"]["SUBSTACK"][1]
+                body = []
+                while block_id:
+                    body.append(overlay[block_id]["opcode"])
+                    block_id = overlay[block_id]["next"]
+                bodies.append(body)
+        assert ["looks_gotofrontback", "looks_hide"] in bodies
+
     def test_rebuild_sends_them_only_at_the_reveal(self, variant):
         made, _ = stage.transform(self._with_endings(), variant)
         sent = broadcasts_in(made, "通信")
@@ -673,16 +698,15 @@ class TestRebuildHidesGaugeWhileShowingQuestion:
 
     def test_overlay_hides_the_gauge_on_the_message(self, variant):
         source = make_project()
-        source["targets"].append(_sprite("UI_オーバーレイ"))
+        source["targets"].append(_sprite("UI_オーバーレイ") | {"variables": {"r1": ["役割", "0"]}})
         made, _ = stage.transform(source, variant)
         ((target, hat),) = stage.receivers(made, stage.QUESTION_HIDE_GAUGE_MESSAGE)
         assert target["name"] == "UI_オーバーレイ"
         blocks = target["blocks"]
         guard = blocks[blocks[hat]["next"]]
         cond = blocks[guard["inputs"]["CONDITION"][1]]
-        costume = blocks[cond["inputs"]["OPERAND1"][1]]
-        assert costume["opcode"] == "looks_costumenumbername" and costume["fields"]["NUMBER_NAME"][0] == "name"
-        assert cond["inputs"]["OPERAND2"][1][1] == "ゲージ_3"
+        # ゲージは役割2（10/18 の版では絵がクローンを作ったときのままなので、絵の名前では見分けられない）
+        assert cond["inputs"]["OPERAND1"][1][:2] == [12, "役割"] and cond["inputs"]["OPERAND2"][1][1] == "2"
         assert blocks[guard["inputs"]["SUBSTACK"][1]]["opcode"] == "looks_hide"
 
     def test_rebuild_sends_it_only_while_showing_the_question(self, variant):
@@ -701,18 +725,48 @@ class TestRebuildHidesGaugeWhileShowingQuestion:
 class TestRebuildHidesExhibitionLabelInTheFailedRound:
     """ゲームオーバーになった問題で開き直したら、「エキシビションモード」の表示を隠し直す（順に進めば次の問題から出る）。"""
 
-    def test_ui_hides_the_label_on_the_message(self, variant):
+    @staticmethod
+    def _ui_with_label(role: str, *, after_if: bool = False) -> dict:
+        """クローンされたとき「もし 役割 = role なら … コスチュームを エキシビションモード にする」を持つ UI。
+
+        after_if なら、絵を替えるブロックを「もし」の中ではなく直後に置く（役割は読み取れない）。
+        """
+        blocks = {
+            "c-hat": _block("control_start_as_clone", None, next_id="c-if", top=True),
+            "c-if": _block("control_if", "c-hat", inputs={"CONDITION": [2, "c-eq"], "SUBSTACK": [2, "c-go"]}),
+            "c-eq": _block("operator_equals", "c-if", inputs={"OPERAND1": [3, [12, "役割", "r1"], [10, ""]], "OPERAND2": [1, [10, role]]}),
+            "c-go": _block("motion_gotoxy", "c-if", next_id=None if after_if else "c-look"),
+            "c-look": _block("looks_switchcostumeto", "c-if" if after_if else "c-go", inputs={"COSTUME": [1, "c-menu"]}),
+            "c-menu": _block("looks_costume", "c-look", shadow=True) | {"fields": {"COSTUME": ["エキシビションモード", None]}},
+        }
+        if after_if:
+            blocks["c-if"]["next"] = "c-look"
+        return _sprite("UI", blocks) | {"variables": {"r1": ["役割", "0"]}}
+
+    @pytest.mark.parametrize(("message", "look"), [("EXHIBITION_LABEL_HIDE_MESSAGE", "looks_hide"), ("EXHIBITION_LABEL_SHOW_MESSAGE", "looks_show")])
+    def test_ui_hides_and_shows_the_label_on_the_messages(self, variant, message, look):
         source = make_project()
-        source["targets"].append(_sprite("UI"))
+        source["targets"].append(self._ui_with_label("9"))
         made, _ = stage.transform(source, variant)
-        ((target, hat),) = stage.receivers(made, stage.EXHIBITION_LABEL_HIDE_MESSAGE)
+        ((target, hat),) = stage.receivers(made, getattr(stage, message))
         assert target["name"] == "UI"
         blocks = target["blocks"]
         guard = blocks[blocks[hat]["next"]]
         cond = blocks[guard["inputs"]["CONDITION"][1]]
-        assert blocks[cond["inputs"]["OPERAND1"][1]]["opcode"] == "looks_costumenumbername"
-        assert cond["inputs"]["OPERAND2"][1][1] == "エキシビションモード"
-        assert blocks[guard["inputs"]["SUBSTACK"][1]]["opcode"] == "looks_hide"
+        # 役割で見分ける（何もしない役割のクローンも、元のスプライトの絵 エキシビションモード を引き継いでいる）
+        assert cond["inputs"]["OPERAND1"][1][:2] == [12, "役割"] and cond["inputs"]["OPERAND2"][1][1] == "9"
+        assert blocks[guard["inputs"]["SUBSTACK"][1]]["opcode"] == look
+
+    def test_no_receivers_when_the_role_is_unknown(self, variant):
+        source = make_project()
+        source["targets"].append(self._ui_with_label("9", after_if=True))
+        made, _ = stage.transform(source, variant)
+        assert not stage.receivers(made, stage.EXHIBITION_LABEL_SHOW_MESSAGE)
+
+    def test_rebuild_shows_it_again_at_an_exhibition_reveal(self, variant):
+        """組み立て直しでラウンド結果まで送ると隠れる（10/18 の版）ので、エキシビションの正解発表では出し直す。"""
+        made, _ = stage.transform(make_project(), variant)
+        assert stage.EXHIBITION_LABEL_SHOW_MESSAGE in broadcasts_in(made, "通信")
 
     def test_rebuild_sends_it_only_in_the_failed_round(self, variant):
         made, _ = stage.transform(make_project(), variant)
@@ -724,3 +778,34 @@ class TestRebuildHidesExhibitionLabelInTheFailedRound:
         cond = blocks[blocks[sender["parent"]]["inputs"]["CONDITION"][1]]
         assert cond["opcode"] == "operator_equals"
         assert {cond["inputs"][k][1][1] for k in ("OPERAND1", "OPERAND2")} == {stage.FAILED_ROUND, stage.ROUND}
+
+
+class TestRebuildHidesGuessLikeTheEnding:
+    """10/18 の版から、ゲームオーバー・クリアの正解発表では 予想%消して を 1 にして予想の数字を隠す。組み立て直しでも同じにする。"""
+
+    def _sets(self, made: dict) -> list[str]:
+        blocks = stage.find_target(made, "通信")["blocks"]
+        return [
+            b["inputs"]["VALUE"][1][1] for b in blocks.values()
+            if b["opcode"] == "data_setvariableto" and b["fields"]["VARIABLE"][0] == stage.HIDE_GUESS
+        ]
+
+    def test_shown_first_and_hidden_at_the_ending(self, variant):
+        source = make_project()
+        source["targets"][0]["variables"]["v-hide"] = [stage.HIDE_GUESS, "1"]
+        made, _ = stage.transform(source, variant)
+        assert sorted(self._sets(made)) == ["0", "1", "1"]  # 最初に 0、ゲームオーバーとクリアの正解発表で 1
+
+    def test_untouched_without_the_variable(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        assert self._sets(made) == []
+
+
+class TestTeamIntroIsOptional:
+    """10/18 の版から 1_チーム紹介 の受け手がない（札は ☁ P2S_TEAM を見て出し続ける）。それでも作り直せる。"""
+
+    def test_transform_without_receivers(self, variant):
+        source = make_project()
+        assert "1_チーム紹介" not in source["targets"][0]["broadcasts"].values()
+        made, _ = stage.transform(source, variant)
+        assert "1_チーム紹介" in broadcasts_in(made, "通信")  # 古い版のために送るのは続ける
