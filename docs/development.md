@@ -636,7 +636,8 @@ Scratch で「スプライトの他のスクリプトを止める」を受け手
 - [x] ~~チームの人数と問題数の対応を確認~~ → **5問固定・司会が回答者を指名**（2026-07-24）。実装変更なし
 - [x] ~~Scratch の問題の画像（スプライト「問題」のコスチューム `1-1`〜`4-5`）が20問すべて正しいことを Scratch API で確かめる~~ → **完了**（2026-10-10、[#50](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/50)）。問題を差し替えたらもう一度確かめる
 - [x] ~~Scratch側で、チームの途中で開き直しても表示が崩れないよう直してもらう~~ → 作り直したステージ画面（`/stage/play/`・`/stage/view/`）で解消（2026-10-13、[#52](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/52)）
-- [ ] 実機（大画面につなぐPC・出演者の端末）で `/stage/view/` と `/stage/play/` を開き、1チームぶん通す
+- [ ] 実機（電子黒板につなぐ Windows PC・出演者の iPad）で `/stage/view/` と `/stage/play/` を開き、1チームぶん通す（[#54](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/54)）
+- [ ] 最後の変更のあと（コード凍結の前）に、`tools/stage_check.py --ipad` と `tools/system_check.py` を流して 0件 NG を確かめる
 - [ ] Scratch担当がプロジェクトを直したら `uv run python -m suzuleague.stage` で作り直し、`tools/stage_check.py` で確かめてから push する。`--check` で本番が最新であることを確認
 - [ ] チーム名が決まって `teams.json` を作ったら、ステージ画面を作り直す（札と全体結果のカードにチーム名が入る）
 - [x] ~~本番のルームID・接続先を裏方PCに設定~~ → `launcher/スズリーグ.app` が `1364239598`・`wss://suzuleague-cloud.onrender.com` で起動する（2026-10-05）。
@@ -648,7 +649,7 @@ Scratch で「スプライトの他のスクリプトを止める」を受け手
 
       **問題を差し替えたときは書き出し直す**（問題文がページに埋め込まれているため）。
       手順は[観客用ページを更新する](#観客用ページを更新する)。
-- [ ] `uv run python -m suzuleague.publish --room-id 1364239598 --check` で、本番の画面が最新であることを確認
+- [ ] `uv run python -m suzuleague.publish --room-id 1364239598 --check` と `uv run python -m suzuleague.stage --check` で、本番の画面が最新であることを確認（アプリの起動時にも両方を照合する）。push しても反映されなければ、Render の管理画面から手動でデプロイする
 - [x] ~~観客ページを**実機のスマホ**で開いて表示を確認し、QRコードを発行~~ → **完了**（2026-10-06）
 - [ ] QRコードを印刷する（`docs/qr/print.html`。クラス委員が掲げる）
 - [ ] リハーサルの後、**スマホの**司会者画面の「ランキングをリセット」で観客ランキングを消す（PCの司会者画面にはこのボタンがない）
@@ -667,8 +668,8 @@ Scratch で「スプライトの他のスクリプトを止める」を受け手
 - [ ] 裏方PCの**スリープを切り**、電源につなぐ（止まってもアプリの「続きから」で再開できるが、止まらないに越したことはない）
 - [ ] `launcher/スズリーグ.app` の「本番」で、**「最初から」を選んで**ダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
 - [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
-- [ ] 大画面につなぐPCで <https://suzuleague-cloud.onrender.com/stage/view/> を、出演者の端末で <https://suzuleague-cloud.onrender.com/stage/play/> を開き、画面を1回クリックして「開始までお待ちください」になることを確認（アプリより先に開いてもよい）
-- [ ] 大画面のPCと出演者の端末の**スリープ・自動ロックを切る**。画面がおかしくなったら再読み込みして1回クリックすれば、今の画面に戻る
+- [ ] 電子黒板につなぐ Windows PC で <https://suzuleague-cloud.onrender.com/stage/view/> を、出演者の iPad で <https://suzuleague-cloud.onrender.com/stage/play/> を開き、画面を1回クリックして「開始までお待ちください」になることを確認（アプリより先に開いてもよい）
+- [ ] 電子黒板の PC と出演者の iPad の**スリープ・自動ロックを切る**。画面がおかしくなったら再読み込みして1回クリックすれば、今の画面に戻る
 - [ ] 司会に伝える: 「次へ」は続けて押さない（1秒以内の2回目は取り消される）。**正解発表のあとは15秒「次へ」を押せない**（ステージ画面の演出が終わるのを待つ。司会者画面に残り秒数が出る）
 - [ ] 進行不能時の代替手段を確認（司会者画面の「代理入力」、予備の回答画面 `/player.html`、
       「Scratch に今の状態を送り直す」、PCの司会者画面、[バックアップ手順](#本番サーバが落ちたときの代替手段)）
