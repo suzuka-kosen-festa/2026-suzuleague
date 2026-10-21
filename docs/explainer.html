@@ -1,1336 +1,623 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
+<!doctype html>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」進行システムの技術解説。">
-<title>スズリーグの仕組み — 技術のしくみを図で説明する</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」の進行システムを、プログラムを知らない人向けに説明する資料。">
+<title>スズリーグのしくみ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
+  /* レイアウト: 白い紙に1本の読み物の列。広い画面では左に章の一覧を固定し、図と表は列の幅いっぱいに置く */
   :root {
-    --paper:        #F4F6F5;
-    --paper-raised: #FFFFFF;
-    --ink:          #14181B;
-    --ink-soft:     #4A5459;
-    --ink-faint:    #79868C;
-    --rule:         #DDE3E1;
-    --rule-strong:  #C3CDCA;
-    --balloon:      #C81A5B;
-    --spot:         #C97A14;
-    --stage:        #0E5C5C;
-    --stage-wash:   #E4EFED;
-    --balloon-wash: #FBE7EE;
-    --spot-wash:    #FAEEDA;
+    --bg: #ffffff;
+    --surface: #f4f6f8;
+    --line: #e2e7ec;
+    --ink: #17202a;
+    --muted: #586371;
+    --faint: #8b95a0;
+    --accent: #d23369;
+    --accent-soft: #fce9f0;
+    --ok: #1d7f55;
+    --ok-soft: #e2f3ea;
+    --wait: #a8670f;
+    --wait-soft: #fbf0dc;
 
-    --f-display: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
-    --f-body: "Hiragino Sans", "Yu Gothic", "YuGothic", "Noto Sans JP", system-ui, sans-serif;
-    --f-data: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+    --f-head: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    --f-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-    --measure: 34rem;
-    --gutter: clamp(1.25rem, 4vw, 3rem);
+    --measure: 42rem;
+    --radius: 10px;
   }
-
   @media (prefers-color-scheme: dark) {
-    :root {
-      --paper:        #0F1315;
-      --paper-raised: #171D1F;
-      --ink:          #E7ECEA;
-      --ink-soft:     #A6B2B1;
-      --ink-faint:    #778586;
-      --rule:         #26302F;
-      --rule-strong:  #3A4746;
-      --balloon:      #FF6B9D;
-      --spot:         #F2B455;
-      --stage:        #4FB3AC;
-      --stage-wash:   #142A2A;
-      --balloon-wash: #2D1520;
-      --spot-wash:    #2A2113;
+    :root:not([data-theme="light"]) {
+      --bg: #11161b; --surface: #1a2128; --line: #2a333d; --ink: #e8edf2; --muted: #a6b0bb; --faint: #75808b;
+      --accent: #f2729c; --accent-soft: #3a1b28; --ok: #55c895; --ok-soft: #16302a; --wait: #e2ad52; --wait-soft: #35291a;
+      color-scheme: dark;
     }
   }
-
   :root[data-theme="dark"] {
-    --paper:        #0F1315;
-    --paper-raised: #171D1F;
-    --ink:          #E7ECEA;
-    --ink-soft:     #A6B2B1;
-    --ink-faint:    #778586;
-    --rule:         #26302F;
-    --rule-strong:  #3A4746;
-    --balloon:      #FF6B9D;
-    --spot:         #F2B455;
-    --stage:        #4FB3AC;
-    --stage-wash:   #142A2A;
-    --balloon-wash: #2D1520;
-    --spot-wash:    #2A2113;
-  }
-
-  :root[data-theme="light"] {
-    --paper:        #F4F6F5;
-    --paper-raised: #FFFFFF;
-    --ink:          #14181B;
-    --ink-soft:     #4A5459;
-    --ink-faint:    #79868C;
-    --rule:         #DDE3E1;
-    --rule-strong:  #C3CDCA;
-    --balloon:      #C81A5B;
-    --spot:         #C97A14;
-    --stage:        #0E5C5C;
-    --stage-wash:   #E4EFED;
-    --balloon-wash: #FBE7EE;
-    --spot-wash:    #FAEEDA;
+    --bg: #11161b; --surface: #1a2128; --line: #2a333d; --ink: #e8edf2; --muted: #a6b0bb; --faint: #75808b;
+    --accent: #f2729c; --accent-soft: #3a1b28; --ok: #55c895; --ok-soft: #16302a; --wait: #e2ad52; --wait-soft: #35291a;
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
-
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body {
     margin: 0;
-    background: var(--paper);
+    background: var(--bg);
     color: var(--ink);
     font-family: var(--f-body);
     font-size: 16px;
-    line-height: 1.85;
+    line-height: 1.9;
+    letter-spacing: 0.01em;
     -webkit-font-smoothing: antialiased;
     text-size-adjust: 100%;
   }
 
-  .wrap {
-    max-width: 62rem;
+  .shell {
+    max-width: 72rem;
     margin: 0 auto;
-    padding: 0 var(--gutter) 6rem;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 4rem;
+  }
+  @media (min-width: 64rem) {
+    .shell { grid-template-columns: 13rem minmax(0, var(--measure)); justify-content: center; }
   }
 
   /* ---------- 冒頭 ---------- */
-
-  .top {
-    padding: clamp(3rem, 9vw, 6rem) 0 clamp(2rem, 5vw, 3.5rem);
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .eyebrow {
-    font-family: var(--f-data);
-    font-size: 0.72rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    margin: 0 0 1.5rem;
-  }
-
-  .top h1 {
-    font-family: var(--f-display);
-    font-weight: 600;
-    font-size: clamp(2.1rem, 6.5vw, 3.6rem);
-    line-height: 1.25;
-    letter-spacing: 0.02em;
+  .top { grid-column: 1 / -1; padding-block: clamp(2.5rem, 7vw, 4.5rem) 2.5rem; border-bottom: 1px solid var(--line); }
+  .top-inner { max-width: 52rem; margin: 0 auto; }
+  @media (min-width: 64rem) { .top-inner { margin: 0 0 0 17rem; } } /* 目次の幅＋列のすきまだけずらし、本文の列にそろえる */
+  .eyebrow { margin: 0 0 1rem; font-size: 0.8rem; letter-spacing: 0.12em; color: var(--muted); }
+  h1 {
+    margin: 0 0 1.25rem;
+    font-family: var(--f-head);
+    font-weight: 700;
+    font-size: clamp(2rem, 6vw, 3rem);
+    line-height: 1.3;
+    letter-spacing: 0.03em;
     text-wrap: balance;
-    margin: 0 0 1.5rem;
   }
-
-  .top h1 em {
-    font-style: normal;
-    color: var(--balloon);
-  }
-
-  .lede {
-    max-width: var(--measure);
-    font-size: 1.06rem;
-    color: var(--ink-soft);
-    margin: 0;
-  }
-
+  .lede { margin: 0; max-width: var(--measure); font-size: 1.05rem; color: var(--muted); }
   .facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 2.5rem;
-    margin-top: 2.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--rule);
-    font-family: var(--f-data);
-    font-size: 0.78rem;
-    color: var(--ink-faint);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .facts b {
-    color: var(--ink);
-    font-weight: 600;
-  }
-
-  /* ---------- セクション ---------- */
-
-  section {
-    padding-top: clamp(3.5rem, 8vw, 5.5rem);
-  }
-
-  .sec-head {
+    margin: 2rem 0 0;
     display: grid;
-    grid-template-columns: 3.5rem 1fr;
-    gap: 0 1rem;
-    align-items: start;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.75rem;
+  }
+  .fact { margin: 0; padding: 0.9rem 1rem; background: var(--surface); border-radius: var(--radius); }
+  .fact dt { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); }
+  .fact dd { margin: 0.15rem 0 0; font-family: var(--f-head); font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .asof { margin: 1.25rem 0 0; font-size: 0.8rem; color: var(--faint); }
+
+  /* ---------- 章の一覧 ---------- */
+  .toc { padding-block: 2rem 0; }
+  .toc-title { margin: 0 0 0.75rem; font-size: 0.75rem; letter-spacing: 0.12em; color: var(--muted); }
+  .toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.15rem; counter-reset: toc; }
+  .toc a {
+    display: grid;
+    grid-template-columns: 1.75rem 1fr;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    text-decoration: none;
+  }
+  .toc a:hover { background: var(--surface); color: var(--ink); }
+  .toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .toc .n { font-family: var(--f-mono); font-size: 0.78rem; color: var(--faint); padding-top: 0.1rem; }
+  @media (min-width: 64rem) {
+    .toc { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; padding-top: 2.5rem; max-height: 100vh; overflow-y: auto; }
+  }
+  @media (max-width: 63.99rem) {
+    .toc ol { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
   }
 
-  .sec-num {
-    font-family: var(--f-display);
-    font-size: 2.4rem;
-    line-height: 1;
-    color: var(--balloon);
-    font-weight: 500;
-    padding-top: 0.1em;
-  }
-
-  .sec-head h2 {
-    font-family: var(--f-display);
-    font-weight: 600;
-    font-size: clamp(1.5rem, 3.6vw, 2rem);
-    line-height: 1.4;
+  /* ---------- 本文 ---------- */
+  main { min-width: 0; }
+  section { padding-block: 3.5rem 0; scroll-margin-top: 1rem; }
+  section + section { border-top: 1px solid var(--line); margin-top: 3.5rem; }
+  .sec-num { display: block; margin-bottom: 0.4rem; font-family: var(--f-mono); font-size: 0.8rem; color: var(--accent); letter-spacing: 0.08em; }
+  h2 {
+    margin: 0 0 1rem;
+    font-family: var(--f-head);
+    font-weight: 700;
+    font-size: clamp(1.45rem, 3.4vw, 1.85rem);
+    line-height: 1.45;
     letter-spacing: 0.02em;
-    margin: 0;
     text-wrap: balance;
   }
-
-  .sec-head p {
-    grid-column: 2;
-    max-width: var(--measure);
-    color: var(--ink-soft);
-    margin: 0.75rem 0 0;
+  .point {
+    margin: 0 0 1.75rem;
+    font-size: 1.08rem;
+    font-weight: 500;
+    line-height: 1.85;
   }
-
-  .body-col {
-    max-width: var(--measure);
-    margin-left: clamp(0rem, 4vw, 4.5rem);
-  }
-
-  .body-col p { margin: 0 0 1.25rem; }
-  .body-col p:last-child { margin-bottom: 0; }
-
   h3 {
-    font-family: var(--f-body);
-    font-size: 0.95rem;
+    margin: 2.5rem 0 0.75rem;
+    font-family: var(--f-head);
     font-weight: 700;
-    letter-spacing: 0.04em;
-    margin: 2.5rem 0 0.9rem;
-  }
-
-  strong { font-weight: 700; }
-
-  .term {
-    color: var(--stage);
-    font-weight: 700;
-    font-style: normal;
-    border-bottom: 1px dotted currentColor;
-  }
-
-  code {
-    font-family: var(--f-data);
-    font-size: 0.85em;
-    background: var(--paper-raised);
-    border: 1px solid var(--rule);
-    padding: 0.05em 0.35em;
-  }
-
-  /* ---------- 図の共通枠 ---------- */
-
-  figure {
-    margin: 2.5rem 0;
-  }
-
-  figcaption {
-    font-family: var(--f-data);
-    font-size: 0.74rem;
-    line-height: 1.7;
-    color: var(--ink-faint);
-    margin-top: 0.9rem;
-    padding-left: 0.85rem;
-    border-left: 2px solid var(--rule-strong);
-  }
-
-  .panel {
-    background: var(--paper-raised);
-    border: 1px solid var(--rule);
-    padding: clamp(1.25rem, 3.5vw, 2.25rem);
-  }
-
-  /* ---------- 図1: 三者 ---------- */
-
-  .triad {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: 1fr;
-  }
-
-  @media (min-width: 46rem) {
-    .triad {
-      grid-template-columns: 1fr auto 1fr;
-      align-items: stretch;
-    }
-  }
-
-  .node {
-    border: 1px solid var(--rule-strong);
-    padding: 1.15rem 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    background: var(--paper);
-  }
-
-  .node .role {
-    font-family: var(--f-data);
-    font-size: 0.68rem;
-    letter-spacing: 0.13em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-  }
-
-  .node .name {
-    font-family: var(--f-display);
-    font-size: 1.15rem;
-    font-weight: 600;
-    line-height: 1.4;
-  }
-
-  .node .what {
-    font-size: 0.85rem;
-    line-height: 1.7;
-    color: var(--ink-soft);
-  }
-
-  .node.is-board {
-    background: var(--stage-wash);
-    border-color: var(--stage);
-    text-align: center;
-    align-items: center;
-    justify-content: center;
-    min-width: 11rem;
-  }
-
-  .node.is-board .name { color: var(--stage); }
-
-  .link {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--ink-faint);
-    padding: 0.35rem 0;
     font-size: 1.1rem;
-    line-height: 1;
+    line-height: 1.6;
+    text-wrap: balance;
   }
-
-  .link::before { content: "⇅"; }
-
-  @media (min-width: 46rem) {
-    .link::before { content: "⇄"; }
-  }
-
-  .triad-foot {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px dashed var(--rule-strong);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem 1rem;
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-  }
-
-  .triad-foot .tag {
-    font-family: var(--f-data);
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--spot);
-    border: 1px solid var(--spot);
-    padding: 0.15rem 0.5rem;
-  }
-
-  /* ---------- 図2: 黒板 ---------- */
-
-  .board {
-    background: var(--stage-wash);
-    border: 1px solid var(--stage);
-    padding: clamp(1.1rem, 3vw, 1.75rem);
-  }
-
-  .board-title {
-    font-family: var(--f-data);
-    font-size: 0.7rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--stage);
-    margin-bottom: 1rem;
-  }
-
-  .board-grid {
-    display: grid;
-    gap: 0.5rem;
-    grid-template-columns: 1fr;
-  }
-
-  @media (min-width: 34rem) {
-    .board-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-
-  .chalk {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 0.75rem;
-    padding: 0.5rem 0.7rem;
-    background: var(--paper-raised);
-    border: 1px solid var(--rule);
-    font-family: var(--f-data);
-    font-size: 0.78rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .chalk .k { color: var(--ink); }
-  .chalk .v { color: var(--balloon); font-weight: 600; }
-  .chalk .note {
-    display: block;
-    font-family: var(--f-body);
-    font-size: 0.72rem;
-    color: var(--ink-faint);
-    letter-spacing: 0;
-  }
-
-  /* ---------- 図3: 流れ ---------- */
-
-  .flow {
-    display: grid;
-    gap: 0;
-  }
-
-  .step {
-    display: grid;
-    grid-template-columns: 4.5rem 1fr;
-    gap: 0 1.1rem;
-    padding: 1rem 0;
-    border-top: 1px solid var(--rule);
-  }
-
-  .step:first-child { border-top: none; padding-top: 0; }
-
-  .step .who {
-    font-family: var(--f-data);
-    font-size: 0.66rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding-top: 0.35em;
-    text-align: right;
-    color: var(--ink-faint);
-  }
-
-  .step[data-who="host"] .who { color: var(--balloon); }
-  .step[data-who="stage"] .who { color: var(--stage); }
-  .step[data-who="auto"] .who { color: var(--spot); }
-
-  .step .act { font-size: 0.92rem; line-height: 1.75; }
-
-  .step .act code {
-    font-family: var(--f-data);
-    font-size: 0.85em;
-    background: var(--paper);
-    border: 1px solid var(--rule);
+  p { margin: 0 0 1.1rem; }
+  strong { font-weight: 700; }
+  .mark { background: linear-gradient(transparent 62%, var(--accent-soft) 62%); font-weight: 700; }
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.86em;
     padding: 0.05em 0.35em;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow-wrap: anywhere;
   }
+  ul.list { margin: 0 0 1.25rem; padding-left: 1.2rem; display: grid; gap: 0.5rem; }
+  ul.list li::marker { color: var(--faint); }
 
-  .step .sub {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--ink-faint);
-    margin-top: 0.2rem;
-  }
+  figure { margin: 1.75rem 0; }
+  figcaption { margin-top: 0.75rem; font-size: 0.82rem; line-height: 1.75; color: var(--muted); }
+  .panel { background: var(--surface); border-radius: var(--radius); padding: clamp(1rem, 3vw, 1.5rem); }
 
-  /* ---------- 図4: 128人の壁 ---------- */
+  /* 表 */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; line-height: 1.7; }
+  th, td { text-align: left; vertical-align: top; padding: 0.75rem 0.9rem 0.75rem 0; border-bottom: 1px solid var(--line); }
+  th:last-child, td:last-child { padding-right: 0; }
+  thead th { font-size: 0.76rem; font-weight: 500; letter-spacing: 0.08em; color: var(--muted); border-bottom-color: var(--ink); }
+  tbody th { font-weight: 700; white-space: nowrap; }
+  td.sub { color: var(--muted); }
+  .wide table { min-width: 34rem; }
 
-  .bars {
+  /* 3つの部品 */
+  .parts { display: grid; gap: 0.75rem; grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  @media (min-width: 40rem) { .parts { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); } }
+  .part { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; display: grid; gap: 0.35rem; align-content: start; }
+  .part.is-center { border-color: var(--accent); }
+  .part .where { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted); }
+  .part .name { font-family: var(--f-head); font-weight: 700; font-size: 1.05rem; line-height: 1.5; }
+  .part.is-center .name { color: var(--accent); }
+  .part .what { font-size: 0.86rem; line-height: 1.75; color: var(--muted); }
+  .arrow { display: grid; place-items: center; color: var(--faint); font-size: 1.1rem; }
+  .arrow::before { content: "↕"; }
+  @media (min-width: 40rem) { .arrow::before { content: "⇄"; } }
+
+  /* 黒板 */
+  .board { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+  @media (min-width: 36rem) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .chalk {
     display: grid;
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 0.75rem;
+    align-items: baseline;
+    padding: 0.6rem 0.85rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
   }
+  .chalk .k { font-family: var(--f-mono); font-size: 0.82rem; overflow-wrap: anywhere; }
+  .chalk .v { font-family: var(--f-mono); font-weight: 500; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .chalk .note { grid-column: 1 / -1; font-size: 0.78rem; color: var(--muted); }
 
-  .bar-row {
-    display: grid;
-    grid-template-columns: 4.5rem 1fr;
-    gap: 0.35rem 0.85rem;
-    align-items: center;
-  }
-
-  @media (min-width: 42rem) {
-    .bar-row { grid-template-columns: 4.5rem 1fr 11rem; }
-  }
-
-  .bar-label {
-    font-family: var(--f-data);
-    font-size: 0.78rem;
-    text-align: right;
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .bar-track {
-    position: relative;
-    height: 1.5rem;
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    overflow: hidden;
-  }
-
-  .bar-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: var(--stage);
-  }
-
-  .bar-ghost {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-left: 1px dashed var(--balloon);
-    background: repeating-linear-gradient(
-      45deg,
-      transparent, transparent 4px,
-      var(--balloon) 4px, var(--balloon) 5px
-    );
-    opacity: 0.55;
-  }
-
-  .bar-out {
-    grid-column: 2;
-    font-family: var(--f-data);
-    font-size: 0.73rem;
-    color: var(--stage);
-    font-variant-numeric: tabular-nums;
-  }
-
-  @media (min-width: 42rem) {
-    .bar-out { grid-column: 3; }
-  }
-
-  .bar-row[data-over="yes"] .bar-out { color: var(--balloon); }
-
-  .limit-note {
-    margin-top: 1.25rem;
-    padding: 0.9rem 1.1rem;
-    background: var(--balloon-wash);
-    border-left: 3px solid var(--balloon);
-    font-size: 0.88rem;
-    line-height: 1.75;
-  }
-
-  /* ---------- 技術スタック表 ---------- */
-
-  .scroll-x {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  table {
-    width: 100%;
-    min-width: 34rem;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-  }
-
-  th, td {
-    text-align: left;
-    padding: 0.75rem 1rem 0.75rem 0;
-    border-bottom: 1px solid var(--rule);
-    vertical-align: top;
-  }
-
-  th {
-    font-family: var(--f-data);
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    font-weight: 400;
-    border-bottom-color: var(--rule-strong);
-  }
-
-  td.tool {
-    font-family: var(--f-data);
-    font-size: 0.82rem;
-    color: var(--ink);
+  /* 1問の流れ */
+  .flow { margin: 0; padding: 0; list-style: none; display: grid; }
+  .step { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0 1rem; padding-block: 0.85rem; border-top: 1px solid var(--line); }
+  .step:first-child { border-top: none; padding-top: 0; }
+  .who {
+    justify-self: start;
+    height: fit-content;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    line-height: 1.7;
     white-space: nowrap;
-    padding-right: 1.5rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--muted);
   }
+  .who.host { color: var(--accent); border-color: var(--accent); }
+  .act { font-size: 0.93rem; line-height: 1.75; }
+  .act small { display: block; margin-top: 0.15rem; font-size: 0.8rem; color: var(--muted); }
+  @media (max-width: 30rem) { .step { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; } }
 
-  td.why { color: var(--ink-soft); }
+  /* 接続数のグラフ */
+  .bars { display: grid; gap: 0.7rem; }
+  .bar { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); gap: 0.25rem 0.75rem; align-items: center; }
+  @media (min-width: 36rem) { .bar { grid-template-columns: 3.5rem minmax(0, 1fr) 10rem; } }
+  .bar .label { font-family: var(--f-mono); font-size: 0.82rem; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .track { position: relative; height: 1.25rem; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .fill { position: absolute; inset: 0 auto 0 0; background: var(--ok); }
+  .lost { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(45deg, transparent 0 4px, var(--accent) 4px 6px); opacity: 0.7; }
+  .bar .out { grid-column: 2; font-size: 0.8rem; color: var(--ok); }
+  @media (min-width: 36rem) { .bar .out { grid-column: 3; } }
+  .bar.is-over .out { color: var(--accent); font-weight: 700; }
+  .note-box { margin-top: 1.1rem; padding: 0.9rem 1rem; border-radius: 8px; font-size: 0.9rem; line-height: 1.8; background: var(--accent-soft); }
+  .note-box.is-good { background: var(--ok-soft); }
 
-  /* ---------- 進捗 ---------- */
-
-  .prog { display: grid; gap: 0.75rem; }
-
-  .prog-row {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.3rem 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--rule);
-  }
-
-  @media (min-width: 40rem) {
-    .prog-row {
-      grid-template-columns: 13rem 1fr 5.5rem;
-      align-items: center;
-    }
-  }
-
-  .prog-name { font-size: 0.9rem; font-weight: 600; }
-
-  .prog-track {
-    height: 0.5rem;
-    background: var(--rule);
-    position: relative;
-  }
-
-  .prog-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: var(--stage);
-  }
-
-  .prog-fill.is-none { background: var(--rule-strong); }
-
-  .prog-state {
-    font-family: var(--f-data);
-    font-size: 0.72rem;
-    color: var(--ink-faint);
-    letter-spacing: 0.05em;
-  }
-
-  .prog-row[data-done="yes"] .prog-state { color: var(--stage); }
-
-  /* ---------- 補足ボックス ---------- */
-
-  .aside {
-    margin: 2.5rem 0;
-    padding: 1.25rem 1.4rem;
-    background: var(--spot-wash);
-    border-left: 3px solid var(--spot);
-  }
-
-  .aside h4 {
-    font-family: var(--f-data);
-    font-size: 0.7rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--spot);
-    margin: 0 0 0.6rem;
-    font-weight: 600;
-  }
-
-  .aside p {
-    margin: 0;
-    font-size: 0.9rem;
+  /* 状態の札 */
+  .pill {
+    display: inline-block;
+    padding: 0.05rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
     line-height: 1.8;
+    white-space: nowrap;
   }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.wait { background: var(--wait-soft); color: var(--wait); }
 
-  .aside p + p { margin-top: 0.8rem; }
-
-  /* ---------- 末尾 ---------- */
+  /* 決まったこと・まだのこと */
+  .two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  @media (min-width: 40rem) { .two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .two .panel h3 { margin-top: 0; font-size: 1rem; }
+  .two ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.6rem; font-size: 0.9rem; line-height: 1.75; }
 
   .end {
-    margin-top: clamp(4rem, 9vw, 6rem);
-    padding-top: 2rem;
-    border-top: 1px solid var(--rule);
-    font-family: var(--f-data);
-    font-size: 0.74rem;
+    grid-column: 1 / -1;
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.8rem;
     line-height: 1.9;
-    color: var(--ink-faint);
+    color: var(--muted);
   }
-
-  .end b { color: var(--ink-soft); font-weight: 400; }
-
-  ul.plain {
-    margin: 0 0 1.25rem;
-    padding-left: 1.1rem;
-  }
-
-  ul.plain li { margin-bottom: 0.5rem; }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .bar-fill, .prog-fill { transition: width 0.4s ease; }
-  }
+  @media (min-width: 64rem) { .end { grid-column: 2; } }
+  .end p { margin: 0; }
 </style>
-</head>
-<body>
-<div class="wrap">
+
+<div class="shell">
 
   <header class="top">
-    <p class="eyebrow">鈴鹿高専 高専祭 2026 ／ ステージイベント</p>
-    <h1>スズリーグは<br><em>3つの部品</em>でできている</h1>
-    <p class="lede">
-      みんなが手に持つスマホの画面、裏方に置く1台のパソコン、そのあいだをつなぐ「インターネット上の黒板と郵便受け」。
-      司会と観客は自分のスマホで、出演者はステージに置いた端末で見ます。出演者と同じ画面を、会場の大画面にも映します。
-      このシステムがどう動いているのかを、プログラムを知らない人向けに順番に説明します。
-    </p>
-    <div class="facts">
-      <span><b>本番</b> 2026/10/31 – 11/1</span>
-      <span><b>持ち時間</b> 40分（準備10分）</span>
-      <span><b>出場</b> 4チーム・15人</span>
-      <span><b>1チーム</b> 5問・バルーン100個</span>
+    <div class="top-inner">
+      <p class="eyebrow">鈴鹿高専 高専祭2026 ステージイベント</p>
+      <h1>スズリーグのしくみ</h1>
+      <p class="lede">
+        パーセントを当てるクイズ「スズリーグ」を、ステージで止めずに進めるためのシステムです。
+        どの画面がどうつながり、困ったときにどう立て直すのかを、プログラムを知らない人向けに順に説明します。
+      </p>
+      <dl class="facts">
+        <div class="fact"><dt>本番</dt><dd>10/31（土）〜11/1（日）</dd></div>
+        <div class="fact"><dt>持ち時間</dt><dd>40分（準備10分）</dd></div>
+        <div class="fact"><dt>出場</dt><dd>4チーム・15人</dd></div>
+        <div class="fact"><dt>1チーム</dt><dd>5問・バルーン100個</dd></div>
+      </dl>
+      <p class="asof">2026年10月21日時点の状況です。</p>
     </div>
   </header>
 
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">1</div>
-      <h2>そもそも何をするシステムか</h2>
+  <nav class="toc" aria-label="章の一覧">
+    <p class="toc-title">目次</p>
+    <ol>
+      <li><a href="#what"><span class="n">1</span>何をするシステムか</a></li>
+      <li><a href="#parts"><span class="n">2</span>3つの部品と真ん中の黒板</a></li>
+      <li><a href="#board"><span class="n">3</span>黒板の正体</a></li>
+      <li><a href="#numbers"><span class="n">4</span>黒板には数字しか書けない</a></li>
+      <li><a href="#flow"><span class="n">5</span>1問の流れ</a></li>
+      <li><a href="#tools"><span class="n">6</span>使っている道具</a></li>
+      <li><a href="#wall"><span class="n">7</span>128人の壁</a></li>
+      <li><a href="#stage"><span class="n">8</span>ステージ画面の作り方</a></li>
+      <li><a href="#now"><span class="n">9</span>いまの状況</a></li>
+      <li><a href="#trouble"><span class="n">10</span>止まったときの立て直し方</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="what">
+      <span class="sec-num">1</span>
+      <h2>何をするシステムか</h2>
+      <p class="point">問題を出し、答えを受け取り、バルーンを減らして結果を見せる。この3つを、40分のあいだ止まらずに続けるのが仕事です。</p>
       <p>
-        ネプリーグの「パーセントバルーン」をまねたクイズを、ステージの上で滞りなく進めるための仕掛けです。
+        出場者は「〜な人の割合は何％？」という問題に数字で答えます。正解とのズレの分だけ、持っているバルーン100個が減ります。
+        ぴったり当てれば減らず、大きく外せば大きく減り、0個になったチームはゲームオーバーです。
       </p>
-    </div>
-
-    <div class="body-col">
-      <p>
-        出場者は「〜な人の割合は何％？」という問題に数字で答えます。正解とのズレの分だけ、
-        持っているバルーン100個が減っていきます。<strong>ぴったり当てればノーダメージ、大きく外せば大きく減る。</strong>
-        0個になったチームはそこでゲームオーバーです。
-      </p>
-      <p>
-        つまりこのシステムがやるべき仕事は3つだけです。<strong>問題を出す。答えを受け取る。点数を計算して結果を見せる。</strong>
-        ただしそれを、お客さんの前で、40分のあいだ、止まらずにやり切る必要があります。
-      </p>
-      <p>
-        企画書には「モニターはないものとして」とあったので、まず<strong>全員が手元の画面で見られる</strong>ように作りました。
-        司会は手元のスマホで進行を操作し、出演者はステージに置いた端末で答え、観客はQRコードから開いた画面で一緒に挑戦します。
-        10月13日のデモ会で、出演者の画面を<strong>会場の大画面にも映す</strong>ことになりました。大画面がなくても、手元の画面だけで進められるつくりは変えていません。
-      </p>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">2</div>
-      <h2>全体像 ─ 3つの部品と、その真ん中の黒板</h2>
-      <p>
-        画面を出す係（みんなのスマホと大画面）と、進行を決める係（裏方のパソコン）を分けています。
-      </p>
-    </div>
-
-    <figure>
-      <div class="panel">
-        <div class="triad">
-          <div class="node">
-            <span class="role">手元</span>
-            <span class="name">みんなのスマホと大画面</span>
-            <span class="what">司会者画面・観客ページ、出演者用のステージ画面、そして会場の大画面。問題文や残りバルーンを出す表示係で、自分では何も判断しない。</span>
-          </div>
-
-          <div class="link" aria-hidden="true"></div>
-
-          <div class="node is-board">
-            <span class="role">インターネット上</span>
-            <span class="name">黒板と郵便受け</span>
-            <span class="what">全員に知らせることは黒板に書くと一斉に伝わる。司会の操作や出演者の答えは郵便受けに預け、裏方のパソコンが取りに来る。</span>
-          </div>
-
-          <div class="link" aria-hidden="true"></div>
-
-          <div class="node">
-            <span class="role">裏方</span>
-            <span class="name">Pythonの進行係</span>
-            <span class="what">ゲームの頭脳。今が何問目か、誰の番か、何点減ったかを全部ここが決める。裏方の1台のパソコンで動かしておく。</span>
-          </div>
-        </div>
-
-        <div class="triad-foot">
-          <span class="tag">決定</span>
-          <span>Scratch担当が作ったステージ画面を、出演者はステージに置く端末で見て、数字キーで答える。同じ画面を、数字キーのない形で会場の大画面にも映す（10月13日決定）。答えは黒板を通って裏方のパソコンに届く。</span>
-        </div>
-      </div>
-      <figcaption>
-        スマホと裏方のパソコンは直接つながっていない。かならず真ん中の黒板か郵便受けを経由する。
-        これにより、会場のWi-Fiの事情に左右されず、片方を作り直してももう片方に影響しない。
-      </figcaption>
-
-      <div class="body-col" style="margin-top: 2rem;">
-        <h3>全員のスマホが自動的に足並みをそろえる</h3>
-        <p>
-          黒板の書き換えは、見ている全員に<strong>同時に伝わります</strong>。
-          司会が「次へ」を押すと、出演者の画面も大画面も観客のスマホも、同じタイミングで次の問題に切り替わります。
-          だれかだけ先に進むということは起きません。
-        </p>
-        <p>
-          実際に150台つないで測ったところ、<strong>いちばん速い端末と遅い端末の差はわずか数ミリ秒</strong>でした。
-          人が気づける差ではありません。
-        </p>
-        <p>
-          ただし<strong>正解だけは、観客のスマホをわざと遅らせています</strong>。
-          大画面ではゲージが13秒ほど動いてから正解が出ます。スマホが先に答えを出してしまわないよう、
-          正解発表から15秒待ってから見せます。
-        </p>
-        <p>
-          途中から参加した人も置いていかれません。黒板は<strong>つないだ瞬間に今の内容を全部渡してくれる</strong>ので、
-          イベントの途中でQRコードを読んだお客さんも、その問題からすぐ参加できます。
-        </p>
-
-        <h3>観客の答えは、その人のスマホの中で採点する</h3>
-        <p>
-          お客さんが入力した数字そのものは<strong>送りません</strong>。正解が発表されたときに黒板へ書かれる
-          「正解の数字」を受け取って、自分の答えとの差をスマホの中で引き算します。
-          送るのは、観客ランキングのための<strong>成績（ズレの合計）とニックネームだけ</strong>です。
-        </p>
-        <p>
-          こうした理由は2つあります。ひとつは<strong>混雑を避けるため</strong>。
-          答えを黒板に書かせると、300人分の書き込みが全員に流れて最大9万回のやりとりになります。
-          成績を郵便受けに送るだけなら、300人が一斉に送っても全員分が2秒ほどで届くことを確かめました。
-        </p>
-        <p>
-          もうひとつは<strong>企画書の宿題がついでに解けるため</strong>。
-          「参加者がスマホ画面を見てしまう対策」が課題に挙がっていましたが、
-          観客の画面には自分の答えしか出ません。<strong>他人の答えは表示されない</strong>ので、
-          のぞき見しても得られる情報がないのです。
-        </p>
-
-        <h3>操作と答えは、合言葉付きで郵便受けに預ける</h3>
-        <p>
-          黒板はだれでも書き込めて、書いた内容が全員に見えてしまいます。そこで、司会の「次へ」のように
-          <strong>決まった人だけが送るもの</strong>は、黒板ではなく郵便受けに預けます（出演者の答えだけは、ステージ画面の作りに合わせて黒板で受け取ります）。
-          裏方のパソコンが0.4秒ごとに取りに行き、受け取った操作を実行します。
-        </p>
-        <p>
-          司会者画面は<strong>合言葉</strong>がないと使えません。ステージ画面が使えないときのために、
-          出演者がスマホから答える予備の画面も用意しています。こちらはチームが登場するたびに変わる<strong>4桁の合言葉</strong>を司会が伝え、それを入れた人だけが答えられます。
-        </p>
-      </div>
-    </figure>
-
-    <div class="body-col">
-      <p>
-        大事なのは<strong>「判断するのは裏方のパソコンだけ」</strong>という点です。どのスマホの画面も、
-        自分から進んだり出演者の点数を計算したりしません。黒板に書かれた内容をそのまま見せるだけの、いわば小さなテレビです。
-      </p>
-      <p>
-        こうしておくと、ルールを変えたくなったときに画面側をさわらずに済みます。
-        逆に画面の見た目を作り直しても、進行のプログラムはそのまま使えます。
-      </p>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">3</div>
-      <h2>「共有の黒板」の正体</h2>
-      <p>
-        <em class="term">クラウド変数</em>という、Scratchにもともと備わっている仕組みを使っています。
-      </p>
-    </div>
-
-    <div class="body-col">
-      <p>
-        クラウド変数は、インターネット上に置かれた名前付きの数字の置き場です。
-        誰かが書き換えると、その瞬間に、同じ場所を見ている全員の画面に反映されます。
-        オンラインゲームの得点表を全員で共有しているようなものだと思ってください。
-      </p>
-      <p>
-        スズリーグでは、この置き場を<strong>10個ほど用意して役割を決めて</strong>使っています。
-        「今のステート（進行段階）はここに書く」「回答はここに書く」といった取り決めです。
-      </p>
-    </div>
-
-    <figure>
-      <div class="board">
-        <div class="board-title">黒板の中身（実際に使っている置き場）</div>
-        <div class="board-grid">
-          <div class="chalk"><span class="k">P2S_STATE<span class="note">今どの段階か</span></span><span class="v">3</span></div>
-          <div class="chalk"><span class="k">P2S_TEAM<span class="note">何チーム目か</span></span><span class="v">2</span></div>
-          <div class="chalk"><span class="k">P2S_ROUND<span class="note">何問目か</span></span><span class="v">4</span></div>
-          <div class="chalk"><span class="k">P2S_QID<span class="note">問題の背番号</span></span><span class="v">17</span></div>
-          <div class="chalk"><span class="k">P2S_BALLOONS<span class="note">残りバルーン</span></span><span class="v">62</span></div>
-          <div class="chalk"><span class="k">P2S_CORRECT<span class="note">正解％（隠し中は−1）</span></span><span class="v">-1</span></div>
-          <div class="chalk"><span class="k">P2S_ANSWER<span class="note">大画面に出す出演者の答え</span></span><span class="v">45</span></div>
-          <div class="chalk"><span class="k">P2S_SCORES<span class="note">全チームの残りバルーン</span></span><span class="v">…</span></div>
-          <div class="chalk"><span class="k">S2P_ANSWER<span class="note">Scratch画面からの回答</span></span><span class="v">45</span></div>
-          <div class="chalk"><span class="k">HEARTBEAT<span class="note">裏方PCの生存確認</span></span><span class="v">…</span></div>
-        </div>
-      </div>
-      <figcaption>
-        P2S = Python から Scratch へ。S2P = Scratch から Python へ。名前で向きが分かるようにしてある。
-        正解は発表するまで −1 を入れておき、ステージ側にうっかり表示されないようにしている。
-      </figcaption>
-    </figure>
-
-    <div class="aside">
-      <h4>なぜこの仕組みを選んだのか</h4>
-      <p>
-        Scratch本家の同じ機能を使うと、<strong>参加者全員にScratchアカウントのログインを強いる</strong>ことになります。
-        客席のお客さんに「まずアカウントを作ってください」とは言えません。
-      </p>
-      <p>
-        そこで、Scratchを高速化する有志プロジェクト「TurboWarp」が用意している同等の仕組みを使っています。
-        こちらは<strong>URLを開くだけで参加でき、ログインが要りません。</strong>
-      </p>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">4</div>
-      <h2>黒板には数字しか書けない</h2>
-      <p>
-        この制約が、設計のかたちをいくつか決めています。
-      </p>
-    </div>
-
-    <div class="body-col">
-      <p>
-        クラウド変数に置けるのは<strong>数字だけ</strong>です。「日本人の何％が朝食にごはんを食べる？」という
-        問題文をそのまま送ることはできません。
-      </p>
-      <p>
-        そこで、問題文には<strong>背番号</strong>をつけました。問題文の一覧は画面側（観客ページやステージ画面）とPython側の両方が持っておき、
-        黒板には「17番の問題を出して」という数字だけを流します。画面側は17番の文章を表示する、という具合です。
-      </p>
-      <p>
-        <strong>この方式の弱点は、問題を差し替えたら両方を更新しないとズレることです。</strong>
-        Python側から画面を書き出すコマンドと、公開中の画面が最新かを確かめるコマンドを用意して、手作業のコピーミスが起きないようにしてあります。
-      </p>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">5</div>
-      <h2>1問が進むときに起きていること</h2>
-      <p>
-        司会がスマホの「次へ」を1回押すたびに、以下が1〜2秒のうちに流れます。
-      </p>
-    </div>
-
-    <figure>
-      <div class="panel">
-        <div class="flow">
-          <div class="step" data-who="host">
-            <span class="who">司会</span>
-            <span class="act">司会者画面で「次へ（1問目を出題する）」を押す
-              <span class="sub">ボタンには押すと何が起きるかが書いてある。勝手に進むタイマーは置いていない</span></span>
-          </div>
-          <div class="step" data-who="auto">
-            <span class="who">裏方PC</span>
-            <span class="act">郵便受けから操作を受け取り、問題の背番号・チーム番号・段階を黒板に書く
-              <span class="sub">最後に「更新カウンタ」を書き換えるのが決まり</span></span>
-          </div>
-          <div class="step" data-who="stage">
-            <span class="who">全員の画面</span>
-            <span class="act">更新カウンタの変化に気づき、問題文を表示する
-              <span class="sub">カウンタが最後に変わるので、途中の中途半端な状態を映さずに済む</span></span>
-          </div>
-          <div class="step" data-who="host">
-            <span class="who">司会</span>
-            <span class="act">もう一度「次へ」を押して回答受付へ
-              <span class="sub">シンキングタイム20秒</span></span>
-          </div>
-          <div class="step" data-who="stage">
-            <span class="who">出演者</span>
-            <span class="act">ステージ画面の数字キーで%を入れて決定する
-              <span class="sub">決めた数字は大画面にも出る。観客も同時に、自分のスマホで答えを決める</span></span>
-          </div>
-          <div class="step" data-who="auto">
-            <span class="who">裏方PC</span>
-            <span class="act">答えを受け取る。司会者画面に「届いた回答 45%」と出る
-              <span class="sub">届かなければ司会が司会者画面で代わりに打ち込める</span></span>
-          </div>
-          <div class="step" data-who="host">
-            <span class="who">司会</span>
-            <span class="act">「次へ（正解を発表する）」。裏方PCがズレの分だけバルーンを減らす
-              <span class="sub">正解55％・回答45％なら10個減って残り90個</span></span>
-          </div>
-          <div class="step" data-who="stage">
-            <span class="who">大画面とスマホ</span>
-            <span class="act">大画面でゲージが動き、正解が出てバルーンが割れる。観客のスマホには、そのあとで正解・ステージの答え・割れた数が出る
-              <span class="sub">観客は自分の答えも採点される</span></span>
-          </div>
-        </div>
-      </div>
-      <figcaption>
-        出演者の点数の計算はすべて裏方のパソコンでおこなう。スマホは計算結果を受け取って見せるだけなので、
-        表示がおかしくても点数が狂うことはない。
-      </figcaption>
-    </figure>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">6</div>
-      <h2>使っている道具と、選んだ理由</h2>
-      <p>
-        流行っているからではなく、この40分を落とさないために選んでいます。
-      </p>
-    </div>
-
-    <figure>
-      <div class="scroll-x">
+      <p>当日は、立場ごとに見る画面が違います。</p>
+      <div class="table-wrap wide">
         <table>
-          <thead>
-            <tr>
-              <th>道具</th>
-              <th>役割</th>
-              <th>選んだ理由</th>
-            </tr>
-          </thead>
+          <thead><tr><th>だれが</th><th>どの端末で</th><th>何を見て、何をするか</th></tr></thead>
           <tbody>
-            <tr>
-              <td class="tool">HTML（ブラウザ）</td>
-              <td>スマホの3つの画面</td>
-              <td class="why">アプリを入れずにQRコードやリンクから開ける。ログインも要らない</td>
-            </tr>
-            <tr>
-              <td class="tool">Python</td>
-              <td>進行と採点</td>
-              <td class="why">ルールの変更に強く、テストが書きやすい。裏方のパソコンで動かす</td>
-            </tr>
-            <tr>
-              <td class="tool">scratchattach</td>
-              <td>PythonとScratchの橋渡し</td>
-              <td class="why">クラウド変数をPythonから読み書きするための部品</td>
-            </tr>
-            <tr>
-              <td class="tool">cloud-server</td>
-              <td>黒板と郵便受け、画面の配信</td>
-              <td class="why">TurboWarpが公開している黒板のプログラムに、郵便受けと画面を足して自分たちで動かしている（次の章）</td>
-            </tr>
-            <tr>
-              <td class="tool">Render</td>
-              <td>cloud-serverを置く場所</td>
-              <td class="why">無料で使え、鍵付きの通信（https）が最初から使える。日本に近いシンガポールに置いた</td>
-            </tr>
-            <tr>
-              <td class="tool">Scratch / TurboWarp</td>
-              <td>出演者用の画面・大画面と、回答の入力</td>
-              <td class="why">Scratch担当が作った絵と演出をそのまま使える。裏方のパソコンとやり取りする部分だけを入れ替えて、ログイン不要で開ける形にして配る</td>
-            </tr>
-            <tr>
-              <td class="tool">rich</td>
-              <td>裏方PCの画面表示</td>
-              <td class="why">黒い画面に見やすい表を出す。司会者画面が使えないときの予備の操作にも使う</td>
-            </tr>
-            <tr>
-              <td class="tool">pytest</td>
-              <td>自動テスト</td>
-              <td class="why">採点・進行・合言葉・画面に送る中身・黒板の読み取り・ステージ画面の作り直しなどを255項目に分けて自動確認。1秒かからず全部通る</td>
-            </tr>
-            <tr>
-              <td class="tool">uv</td>
-              <td>環境の準備</td>
-              <td class="why">別のPCでも <code>uv sync</code> だけで同じ状態が作れる</td>
-            </tr>
+            <tr><th>出演者</th><td>手元の iPad</td><td>数字キーのある<strong>出演者用の画面</strong>で問題を見て、％を入れて決定する</td></tr>
+            <tr><th>会場のみんな</th><td>壇上の電子黒板（スタッフの Windows PC をつなぐ）</td><td>数字キーのない<strong>配信用の画面</strong>。出演者の答え・正解の演出・残りバルーンが出る</td></tr>
+            <tr><th>司会</th><td>自分のスマホ</td><td><strong>司会者画面</strong>で「次へ」を押して進める。台本は紙で持つ</td></tr>
+            <tr><th>観客</th><td>自分のスマホ</td><td>QRコードから<strong>観客ページ</strong>を開き、同じ問題に一緒に答える。最後にランキングが出る</td></tr>
+            <tr><th>裏方</th><td>パソコン1台</td><td>アプリを開いておくだけ。進行の計算は全部ここでする</td></tr>
           </tbody>
         </table>
       </div>
-      <figcaption>
-        担当者が分かれているので、Scratch側との境目は「黒板の使い方の取り決め」1枚だけにしてある。
-      </figcaption>
-    </figure>
+    </section>
 
-    <div class="aside">
-      <h4>司会者画面はボタンを1つに絞っている</h4>
-      <p>
-        司会はマイクと台本を持ったまま、スマホで進行を操作します。だから画面の主役は大きな「次へ」ボタン1つだけで、
-        ボタンには<strong>押すと何が起きるか</strong>（例「正解を発表する」）を書いています。
-        答えが届くまでは押せない、通信が遅れて2回届いても2段階は進まない、といった押し間違い対策も入れています。
-        台本のセリフは画面に出さず、紙の台本を使います。
-      </p>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">7</div>
-      <h2>本番前に見つかった落とし穴 ─ 128人の壁</h2>
-      <p>
-        観客のスマホ参加を実現するにあたって、実際に負荷をかけて調べました。
-      </p>
-    </div>
-
-    <div class="body-col">
-      <p>
-        黒板を提供しているサーバには、<strong>1つの部屋に入れる人数の上限が128人</strong>という制限がありました。
-        観客が100人来て、出場者15人がスマホを持ち、司会のスマホと裏方のパソコンも入る。あっという間に足りません。
-      </p>
-    </div>
-
-    <figure>
-      <div class="panel">
-        <div class="bars">
-          <div class="bar-row">
-            <span class="bar-label">50人</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: 35.7%;"></div>
+    <section id="parts">
+      <span class="sec-num">2</span>
+      <h2>3つの部品と、真ん中の黒板</h2>
+      <p class="point">画面を出す係と、進行を決める係を分けています。あいだに「インターネット上の黒板と郵便受け」を置いて、両者を直接つながないようにしています。</p>
+      <figure>
+        <div class="panel">
+          <div class="parts">
+            <div class="part">
+              <span class="where">手元・壇上</span>
+              <span class="name">みんなの画面</span>
+              <span class="what">iPad、電子黒板、司会と観客のスマホ。黒板に書かれた内容を見せるだけで、自分では何も判断しない。</span>
             </div>
-            <span class="bar-out">50人全員に届いた</span>
-          </div>
-          <div class="bar-row">
-            <span class="bar-label">100人</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: 71.4%;"></div>
+            <div class="arrow" aria-hidden="true"></div>
+            <div class="part is-center">
+              <span class="where">インターネット上</span>
+              <span class="name">黒板と郵便受け</span>
+              <span class="what">全員に知らせることは黒板に書けば一斉に伝わる。司会の操作は郵便受けに預ける。</span>
             </div>
-            <span class="bar-out">100人全員に届いた</span>
-          </div>
-          <div class="bar-row">
-            <span class="bar-label">128人</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: 91.4%;"></div>
+            <div class="arrow" aria-hidden="true"></div>
+            <div class="part">
+              <span class="where">裏方</span>
+              <span class="name">進行係のパソコン</span>
+              <span class="what">今が何問目か、何個減ったかを全部決める。郵便受けを0.4秒ごとに見に行く。</span>
             </div>
-            <span class="bar-out">128人全員に届いた</span>
-          </div>
-          <div class="bar-row" data-over="yes">
-            <span class="bar-label">140人</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: 91.4%;"></div>
-              <div class="bar-ghost" style="left: 91.4%; right: 0;"></div>
-            </div>
-            <span class="bar-out">128人まで／12人が無反応</span>
           </div>
         </div>
+        <figcaption>画面と裏方のパソコンはかならず黒板か郵便受けを経由します。片方を作り直しても、もう片方に影響しません。</figcaption>
+      </figure>
 
-        <div class="limit-note">
-          <strong>いちばん怖いのは、あふれた人にエラーが出ないことです。</strong>
-          140人で試したとき、140人全員が「つながった」状態になったのに、
-          実際に画面が更新されたのは128人だけでした。残る12人のスマホは、
-          つながっているように見えたまま、何も起きません。
-          本人にも運営にも気づけません。
+      <h3>全員の画面が同時に切り替わる</h3>
+      <p>
+        黒板の書き換えは、見ている全員に同時に伝わります。司会が「次へ」を押すと、iPad も電子黒板も観客のスマホも同じタイミングで次の問題に進みます。
+        150台つないで測ったところ、いちばん速い端末と遅い端末の差は数ミリ秒でした。途中でQRコードを読んだ人も、つないだ瞬間に今の問題から参加できます。
+      </p>
+
+      <h3>正解だけは、スマホに15秒遅れて出す</h3>
+      <p>
+        電子黒板では、ゲージが13秒ほど動いてから正解が出ます。観客のスマホが先に答えを出してしまわないよう、
+        <span class="mark">正解発表から15秒は、ステージの外に正解を出しません</span>。司会者画面の「次へ」も、そのあいだは押せないようにしています。
+      </p>
+
+      <h3>観客の答えは、その人のスマホで採点する</h3>
+      <p>
+        観客が入れた数字は送りません。発表された正解を受け取り、スマホの中で差を計算します。送るのはランキング用の成績とニックネームだけです。
+        こうすると300人が一斉に送っても2秒ほどで届き、ほかの人の答えも画面に出ないので、のぞき見しても得るものがありません。
+      </p>
+
+      <h3>操作は合言葉つきで、判断は裏方だけ</h3>
+      <p>
+        黒板はだれでも書けてしまうので、司会の操作は合言葉つきで郵便受けに預けます。
+        ステージの iPad が使えなくなったときのために、出演者がスマホで答える予備の画面もあり、こちらはチームごとに変わる4桁の合言葉で守っています。
+        どの画面も点数を計算しないので、表示が乱れても点数は狂いません。
+      </p>
+    </section>
+
+    <section id="board">
+      <span class="sec-num">3</span>
+      <h2>黒板の正体は「クラウド変数」</h2>
+      <p class="point">Scratch にもとからある、インターネット上で共有できる変数を使っています。だれかが書き換えると、同じ場所を見ている全員の画面にすぐ反映されます。</p>
+      <p>スズリーグでは、この置き場を10個ほど用意して、役割を決めて使っています。</p>
+      <figure>
+        <div class="panel">
+          <div class="board">
+            <div class="chalk"><span class="k">P2S_STATE</span><span class="v">3</span><span class="note">いまどの段階か（出題・回答受付・正解発表など）</span></div>
+            <div class="chalk"><span class="k">P2S_TEAM</span><span class="v">2</span><span class="note">何チーム目か</span></div>
+            <div class="chalk"><span class="k">P2S_ROUND</span><span class="v">4</span><span class="note">何問目か</span></div>
+            <div class="chalk"><span class="k">P2S_QID</span><span class="v">17</span><span class="note">問題の背番号</span></div>
+            <div class="chalk"><span class="k">P2S_BALLOONS</span><span class="v">62</span><span class="note">残りバルーン</span></div>
+            <div class="chalk"><span class="k">P2S_CORRECT</span><span class="v">-1</span><span class="note">正解％。発表するまでは −1 にしておく</span></div>
+            <div class="chalk"><span class="k">P2S_ANSWER</span><span class="v">45</span><span class="note">電子黒板に出す出演者の答え</span></div>
+            <div class="chalk"><span class="k">P2S_SCORES</span><span class="v">…</span><span class="note">全チームの残りバルーン（結果発表に使う）</span></div>
+            <div class="chalk"><span class="k">S2P_ANSWER</span><span class="v">45</span><span class="note">iPad から届いた答え</span></div>
+            <div class="chalk"><span class="k">HEARTBEAT</span><span class="v">…</span><span class="note">裏方のパソコンが動いている合図</span></div>
+          </div>
         </div>
+        <figcaption>P2S は「裏方のパソコンから画面へ」、S2P は「画面から裏方のパソコンへ」。名前を見れば向きが分かるようにしています。</figcaption>
+      </figure>
+      <h3>ログイン不要で使える形を選んだ</h3>
+      <p>
+        Scratch 本家のクラウド変数を使うと、参加者全員に Scratch のアカウントでのログインが要ります。客席の人に「まずアカウントを作ってください」とは言えません。
+        そこで、Scratch を速く動かす有志のプロジェクト TurboWarp の同じしくみを使っています。URL を開くだけで参加できます。
+      </p>
+    </section>
+
+    <section id="numbers">
+      <span class="sec-num">4</span>
+      <h2>黒板には数字しか書けない</h2>
+      <p class="point">問題文は送れないので、問題に背番号をつけ、黒板には「17番を出して」という数字だけを流しています。</p>
+      <p>
+        問題文の一覧は、画面の側と裏方のパソコンの両方が持っています。黒板に17と書かれたら、画面は17番の文章を出します。
+        チーム名も同じで、文字は送れないので、ステージの画面を作るときにチーム名を絵として埋め込んでいます。
+      </p>
+      <p>
+        この方式の弱点は、問題を差し替えたら両方を直さないとズレることです。
+        画面を書き出すコマンドと、公開中の画面が最新かを確かめるコマンドを用意して、手作業の写し間違いが起きないようにしています。
+      </p>
+    </section>
+
+    <section id="flow">
+      <span class="sec-num">5</span>
+      <h2>1問が進むときに起きていること</h2>
+      <p class="point">司会が「次へ」を押すたびに、裏方のパソコンが黒板を書き換え、全員の画面が1〜2秒のうちに切り替わります。</p>
+      <figure>
+        <div class="panel">
+          <ol class="flow">
+            <li class="step"><span class="who host">司会</span><span class="act">司会者画面で「次へ（1問目を出題する）」を押す<small>ボタンには、押すと何が起きるかが書いてある。勝手に進むタイマーはない</small></span></li>
+            <li class="step"><span class="who">裏方のパソコン</span><span class="act">問題の背番号・チーム・段階を黒板に書く<small>最後に「更新の合図」を書き換えるので、書きかけの状態は映らない</small></span></li>
+            <li class="step"><span class="who">全員の画面</span><span class="act">合図に気づいて問題文を出す</span></li>
+            <li class="step"><span class="who host">司会</span><span class="act">もう一度「次へ」で回答受付に<small>考える時間は20秒</small></span></li>
+            <li class="step"><span class="who">出演者</span><span class="act">iPad の数字キーで％を入れて決定する<small>決めた数字は電子黒板にも出る。観客も同時に自分のスマホで答える</small></span></li>
+            <li class="step"><span class="who">裏方のパソコン</span><span class="act">答えを受け取り、司会者画面に「届いた回答 45%」と出す<small>届かなければ、司会が司会者画面で代わりに入れられる</small></span></li>
+            <li class="step"><span class="who host">司会</span><span class="act">「次へ（正解を発表する）」。裏方がズレの分だけバルーンを減らす<small>正解55％・答え45％なら10個減って、残り90個</small></span></li>
+            <li class="step"><span class="who">電子黒板とスマホ</span><span class="act">電子黒板でゲージが動き、正解が出てバルーンが割れる<small>観客のスマホには、そのあとで正解と自分の採点結果が出る</small></span></li>
+          </ol>
+        </div>
+      </figure>
+    </section>
+
+    <section id="tools">
+      <span class="sec-num">6</span>
+      <h2>使っている道具と、選んだ理由</h2>
+      <p class="point">流行で選んだものはありません。どれも「40分を止めない」ために選んでいます。</p>
+      <div class="table-wrap wide">
+        <table>
+          <thead><tr><th>道具</th><th>役割</th><th>選んだ理由</th></tr></thead>
+          <tbody>
+            <tr><th>ブラウザ（HTML）</th><td>スマホの画面</td><td class="sub">アプリを入れずに、QRコードやリンクから開ける</td></tr>
+            <tr><th>Python</th><td>進行と採点</td><td class="sub">ルールの変更に強く、自動テストが書きやすい</td></tr>
+            <tr><th>Scratch / TurboWarp</th><td>iPad と電子黒板の画面</td><td class="sub">Scratch担当が作った絵と演出をそのまま使い、ログインなしで開ける形にして配れる</td></tr>
+            <tr><th>cloud-server</th><td>黒板・郵便受け・画面の配信</td><td class="sub">TurboWarp が公開している黒板のプログラムに、郵便受けと画面を足して自分たちで動かしている</td></tr>
+            <tr><th>Render</th><td>cloud-server の置き場</td><td class="sub">無料で使え、鍵付きの通信が最初から使える。日本に近いシンガポールに置いた</td></tr>
+            <tr><th>pytest など</th><td>自動テスト</td><td class="sub">採点・進行・合言葉・画面の作り直しを255項目で確かめる。1秒かからず全部通る</td></tr>
+          </tbody>
+        </table>
       </div>
-      <figcaption>
-        自分のパソコンに同じサーバを立てて実測した結果（2026年7月22日）。
-        本家のサーバに大量接続するのは利用規約に反するため、そちらへは3台だけで疎通確認している。
-      </figcaption>
-    </figure>
+    </section>
 
-    <div class="body-col">
+    <section id="wall">
+      <span class="sec-num">7</span>
+      <h2>本番前に見つけた落とし穴「128人の壁」</h2>
+      <p class="point">公開の黒板サーバは、1つの部屋に128人までしか入れませんでした。しかも、あふれた人にはエラーが出ません。</p>
+      <p>観客が100人来て、出場者や司会、裏方も入れば、すぐに足りなくなります。同じサーバを手元に立てて試した結果がこれです。</p>
+      <figure>
+        <div class="panel">
+          <div class="bars">
+            <div class="bar"><span class="label">50人</span><div class="track"><div class="fill" style="width: 35.7%"></div></div><span class="out">50人全員に届いた</span></div>
+            <div class="bar"><span class="label">100人</span><div class="track"><div class="fill" style="width: 71.4%"></div></div><span class="out">100人全員に届いた</span></div>
+            <div class="bar"><span class="label">128人</span><div class="track"><div class="fill" style="width: 91.4%"></div></div><span class="out">128人全員に届いた</span></div>
+            <div class="bar is-over"><span class="label">140人</span><div class="track"><div class="fill" style="width: 91.4%"></div><div class="lost" style="left: 91.4%; right: 0"></div></div><span class="out">12人に何も起きない</span></div>
+          </div>
+          <div class="note-box">140人のときは全員が「つながった」状態になったのに、画面が進んだのは128人だけでした。残りの12人は、つながっているように見えたまま止まっていました。本人も運営も気づけません。</div>
+        </div>
+        <figcaption>2026年7月22日、手元に同じサーバを立てて測定。公開のサーバに大量につなぐのは利用規約に反するため、そちらは3台で動作だけ確かめました。</figcaption>
+      </figure>
+
       <h3>だから、黒板を自分たちで用意した</h3>
       <p>
-        この黒板サーバのプログラムは公開されているので、<strong>同じものを自分たちで動かせます。</strong>
-        自分たちのものなら、128人という上限を書き換えられます。
+        黒板のプログラムは公開されているので、同じものを無料のサーバ（Render）で動かし、上限を300人に広げました。7月23日から動いています。
+        公開のサーバにある「同じ場所から一度にたくさんつなぐと弾く」制限もなくなります。会場の Wi-Fi は全員が同じ回線を通るので、これは大きな違いです。
       </p>
-      <p>
-        費用はかけていません。無料で使えるホスティングサービス（Render）に置き、
-        <strong>2026年7月23日に稼働を開始しました。</strong>
-        Scratch側もPython側もプログラムの書き換えは不要で、
-        開くURLの末尾に接続先を書き足すだけで切り替わります。
-      </p>
-      <p>
-        自分たちのサーバにするメリットはもう一つありました。本家のサーバには
-        「同じ場所から一度にたくさん繋ぐと弾かれる」制限がありますが、
-        <strong>プログラムを読んだところ、この制限はサーバ本体の機能ではありませんでした。</strong>
-        自分たちで動かせば存在しません。会場のWi-Fiは全員が同じ回線を通るので、
-        これは大きな違いです。
-      </p>
-    </div>
-
-    <figure>
-      <div class="panel">
-        <div class="bars">
-          <div class="bar-row">
-            <span class="bar-label">100人</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: 66.7%;"></div>
-            </div>
-            <span class="bar-out">100人全員に届いた</span>
+      <figure>
+        <div class="panel">
+          <div class="bars">
+            <div class="bar"><span class="label">100人</span><div class="track"><div class="fill" style="width: 66.7%"></div></div><span class="out">100人全員に届いた</span></div>
+            <div class="bar"><span class="label">150人</span><div class="track"><div class="fill" style="width: 100%"></div></div><span class="out">150人全員に届いた</span></div>
           </div>
-          <div class="bar-row">
-            <span class="bar-label">150人</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: 100%;"></div>
-            </div>
-            <span class="bar-out">150人全員に届いた</span>
-          </div>
+          <div class="note-box is-good">本番のサーバで150人まで確かめました。反応は約0.12秒で、公開のサーバ（約0.27秒）より速くなりました。</div>
         </div>
-        <div class="limit-note" style="background: var(--stage-wash); border-left-color: var(--stage);">
-          <strong>自分たちのサーバで150人まで確認できました。</strong>
-          反応の速さは約0.12秒で、本家のサーバ（約0.27秒）より速いです。
-          日本に最も近いシンガポールに置いたためです。
+        <figcaption>2026年7月23日、本番のサーバで測定。300人は、測るパソコンのほうが先に限界になり、サーバの限界はまだ見えていません。</figcaption>
+      </figure>
+      <h3>無料のサーバは、放っておくと眠る</h3>
+      <p>
+        15分だれも使わないと眠り、起こすのに23秒かかりました。イベント中は裏方のパソコンが15秒ごとに合図を送るので眠りませんが、
+        <span class="mark">開演の30分前にURLを開いて起こす</span>手順を当日の段取りに入れています。
+      </p>
+    </section>
+
+    <section id="stage">
+      <span class="sec-num">8</span>
+      <h2>ステージの画面は、Scratch担当の作品を作り直して配っている</h2>
+      <p class="point">絵と演出は Scratch担当のプロジェクトをそのまま使い、裏方とやり取りする部分だけをこちらで入れ替えて配っています。どの場面で開き直しても、今の画面に戻ります。</p>
+      <p>
+        もとのプロジェクトは「最初から順に見てきた」前提で画面を組み立てていたので、途中で開き直すと崩れていました。
+        裏方とやり取りする部分を入れ替え、そのときの状態から画面を組み立て直すようにしたのがこの形です。
+        数字キーのある iPad 用と、数字キーのない電子黒板用の2つを、同じプロジェクトから作ります。
+      </p>
+
+      <h3>作り直すたびに、737項目を自動で確かめてから出す</h3>
+      <p>
+        Scratch担当がプロジェクトを直したら、こちらで作り直して本番に出します。そのたびに、3チームぶんの進行を自動で流し、
+        問題文・問題番号・チーム名・残りバルーン・予想が裏方と合っているか、場面ごとに開き直して同じ画面に戻るかを確かめます。
+        全部で737項目あり、ひとつでも合わなければ出しません。
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>日付</th><th>あったこと</th></tr></thead>
+          <tbody>
+            <tr><th>10/13</th><td>デモ会を受けて、iPad 用と電子黒板用の画面を作り直した</td></tr>
+            <tr><th>10/14</th><td>Scratch担当の更新（エキシビションモードの表示など）を取り込んだ。開き直すとずれる2か所を補ってから出した</td></tr>
+            <tr><th>10/18</th><td>Scratch担当がまた更新した。チーム名の札と数字キーの作りが変わり、作り直しのコマンドが止まった。本番は前の版のまま動いていた</td></tr>
+            <tr><th>10/19</th><td>新しい版に合わせ、開き直すとずれる3か所を補ってから出した</td></tr>
+            <tr><th>10/21</th><td>裏方のアプリが、起動のたびにステージの画面が Scratch の最新版と合っているかも確かめるようにした。出演者の画面を iPad と同じしくみ（Safari のエンジン・タッチ操作）で動かす確認も足し、737項目すべて合格した</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        作り直しが止まるのは、壊れた画面を黙って出さないための仕掛けです。こちらが名前で頼っているメッセージや変数がなくなると、そこで止まって、何がなくなったかを表示します。
+      </p>
+    </section>
+
+    <section id="now">
+      <span class="sec-num">9</span>
+      <h2>いまの状況</h2>
+      <p class="point">作る部分は終わりました。システムは今週中に仕上げ、残りは本物の端末での確認と、当日の段取りの調整です。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>部品</th><th>状態</th><th>確かめたこと</th></tr></thead>
+          <tbody>
+            <tr><th>進行と採点</th><td><span class="pill ok">完了</span></td><td class="sub">自動テスト255項目</td></tr>
+            <tr><th>黒板と郵便受けのサーバ</th><td><span class="pill ok">稼働中</span></td><td class="sub">150人まで実測</td></tr>
+            <tr><th>本番の問題</th><td><span class="pill ok">完了</span></td><td class="sub">企画側の問題表20問と一致</td></tr>
+            <tr><th>司会者画面</th><td><span class="pill ok">確認ずみ</span></td><td class="sub">10/6・10/12 に本物のスマホで最後まで通した</td></tr>
+            <tr><th>観客ページ・ランキング</th><td><span class="pill ok">確認ずみ</span></td><td class="sub">本物のスマホで通した。300人の一斉送信も確かめた</td></tr>
+            <tr><th>出演者の予備の画面</th><td><span class="pill ok">公開ずみ</span></td><td class="sub">スマホから4桁の合言葉で答えられる</td></tr>
+            <tr><th>裏方のアプリ</th><td><span class="pill ok">完了</span></td><td class="sub">落ちても「続きから」再開できる。起動時に全部の画面を照合する</td></tr>
+            <tr><th>iPad と電子黒板の画面</th><td><span class="pill wait">本物の端末待ち</span></td><td class="sub">自動の確認737項目は、iPad と同じしくみでも合格。iPad 本体・電子黒板・音はまだ</td></tr>
+            <tr><th>当日の段取り</th><td><span class="pill wait">調整中</span></td><td class="sub">リハーサルの日程・チーム名など</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="two" style="margin-top: 2rem">
+        <div class="panel">
+          <h3>決まったこと</h3>
+          <ul>
+            <li>出演者は手元の iPad で、数字キーのある画面を見て答える</li>
+            <li>壇上の電子黒板に、スタッフの Windows PC で配信用の画面を映す</li>
+            <li>進行は司会がスマホで操作する。台本は紙で持つ</li>
+            <li>観客ランキングを作る。20問のズレの合計が少ない人が上位</li>
+            <li>1チーム5問。誰が答えるかは当日その場で司会が決める</li>
+            <li>10/28 にプログラムの変更を止め、以降は設定とデータの差し替えだけにする</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>まだ決まっていないこと</h3>
+          <ul>
+            <li>リハーサルの日時。会場の Wi-Fi と電子黒板は会場でしか確かめられない</li>
+            <li>チーム名と登場順。決まれば設定を書き換えて画面を作り直すだけで、数分で終わる</li>
+            <li>音を電子黒板と iPad のどちらから出すか。両方から出すと二重に聞こえる</li>
+            <li>裏方のパソコンの置き場所と回線、番をする人</li>
+          </ul>
         </div>
       </div>
-      <figcaption>
-        本番サーバでの実測（2026年7月23日）。上限は300人に設定してある。
-        300人でのテストも試したが、測定に使ったパソコン1台の側が先に限界を迎えたため、
-        サーバの限界はまだ見えていない。
-      </figcaption>
-    </figure>
+    </section>
 
-    <div class="aside">
-      <h4>無料ゆえの注意点がひとつ</h4>
-      <p>
-        無料プランのサーバは、15分間だれも使わないと眠ります。
-        実際に17分放置して試したところ、起こすのに<strong>23秒</strong>かかりました。
-        イベント中は裏方のパソコンが15秒ごとに信号を送り続けるので眠りませんが、
-        <strong>開演の30分前にURLを一度開いて起こしておく</strong>手順を、当日の段取りに入れてあります。
-      </p>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">8</div>
-      <h2>いまどこまでできているか</h2>
-      <p>
-        10月初めのデモ会で「足りない」と言われた画面は、10月4日にすべて作り終えて公開しました。
-        10月13日のデモ会で出た3つの指摘にも、その日のうちに手を入れています。
-        大画面はモニターに決まり、会場リハーサルは今週おこないます。
-      </p>
-    </div>
-
-    <figure>
-      <div class="panel">
-        <div class="prog">
-          <div class="prog-row" data-done="yes">
-            <span class="prog-name">進行と採点のプログラム</span>
-            <span class="prog-track"><span class="prog-fill" style="width:100%"></span></span>
-            <span class="prog-state">完了</span>
-          </div>
-          <div class="prog-row" data-done="yes">
-            <span class="prog-name">黒板と郵便受けのサーバ</span>
-            <span class="prog-track"><span class="prog-fill" style="width:100%"></span></span>
-            <span class="prog-state">稼働中</span>
-          </div>
-          <div class="prog-row" data-done="yes">
-            <span class="prog-name">本番の問題（企画側が決定）</span>
-            <span class="prog-track"><span class="prog-fill" style="width:100%"></span></span>
-            <span class="prog-state">完了</span>
-          </div>
-          <div class="prog-row">
-            <span class="prog-name">司会者画面</span>
-            <span class="prog-track"><span class="prog-fill" style="width:95%"></span></span>
-            <span class="prog-state">実機で確認ずみ</span>
-          </div>
-          <div class="prog-row">
-            <span class="prog-name">出演者の回答画面（予備）</span>
-            <span class="prog-track"><span class="prog-fill" style="width:90%"></span></span>
-            <span class="prog-state">公開ずみ</span>
-          </div>
-          <div class="prog-row">
-            <span class="prog-name">観客ページ・ランキング・結果発表</span>
-            <span class="prog-track"><span class="prog-fill" style="width:95%"></span></span>
-            <span class="prog-state">実機で確認ずみ</span>
-          </div>
-          <div class="prog-row">
-            <span class="prog-name">ステージ画面（出演者用・大画面用）</span>
-            <span class="prog-track"><span class="prog-fill" style="width:85%"></span></span>
-            <span class="prog-state">実機での確認待ち</span>
-          </div>
-          <div class="prog-row">
-            <span class="prog-name">当日の体制とリハーサル</span>
-            <span class="prog-track"><span class="prog-fill" style="width:60%"></span></span>
-            <span class="prog-state">今週リハーサル</span>
-          </div>
-        </div>
+    <section id="trouble">
+      <span class="sec-num">10</span>
+      <h2>止まったときの立て直し方</h2>
+      <p class="point">ステージで止まっても続けられるよう、逃げ道を先に用意しています。正しい状態を持っているのはいつも裏方のパソコンで、黒板はその写しです。</p>
+      <div class="table-wrap wide">
+        <table>
+          <thead><tr><th>起きたこと</th><th>やること</th></tr></thead>
+          <tbody>
+            <tr><th>出演者の答えが届かない</th><td>司会が司会者画面の「代理入力」で数字を入れれば、そのまま進む</td></tr>
+            <tr><th>iPad や電子黒板の画面がおかしい</th><td>ページを開き直して1回タップすれば、今の画面に戻る。司会者画面の「困ったとき」から、開いたまま組み立て直すこともできる</td></tr>
+            <tr><th>iPad が使えない</th><td>出演者に、スマホの予備の画面で答えてもらう（司会が4桁の合言葉を伝える）</td></tr>
+            <tr><th>観客のスマホが固まった</th><td>ページを開き直せば、今の問題から追いつく</td></tr>
+            <tr><th>司会のスマホから操作できない</th><td>裏方のパソコンで同じ司会者画面を開いて操作する</td></tr>
+            <tr><th>裏方のパソコンが落ちた</th><td>司会者画面に「PCの応答なし」と出る。アプリを開き直して「続きから」を選べば、落ちる前の問題とバルーンの数から再開できる</td></tr>
+            <tr><th>サーバにつながらない</th><td>裏方のパソコンで黒板を動かして外から見えるようにする（一度試して動いた）。URLが変わるのでQRコードを出し直す。最後の手段</td></tr>
+          </tbody>
+        </table>
       </div>
-      <figcaption>
-        画面はまずスマホと同じ大きさの画面で全4チーム20問を最後まで自動で動かし、
-        10月6日と12日には本物のスマホとScratch画面で、最後の結果発表まで通して動くことを確かめた。
-        ステージ画面は10月13日に作り直し、Scratch担当の更新を10月14日と19日に取り込んだ。本物の端末と大画面で通す確認が残っている。
-      </figcaption>
-    </figure>
+    </section>
 
-    <div class="body-col">
-      <h3>10月13日のデモ会で出た3つの指摘</h3>
-      <ul class="plain">
-        <li><strong>出演者の画面を観客にも見せたい</strong> ─ 数字キーを外したステージ画面を作り、会場の大画面に映すことにしました。出演者が答えを決めると、その数字が大画面にも出ます。</li>
-        <li><strong>ステージ画面が崩れる</strong> ─ 原因は2つありました。問題番号が1つ前にずれて光っていたのは、裏方のパソコンの数字の送り方が原因だったので直しました。途中で開き直すと崩れるのは、「最初から順に見てきた」前提で画面を組み立てていたためです。裏方のパソコンとやり取りする部分をこちらで作り直し、<strong>どの場面で開き直しても、今の画面に戻る</strong>ようにしました。絵や演出はScratch担当が作ったものをそのまま使っています。</li>
-        <li><strong>観客のスマホが先に正解を出してしまう</strong> ─ 大画面のゲージが止まるまで、スマホは正解を出さずに待つようにしました。</li>
-      </ul>
+  </main>
 
-      <h3>10月13日の夜に直した細かいところ</h3>
-      <ul class="plain">
-        <li><strong>1問目の待ち時間</strong> ─ 各チームの1問目は、問題文が出るまで約8秒待たされていました。登場の効果音と同時に問題文を出すようにしました。</li>
-        <li><strong>開き直したときの文字</strong> ─ 「GAME OVER」「CLEARED」の文字が、開き直すと消えていました。開き直しても出るようにしました。</li>
-        <li><strong>チーム名</strong> ─ 大画面の札と結果発表に、番号ではなくチーム名を出せるようにしました。</li>
-        <li><strong>同点の優勝</strong> ─ 残りバルーンが同じなら、そのチームすべてを優勝にしました（どの画面でも同じ）。</li>
-        <li><strong>確かめ方</strong> ─ ステージ画面を自動で3チームぶん動かし、場面ごとに正しく出るかを調べる仕組みを作りました。Scratch担当がプロジェクトを直すたびに、同じ確認をすぐ繰り返せます。</li>
-      </ul>
-
-      <h3>Scratch担当がプロジェクトを直したら</h3>
-      <p>
-        ステージ画面の絵と演出はScratch担当のものなので、向こうがプロジェクトを直したら、こちらで作り直して本番に出します。
-        作り直すたびに3チームぶんの自動の確認を通してから出すので、確かめていない画面が本番に出ることはありません。
-      </p>
-      <ul class="plain">
-        <li><strong>10月14日</strong> ─ 前日の更新（ゲームオーバーのあとの「エキシビションモード」の表示など）を取り込みました。確認で、途中で開き直すと画面が2か所ずれることが分かったので、こちらで補ってから出しました。</li>
-        <li><strong>10月18日</strong> ─ また更新があり、チーム名の札の出し方と数字キーの入力の作りが変わりました。今度は作り直しのコマンドが「作りが変わっています」と出て止まりました。そのあいだも本番では、前の版から作った画面がそのまま動いていました。19日に作り直しを新しい版に合わせ、開き直したときにずれる3か所を補ってから出しました。</li>
-      </ul>
-      <p>
-        作り直しが止まるのは、壊れた画面を黙って出さないための仕掛けです。
-        こちらが名前で頼っているメッセージや変数がなくなると、そこで止めて、何がなくなったかを表示します。
-      </p>
-
-      <h3>通しで動かして、初めて見つかった不具合</h3>
-      <p>
-        観客2人がスマホで参加する想定で、全20問を最初から最後まで自動で動かしたところ、
-        夏の検証では見つからなかった不具合が3つ出ました。いちばん大きかったのは、
-        <strong>裏方のパソコンが黒板に書いた内容が、1〜2分に1回、黙って消えていた</strong>ことです。
-        黒板のサーバが「返事のない相手」として接続を切っていたのが原因でした。
-        どれも直したうえで、同じ通しを最後まで止まらずに動かせることを確かめています。
-      </p>
-      <p>
-        さらに、本物のScratch画面を自動で開いて裏方のパソコンとつないだところ、
-        <strong>Scratchで入れた答えが、7月から一度も裏方のパソコンに届いていなかった</strong>ことが分かりました。
-        黒板から読む部品が、自分たちの黒板ではなく公開されている別の黒板を見に行っていたのです。
-        読み取りの部分を自分たちで作り直し、Scratchで答えた数字が届くことを確かめました。
-        あわせて、Scratch側の問題文が古いままになっていることも見つかり、Scratch担当に差し替えてもらいました（10月10日に20問すべての一致を確認）。
-      </p>
-      <p>
-        この手の不具合は<strong>エラーを出さずに「なんとなく動かない」形で現れます</strong>。
-        本番と同じ流れを最後まで動かしてみることが、いちばん確実な確かめ方でした。
-      </p>
-
-      <h3>まだ決まっていないこと</h3>
-      <ul class="plain">
-        <li><strong>リハーサルの細かい段取り</strong> ─ 今週おこなうことは決まりました。会場のWi-Fiでつながるかは会場でしか確かめられないので、そこで確かめます。</li>
-        <li><strong>チーム名と登場順</strong> ─ 決まりしだい設定ファイルを書き換え、ステージ画面を作り直す（コマンド1つ）だけなので、直前でも間に合います。チーム名は大画面の札と結果発表にも出ます。</li>
-        <li><strong>大画面につなぐパソコンと音</strong> ─ モニターにつなぐパソコンをだれが用意するか、音を大画面と出演者の端末のどちらから出すかを確認中です（両方から出すと二重に聞こえます）。</li>
-        <li><strong>裏方のパソコンの番をする人</strong> ─ 進行は司会がスマホで操作します。パソコンはアプリを開くだけで動き出すのでコマンドの知識は要りませんが、動いているかを見る人が1人いると安心です。</li>
-      </ul>
-
-      <h3>決まったこと</h3>
-      <ul class="plain">
-        <li><strong>出演者の画面を大画面にも映す</strong>（10月13日決定。10月4日の「プロジェクターは使わない」を改めた）。司会と観客はスマホ、出演者はステージに置いた端末のステージ画面で見て、その数字キーで答える</li>
-        <li><strong>大画面はモニター</strong>。数字キーのないステージ画面を、つないだパソコンのブラウザで開いて映す</li>
-        <li><strong>進行は司会がスマホで操作する</strong>。台本は紙で持ち、画面には出さない</li>
-        <li><strong>観客ランキングを作る</strong>。20問のズレの合計が少ない人が上位。答えなかった問題は1問50として数える</li>
-        <li><strong>1チーム5問は変えない</strong>（7月24日決定） ─ 人数の少ないチームは1人が2〜3問答えます。誰が答えるかは<strong>当日その場で司会が指名</strong>します。</li>
-      </ul>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <div class="sec-num">9</div>
-      <h2>止まったらどうするか</h2>
-      <p>
-        ステージイベントなので、動かなかったときの逃げ道を先に用意しています。
-      </p>
-    </div>
-
-    <div class="body-col">
-      <ul class="plain">
-        <li><strong>出演者の答えが届かない</strong> ─ 司会が司会者画面の「代理入力」で数字を打ち込めば、そのまま進行できます。</li>
-        <li><strong>スマホの画面が固まった</strong> ─ ページを開き直せば、今の問題から追いつきます。</li>
-        <li><strong>司会のスマホから操作できない</strong> ─ 裏方のパソコンで同じ司会者画面を開いて操作できます。キーボードでの操作も残してあります。</li>
-        <li><strong>ステージ画面や大画面がおかしい</strong> ─ ページを開き直して1回クリックすれば、今の画面に戻ります。司会者画面の「Scratchに今の状態を送り直す」を押して、開いたまま画面を作り直すこともできます。それでもだめなら、出演者にスマホの予備の回答画面で答えてもらいます。</li>
-        <li><strong>裏方のパソコンが落ちた</strong> ─ 司会者画面に「PCの応答なし」と出るので、すぐ気づけます。進行は操作のたびに保存しているので、アプリを開き直して<strong>「続きから」を選べば、落ちる前の問題とバルーンの数から再開できます</strong>。</li>
-        <li><strong>サーバに繋がらない</strong> ─ 裏方のパソコン上で黒板を動かし、外から見えるようにする手順を用意してあります。<strong>実際に一度やって動くことを確かめました。</strong>ただしURLが変わるので、QRコードを出し直す必要があります。最終手段です。</li>
-      </ul>
-      <p>
-        通信のしくみ上、黒板の内容は全員が切断されると消えます。
-        そのため<strong>「正しい状態を持っているのは常に裏方のパソコンで、黒板はその写しにすぎない」</strong>という
-        つくりにしてあります。写しが消えても、いつでも書き直せます。
-      </p>
-    </div>
-  </section>
-
-  <div class="end">
-    <p>
-      <b>この資料について</b><br>
-      鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」進行システムの技術解説。2026年10月19日時点の状況にもとづく。<br>
-      画面とサーバ: <code>https://suzuleague-cloud.onrender.com</code>（観客ページ <code>/suzuleague.html</code>、ステージ画面 <code>/stage/view/</code>・<code>/stage/play/</code>）<br>
-      詳細な仕様は開発リポジトリの docs/architecture.md・docs/protocol.md を参照。
-    </p>
-  </div>
+  <footer class="end">
+    <p>鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」進行システムの解説。2026年10月21日時点。</p>
+    <p>画面とサーバ: <code>https://suzuleague-cloud.onrender.com</code>（観客ページ <code>/suzuleague.html</code>、ステージの画面 <code>/stage/view/</code>・<code>/stage/play/</code>）</p>
+    <p>詳しい仕様は開発リポジトリの <code>docs/architecture.md</code>・<code>docs/protocol.md</code> にあります。</p>
+  </footer>
 
 </div>
-</body>
-</html>

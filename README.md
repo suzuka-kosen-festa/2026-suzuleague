@@ -3,7 +3,7 @@
 鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」の進行システム。
 
 テレビ番組「ネプリーグ」の「パーセントバルーン」をベースにしたクイズイベント。
-司会と観客は自分のスマホ、出演者はステージに置いた端末のステージ画面（Scratch）で見る。**同じステージ画面を、入力なしで会場の大画面にも映す**（2026-10-13〜）。
+司会と観客は自分のスマホ、出演者は手元の iPad のステージ画面（Scratch）で見る。**同じステージ画面を、入力なしで壇上の電子黒板にも映す**（2026-10-13〜。スタッフの Windows PC をつなぐ）。
 進行の中心は裏方PCで動く Python で、どの画面とも Render 上の cloud サーバを介してやり取りする。
 
 ```
@@ -16,7 +16,7 @@
 | 画面 | URL | 使う人 |
 |---|---|---|
 | 観客ページ | <https://suzuleague-cloud.onrender.com/suzuleague.html>（QR: [docs/qr/](docs/qr/)） | 観客 |
-| ステージ画面（大画面用） | <https://suzuleague-cloud.onrender.com/stage/view/> | 会場の全員（入力なし。大画面につなぐPCで開く） |
+| ステージ画面（大画面用） | <https://suzuleague-cloud.onrender.com/stage/view/> | 会場の全員（入力なし。壇上の電子黒板につなぐ Windows PC で開く） |
 | ステージ画面（出演者用） | <https://suzuleague-cloud.onrender.com/stage/play/> | ステージの出演者（数字キーで回答） |
 | 出演者の回答画面（予備） | <https://suzuleague-cloud.onrender.com/player.html> | Scratch が使えないときの出演者（4桁の合言葉が要る） |
 | 司会者画面 | <https://suzuleague-cloud.onrender.com/host.html> | 司会（合言葉が要る） |

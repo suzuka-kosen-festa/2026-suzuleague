@@ -399,6 +399,17 @@ uv run --with playwright python tools/stage_check.py --quick    # 1チームだ�
 最後に「N 件 OK、0 件 NG」と出ればよい。
 「Executable doesn't exist」で止まったら、Playwright の版が上がって、入れてあるブラウザと合わなくなっている。上の「ブラウザを入れる」をやり直す。
 
+本番の出演者の端末は iPad なので、`--ipad` を付けると、出演者用を iPad（Safari と同じ WebKit・横向き・タッチ）で開いて同じ確認をする（2026-10-21〜）。
+テンキーは、指で約0.15秒押して離したときと同じタッチの出来事で押す（Scratch は押されているかを1コマごとに見るので、一瞬で離すと押されなかったことになる）。
+大画面用は、壇上の電子黒板につなぐ Windows PC を想定して、これまでどおり Chromium で開く。
+
+```bash
+# 初回だけ: WebKit を入れる
+uv run --with playwright python -m playwright install webkit
+
+uv run --with playwright python tools/stage_check.py --ipad --quick   # 1チームだけ
+```
+
 確かめていること:
 
 - 段階ごとに、問題文・問題番号・チームの札・残りバルーン・予想が裏方PCと合う

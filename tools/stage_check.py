@@ -22,6 +22,10 @@ Scratch担当がプロジェクトを直すたびに、ステージ画面を作�
     uv run --with playwright python tools/stage_check.py --quick      # 1チームだけ（約7分）
     uv run --with playwright python tools/stage_check.py --headed     # ブラウザを見ながら
 
+    # 出演者用を iPad（Safari と同じ WebKit・横向き・タッチ）で開いて通す。初回だけ WebKit を入れる
+    uv run --with playwright python -m playwright install webkit
+    uv run --with playwright python tools/stage_check.py --ipad
+
 通しで20分ほどかかる（正解発表の演出を毎回待つため）。音は確かめられないので、実機で聞く。
 """
 
@@ -152,12 +156,33 @@ BROWSER_ARGS = [
 ]
 
 
-class StagePage:
-    """自動操作のブラウザで開いたステージ画面1つ。"""
+IPAD = "iPad (gen 11) landscape"  # 出演者の端末（--ipad のとき）。Playwright の端末の設定の名前
 
-    def __init__(self, browser: Any, url: str, label: str, seq: Callable[[], int]) -> None:
+# 指で押したときと同じタッチの出来事を、少し押したままにしてから離す（Scratch はマウスが押されているかを
+# 1コマごとに見ているので、一瞬で離すと押されなかったことになる。指で押せば 0.1 秒ほどは触れている）。
+# WebKit はページの中から Touch を作れないので、画面が読む touches / changedTouches だけを持つ出来事にする
+TOUCH_JS = """async ([x, y, hold]) => {
+  const el = document.elementFromPoint(x, y);
+  const touch = {identifier: 1, target: el, clientX: x, clientY: y, pageX: x, pageY: y, screenX: x, screenY: y};
+  const fire = (type, touches) => {
+    const event = new Event(type, {bubbles: true, cancelable: true});
+    for (const key of ["touches", "targetTouches"]) Object.defineProperty(event, key, {value: touches});
+    Object.defineProperty(event, "changedTouches", {value: [touch]});
+    el.dispatchEvent(event);
+  };
+  fire("touchstart", [touch]);
+  await new Promise((resolve) => setTimeout(resolve, hold));
+  fire("touchend", []);
+}"""
+
+
+class StagePage:
+    """自動操作のブラウザで開いたステージ画面1つ。device を渡すと、その端末の画面の大きさとタッチで開く。"""
+
+    def __init__(self, browser: Any, url: str, label: str, seq: Callable[[], int], device: dict[str, Any] | None = None) -> None:
         self.url, self.label, self.seq = url, label, seq
-        self.page = browser.new_page(viewport=VIEWPORT)
+        self.touch = device is not None
+        self.page = browser.new_context(**device).new_page() if device else browser.new_page(viewport=VIEWPORT)
         self.open()
 
     def open(self) -> None:
@@ -171,7 +196,11 @@ class StagePage:
             arg=seq,
             timeout=10000,
         )
-        self.page.mouse.click(VIEWPORT["width"] / 2, VIEWPORT["height"] / 2)  # 最初の1回のクリックで始まる（旗）
+        size = self.page.viewport_size or VIEWPORT
+        if self.touch:
+            self.page.touchscreen.tap(size["width"] / 2, size["height"] / 2)  # 最初の1回のタップで始まる（旗）
+        else:
+            self.page.mouse.click(size["width"] / 2, size["height"] / 2)  # 最初の1回のクリックで始まる（旗）
         self.page.wait_for_function("() => vm.runtime.threads.length > 0", timeout=10000)
         time.sleep(1.5)  # 届いている状態から画面を組み立て終わるまで
 
@@ -184,7 +213,11 @@ class StagePage:
     def click_stage(self, x: float, y: float) -> None:
         """ステージの座標（中心が 0,0、上が +）をクリックする。"""
         box = self.page.locator("canvas").first.bounding_box()
-        self.page.mouse.move(box["x"] + (x + 240) / 480 * box["width"], box["y"] + (180 - y) / 360 * box["height"])
+        px, py = box["x"] + (x + 240) / 480 * box["width"], box["y"] + (180 - y) / 360 * box["height"]
+        if self.touch:
+            self.page.evaluate(TOUCH_JS, [px, py, 150])
+            return
+        self.page.mouse.move(px, py)
         # Scratch はマウスが押されているかを1コマごとに見ているので、少し押したままにする
         self.page.mouse.down()
         time.sleep(0.15)
@@ -223,7 +256,7 @@ def _wait_until(condition: Callable[[], bool], timeout: float, step: float = 0.2
 
 
 class Run:
-    def __init__(self, args: argparse.Namespace, browser: Any, port: int) -> None:
+    def __init__(self, args: argparse.Namespace, browser: Any, port: int, play_device: dict[str, Any] | None = None) -> None:
         self.report = Report()
         self.reopen = not args.no_reopen
         teams = [Team(number=n, name=f"チーム{n}") for n in range(1, 2 if args.quick else 4)]
@@ -233,7 +266,7 @@ class Run:
         self.controller = GameController(self.engine, self.bridge)
         self.bridge.connect()
         base = f"http://localhost:{port}/stage"
-        self.play = StagePage(browser, f"{base}/play/", "出演者用", self.seq)
+        self.play = StagePage(browser, f"{base}/play/", "出演者用（iPad）" if play_device else "出演者用", self.seq, play_device)
         self.view = StagePage(browser, f"{base}/view/", "大画面用", self.seq)
         self.pages = (self.play, self.view)
 
@@ -503,14 +536,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quick", action="store_true", help="1チームだけ通す")
     parser.add_argument("--no-reopen", action="store_true", help="開き直しの確かめを省く")
     parser.add_argument("--headed", action="store_true", help="ブラウザを見えるように開く")
+    parser.add_argument("--ipad", action="store_true", help="WebKit で開き、出演者用を iPad（横向き・タッチ）にする")
     args = parser.parse_args(argv)
 
     from playwright.sync_api import sync_playwright
 
     port = _free_port()
     with cloud_server(args.server_dir, port), sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=not args.headed, args=BROWSER_ARGS)
-        run = Run(args, browser, port)
+        if args.ipad:
+            browser = pw.webkit.launch(headless=not args.headed)
+            run = Run(args, browser, port, play_device=pw.devices[IPAD])
+        else:
+            browser = pw.chromium.launch(headless=not args.headed, args=BROWSER_ARGS)
+            run = Run(args, browser, port)
         try:
             run.run()
         finally:
