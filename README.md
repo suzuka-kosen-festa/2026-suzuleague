@@ -83,6 +83,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/sb3.py` | Scratch のプロジェクトのブロックを組み立てる道具（`stage.py` が使う） |
 | `tools/stage-packager/` | ステージ画面を HTML に書き出す TurboWarp Packager（Node.js。`stage.py` が呼ぶ） |
 | `tools/stage_check.py` | 書き出したステージ画面を、手元のサーバと自動操作のブラウザで通しに動かして確かめる（Playwright） |
+| `tools/system_check.py` | 全部の画面（司会者画面・観客ページ・予備の回答画面・ステージ画面）を開き、4チーム20問を通して確かめる |
 | `src/suzuleague/savefile.py` | 進行の保存と、裏方PCを起動し直したときの途中からの再開 |
 | `src/suzuleague/labels.py` | ステートの表示名（CLIと画面で共通） |
 | `src/suzuleague/dashboard.py` | 起動とCLIダッシュボード（中継・予備サーバも立ち上げる） |
