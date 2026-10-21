@@ -104,7 +104,7 @@ uv run python -m suzuleague.sim_scratch --auto --fixed 40  # 自動回答（固�
 1. Render のサービスに環境変数 **`HOST_TOKEN`**（合言葉）を設定する。未設定だとAPIは無効（503）
 2. 裏方PCで同じ合言葉を **`SUZULEAGUE_HOST_TOKEN`** に入れてダッシュボードを起動する。
    ふだんは `launcher/スズリーグ.app` を開くだけでよい。合言葉の入力（初回だけ）・Render の起動・
-   `publish --check`・ブラウザで予備の司会者画面を開くところまで自動で行う（下の「アプリで起動する」）
+   画面の照合（`publish --check` と `stage --check`）・ブラウザで予備の司会者画面を開くところまで自動で行う（下の「アプリで起動する」）
 
    ```bash
    export SUZULEAGUE_HOST_TOKEN='（合言葉）'
@@ -133,6 +133,7 @@ PCのブラウザに開く司会者画面（`localhost`）は予備で、観客�
 - 起動中にもう一度開くと「司会者画面を開く」「終了する」を選べる。司会者画面には終了ボタンを置いていない（本番中にスマホで誤って押さないため）
 - ダッシュボードのログは `launcher/run/dashboard.log`（前回分は `dashboard.prev.log`）
 - 前のダッシュボードが残っていてポート8000が使われていると、起動前に止まって知らせる
+- 起動のたびに、本番の画面が最新か確かめる（`publish --check` と `stage --check`。合わせて数秒）。ステージ画面が違うと出たら、Scratch担当がプロジェクトを直したか、`teams.json` のチーム名が変わっている。そのまま起動もできるが、[作り直して](#ステージ画面を作り直す)から使う（2026-10-21〜）
 - **進行は操作のたびに `launcher/run/game-demo.json`（本番は `game-production.json`）に保存する。** 裏方PCが落ちたり「終了する」を押したりしても、
   次にアプリを開くと「前回の続きがあります」と出て、**「続きから」で落ちる前の状態**（何問目か・バルーン・届いていた回答・出演者の合言葉）から再開できる（[#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51)）。
   「最初から」を選ぶと、前回の分は `game-*.prev.json` に1つだけ残る。**本番の開演前（リハーサルの後）は「最初から」を選ぶ**

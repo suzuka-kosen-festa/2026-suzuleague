@@ -5,7 +5,7 @@
 #   app.sh status             → running（このアプリで起動中）/ busy（ポートが他で使用中）/ stopped
 #   app.sh check-token        → ok / missing / wrong / unset / unknown:<HTTPコード>（Render を起こしてから確かめる）
 #   app.sh save-token         ← 標準入力の合言葉を保存する
-#   app.sh check-pages        → 本番の画面が最新でなければ終了コード1
+#   app.sh check-pages        → 本番の画面（ステージ画面も）が最新でなければ終了コード1
 #   app.sh resume-info demo|production → none / invalid:<理由> / 前回の続きの説明
 #   app.sh start demo|production [resume] → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
 #   app.sh stop               → 終了させる

@@ -45,7 +45,7 @@ on main(sh)
 	try
 		do shell script sh & " check-pages"
 	on error errMsg
-		display dialog "本番の画面が手元と違います。古い画面のまま進めると表示がずれることがあります。" & return & return & errMsg buttons {"やめる", "このまま起動する"} default button "やめる" cancel button "やめる" with icon caution with title appTitle
+		display dialog "本番の画面が最新ではありません。古い画面のまま進めると表示がずれることがあります。" & return & "ステージ画面が違うときは、Scratch のプロジェクトが直されたか、チーム名が変わっています（作り直しが要ります）。" & return & return & errMsg buttons {"やめる", "このまま起動する"} default button "やめる" cancel button "やめる" with icon caution with title appTitle
 	end try
 
 	set progress completed steps to 2

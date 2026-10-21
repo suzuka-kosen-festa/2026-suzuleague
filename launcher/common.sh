@@ -64,8 +64,14 @@ port_in_use() {
   lsof -iTCP:"$WEB_PORT" -sTCP:LISTEN >/dev/null 2>&1
 }
 
+# 本番の画面が最新か確かめる。司会者画面・観客ページ・予備の回答画面（publish）に加えて、
+# ステージ画面（stage）も見る。ステージ画面は、Scratch担当がプロジェクトを直したときと、
+# teams.json のチーム名を変えたときに食い違う（どちらも作り直すまで本番に出ない）
 check_pages() {
-  uv run python -m suzuleague.publish --room-id "$ROOM_ID" --check
+  local status=0
+  uv run python -m suzuleague.publish --room-id "$ROOM_ID" --check || status=1
+  uv run python -m suzuleague.stage --room-id "$ROOM_ID" --check || status=1
+  return "$status"
 }
 
 # 前回の進行の続きを1行で返す: none / invalid:<理由> / 続きの説明（select_teams の後に呼ぶ）
