@@ -319,6 +319,21 @@ class TestResultScreen:
         for needed in ("背景", "カード1", "カード5", "数0", "数9", "順位1", "ゲームオーバー", "優勝", "金枠"):
             assert needed in names
 
+    def test_other_sprites_stop_and_hide(self, variant):
+        """結果を出すとき、ほかのスプライトは止めて隠す（10/18 の版から、残りの数字が最前面に出てカードに重なった）。"""
+        made, _ = stage.transform(make_project(), variant)
+        quiet = {}
+        for target, hat in stage.receivers(made, stage_result.SHOW_MESSAGE):
+            blocks = target["blocks"]
+            first = blocks[blocks[hat]["next"]]
+            if first["opcode"] == "control_stop":
+                quiet[target["name"]] = blocks[first["next"]]["opcode"]
+        others = {t["name"] for t in made["targets"] if not t.get("isStage")} - {stage_result.SPRITE, "通信"}
+        if variant == "view":
+            others -= set(stage.INPUT_SPRITES)  # 大画面用では、テンキーのスクリプトはまるごと外してある
+        assert set(quiet) == others
+        assert set(quiet.values()) == {"looks_hide"}
+
     def test_costumes_are_valid_svg(self):
         from xml.etree import ElementTree
 

@@ -244,9 +244,23 @@ def _in_card(dy: float) -> Block:
     return plus(CARD_Y, times(dy / 100, Var("倍率")))
 
 
+def _quiet_others(project: dict[str, Any]) -> None:
+    """結果発表の画面を出すとき、ほかのスプライトを止めて隠す（裏方PCとやり取りする「通信」は除く）。
+
+    10/18 の版から、残りバルーンの数字は描くたびに最前面へ出るので、あとから出したこの画面より手前に来て、
+    カードに重なっていた（順に進めたときだけ。開き直したときは数字を出さずに組み立てるので重ならない）。
+    風船やカゴも背景より手前に透けていた。動きを止めないと、隠しても次のコマでまた出てくる。
+    """
+    for target in project["targets"]:
+        if target.get("isStage") or target["name"] in (SPRITE, "通信"):
+            continue
+        Scripts(project, target["name"]).add(on_message(SHOW_MESSAGE), stop_other_scripts(), Block("looks_hide"))
+
+
 def add_result_screen(project: dict[str, Any], team_names: dict[int, str] | None = None) -> None:
     """スプライト「結果発表」を足す。「結果_出す」を受けると、リスト「得点表」から画面を作る。"""
     add_sprite(project, SPRITE, costumes(team_names))
+    _quiet_others(project)
     s = Scripts(project, SPRITE)
     # スプライトだけの変数。クローンは、作られたときの値を自分の分として持つ
     for name in ("役", "番", "桁目", "点", "倍率", "横", "数", "最大", "順位", "比"):

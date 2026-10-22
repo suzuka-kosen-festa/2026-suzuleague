@@ -494,6 +494,9 @@ class Run:
             failed = sum(1 for t in self.engine.teams if t.is_failed)
             marks = page.shown(snap, "結果発表", "ゲームオーバー")
             self.report.check(len(marks) == failed, f"全体結果・{page.label}: GAME OVER の札が {failed} つ", f"{len(marks)} つ")
+            # 結果発表の画面のほかは隠れている（10/18 の版で、残りの数字が最前面に出てカードに重なった）
+            others = sorted({f"{p['name']}:{p['costume']}" for p in snap["parts"] if p["shown"] and p["name"] not in ("結果発表", "通信")})
+            self.report.check(not others, f"全体結果・{page.label}: 結果発表のほかに見えている部品がない", "・".join(others[:8]))
         self.compare_after_reopen("全体結果")
 
     def run(self) -> None:
