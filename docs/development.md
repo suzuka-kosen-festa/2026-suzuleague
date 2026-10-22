@@ -396,7 +396,8 @@ uv run python -m suzuleague.stage --check
 - 全体結果の画面を変えたいときは `src/suzuleague/stage_result.py` を直して作り直す（絵は SVG、動きは Scratch のブロックをそこで組み立てている）
 - **チーム名は作り直したときの `teams.json` から入る**（名前だけ。メンバーの氏名は入れない）。チーム名を変えたら作り直す。
   `--check` も同じ `teams.json` で照合するので、チーム名が違うと「作り方かチーム名が変わっています」と出る。
-  `teams.json` がないか、名前が既定の「チームN」のままなら、元の「チーム1」の絵のまま
+  `teams.json` がないか、名前が既定の「チームN」のままなら、元の「チーム1」の絵のまま。
+  長い名前は小さくして収める。全体結果のカードは幅が狭いので、1行だと小さくなりすぎる名前は、日本語と英数字の変わり目で2行に分ける（2026-10-22〜）
 - 「〜（#59）は当てていません」「〜は出しません」と出たら、Scratch 側で頼っている作りが変わった合図。表示された直しの箇所を、
   `tools/stage_check.py` と実機で確かめる（作り直しは止まらない）
 
@@ -639,11 +640,11 @@ Scratch で「スプライトの他のスクリプトを止める」を受け手
 - [ ] 実機（電子黒板につなぐ Windows PC・出演者の iPad）で `/stage/view/` と `/stage/play/` を開き、1チームぶん通す（[#54](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/54)）
 - [ ] 最後の変更のあと（コード凍結の前）に、`tools/stage_check.py --ipad` と `tools/system_check.py` を流して 0件 NG を確かめる
 - [ ] Scratch担当がプロジェクトを直したら `uv run python -m suzuleague.stage` で作り直し、`tools/stage_check.py` で確かめてから push する。`--check` で本番が最新であることを確認
-- [ ] チーム名が決まって `teams.json` を作ったら、ステージ画面を作り直す（札と全体結果のカードにチーム名が入る）
+- [x] ~~チーム名が決まって `teams.json` を作ったら、ステージ画面を作り直す（札と全体結果のカードにチーム名が入る）~~ → 2026-10-22 に作り直した。チーム名を変えたらもう一度作り直す
 - [x] ~~本番のルームID・接続先を裏方PCに設定~~ → `launcher/スズリーグ.app` が `1364239598`・`wss://suzuleague-cloud.onrender.com` で起動する（2026-10-05）。
       Scratch側の `?cloud_host=` と一致していることは 10/6 の実機確認で確認済み
 - [x] ~~**Scratch側との結合テスト**~~ → **完了**。10/4 に自動操作、10/6 に実機で全体結果まで通した（#31）
-- [ ] チーム名が確定したら `teams.json` をリポジトリ直下に作成（アプリの「本番」が読む。[#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47)）
+- [x] ~~チーム名が確定したら `teams.json` をリポジトリ直下に作成（アプリの「本番」が読む。[#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47)）~~ → 2026-10-22 に作成
 - [x] ~~**観客ページを本番room IDで再生成してデプロイ**~~ → **完了**（2026-08-06）。
       本番配信中のページが `1364239598` を向いていることを `curl` で実確認済み
 

@@ -586,7 +586,7 @@ class TestTeamNames:
             assert tags[f"チーム{team}"]["rotationCenterY"] == stage_result.TAG_TOP
         assert tags["チーム2"]["md5ext"] == "t2.svg"  # 名前のないチームは元の札のまま
         cards = {c["name"]: c["md5ext"] for c in stage.find_target(made, stage_result.SPRITE)["costumes"]}
-        assert self.NAMES[3] in assets[cards["カード3"]].decode()
+        assert all(line in assets[cards["カード3"]].decode() for line in stage_result._two_lines(self.NAMES[3]))
         assert "チーム" in assets[cards["カード2"]].decode()
 
     def test_long_names_are_shrunk_to_fit(self):
@@ -595,9 +595,23 @@ class TestTeamNames:
         for team, name in self.NAMES.items():
             for costume in (stage_result.team_tag(team, name), stage_result._card(team, name)):
                 root = ElementTree.fromstring(costume.svg)
-                text = next(e for e in root.iter() if e.tag.endswith("text") and e.text == name)
-                width = stage_result._text_width(name, float(text.get("font-size")))
-                assert width <= float(root.get("width")), costume.name
+                texts = [e for e in root.iter() if e.tag.endswith("text") and e.text and e.text in name]
+                assert "".join(e.text for e in texts) == name, costume.name
+                for text in texts:
+                    width = stage_result._text_width(text.text, float(text.get("font-size")))
+                    assert width <= float(root.get("width")), costume.name
+
+    def test_names_too_small_for_one_line_go_on_two_lines(self):
+        assert stage_result._two_lines("ほしぞらwithoutつき") == ("ほしぞら", "withoutつき")
+        assert stage_result._two_lines("とてもながいなまえ") == ("とてもな", "がいなまえ")
+        from xml.etree import ElementTree
+
+        root = ElementTree.fromstring(stage_result._card(1, "ほしぞらwithoutつき").svg)
+        sizes = [float(e.get("font-size")) for e in root.iter() if e.tag.endswith("text") and e.text in ("ほしぞら", "withoutつき")]
+        assert len(sizes) == 2 and min(sizes) >= stage_result.CARD_TWO_LINES_BELOW
+        # 1行で収まる名前は1行のまま
+        root = ElementTree.fromstring(stage_result._card(1, "寮生").svg)
+        assert any(e.text == "寮生" for e in root.iter())
 
     def test_names_change_the_digest_but_no_names_keeps_the_original(self):
         plain, _ = stage.transform(self._with_tags(), "view")

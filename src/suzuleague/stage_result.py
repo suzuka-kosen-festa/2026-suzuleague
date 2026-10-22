@@ -117,12 +117,36 @@ def _fitting_size(text: str, largest: float, width: float) -> float:
     return round(min(largest, width / max(_text_width(text, 1), 1)), 1)
 
 
+def _two_lines(text: str) -> tuple[str, str]:
+    """カードに2行で出すときの分け方。日本語と英数字の変わり目で分け、なければどこででも分ける。
+    2行のうち長いほうがいちばん短くなるところを選ぶ。"""
+    points = [i for i in range(1, len(text)) if (ord(text[i - 1]) > 0x2E7F) != (ord(text[i]) > 0x2E7F)]
+    best = min(points or range(1, len(text)), key=lambda i: max(_text_width(text[:i], 1), _text_width(text[i:], 1)))
+    return text[:best], text[best:]
+
+
+CARD_TWO_LINES_BELOW = 11  # 1行でこれより小さくなる名前は、2行に分ける
+
+
+def _card_title(name: str) -> str:
+    width = CARD_W - 14
+    size = _fitting_size(name, 17, width)
+    if size >= CARD_TWO_LINES_BELOW or len(name) < 2:
+        return f'<text x="{CARD_W / 2}" y="{26 + size * 0.36:.1f}" text-anchor="middle" font-size="{size}" fill="#1a1a1a" {JP}>{escape(name)}</text>'
+    lines = _two_lines(name)
+    # 端末のフォントで英数字が見積もりより広く出ても、縁に付かないように少し余白を足す
+    size = min(_fitting_size(line, 15, width - 8) for line in lines)
+    return "".join(
+        f'<text x="{CARD_W / 2}" y="{26 + (row - 0.5) * size * 1.15 + size * 0.36:.1f}" text-anchor="middle" font-size="{size}" fill="#1a1a1a" {JP}>{escape(line)}</text>'
+        for row, line in enumerate(lines)
+    )
+
+
 def _card(team: int, name: str | None = None) -> Costume:
     color = TEAM_COLORS[team - 1]
     if name:
-        # チーム名が決まっていれば、番号の代わりに名前を出す（長い名前は縮める）
-        size = _fitting_size(name, 17, CARD_W - 14)
-        title = f'<text x="{CARD_W / 2}" y="{26 + size * 0.36:.1f}" text-anchor="middle" font-size="{size}" fill="#1a1a1a" {JP}>{escape(name)}</text>'
+        # チーム名が決まっていれば、番号の代わりに名前を出す（長い名前は縮めるか、2行に分ける）
+        title = _card_title(name)
     else:
         title = (
             f'<text x="34" y="33" text-anchor="middle" font-size="13" fill="#1a1a1a" {JP}>チーム</text>'
