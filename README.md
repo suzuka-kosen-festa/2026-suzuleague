@@ -4,11 +4,11 @@
 
 テレビ番組「ネプリーグ」の「パーセントバルーン」をベースにしたクイズイベント。
 司会と観客は自分のスマホ、出演者は手元の iPad のステージ画面（Scratch）で見る。**同じステージ画面を、入力なしで壇上の電子黒板にも映す**（2026-10-13〜。スタッフの Windows PC をつなぐ）。
-進行の中心は裏方PCで動く Python で、どの画面とも Render 上の cloud サーバを介してやり取りする。
+進行の中心は裏方PCで動く Python で、どの画面とも Render 上の cloud サーバを介してやり取りする。裏方PCはふだん Jetson Orin Nano で、Jetson が使えないときは Mac に移す（2026-10-24〜）。
 
 ```
 司会のスマホ（司会者画面）     ─操作─┐
-ステージの端末（ステージ画面） ─回答─┼─▶ cloud サーバ（Render）◀─▶ 裏方PC（Python：進行・採点）
+ステージの端末（ステージ画面） ─回答─┼─▶ cloud サーバ（Render）◀─▶ 裏方PC（Python：進行・採点。ふだんは Jetson）
 観客のスマホ（観客ページ）     ─成績─┘     │
    大画面（ステージ画面）◀──── 進行の配信（クラウド変数）──┘
 ```
@@ -59,8 +59,9 @@ uv run suzuleague --offline --web
 
 ダッシュボードで `n`（next）を打つか、司会者画面の「次へ」を押すとゲームが1段階ずつ進む。
 
-本番の cloud サーバにつなぐときは、`launcher/スズリーグ.app` を開いて「デモ」か「本番」を選べば、
-ターミナルを使わずに起動できる（操作はすべて司会者画面で行う）。
+本番の cloud サーバにつなぐときは、Mac で `launcher/スズリーグ.app` を開き、動かす場所（ふだんは「Jetson」）と「デモ」か「本番」を選べば、
+ターミナルを使わずに起動できる（操作はすべて司会者画面で行う）。Jetson で動かす手順は
+[docs/development.md の「Jetson で動かす」](docs/development.md#jetson-で動かす)。
 スマホから操作する手順（合言葉の設定など）は
 [docs/development.md の「司会者画面」](docs/development.md#司会者画面スマホで進行を操作する)、
 デモの段取りは [docs/demo/README.md](docs/demo/README.md) を参照。
@@ -93,7 +94,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/audience_template.html` | 観客ページ（自己採点・観客ランキング・全体結果） |
 | `src/suzuleague/loadtest.py` | 同時接続数・観客ランキングの一斉送信の負荷テスト（開発用） |
 | `tests/` | ユニットテスト（ネットワーク不要。258件） |
-| `launcher/` | ダッシュボードの起動アプリ（`スズリーグ.app`）とターミナル版（`*.command`） |
+| `launcher/` | ダッシュボードの起動アプリ（`スズリーグ.app`）とターミナル版（`*.command`）。`jetson.sh` は Jetson の遠隔操作 |
 | `docs/scratch/` | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト） |
 | `docs/qr/` | QRコードと印刷用ページ |
 

@@ -292,7 +292,7 @@
         <div class="fact"><dt>出場</dt><dd>4チーム・15人</dd></div>
         <div class="fact"><dt>1チーム</dt><dd>5問・バルーン100個</dd></div>
       </dl>
-      <p class="asof">2026年10月22日時点の状況です。</p>
+      <p class="asof">2026年10月24日時点の状況です。</p>
     </div>
   </header>
 
@@ -331,7 +331,7 @@
             <tr><th>会場のみんな</th><td>壇上の電子黒板（スタッフの Windows PC をつなぐ）</td><td>数字キーのない<strong>配信用の画面</strong>。出演者の答え・正解の演出・残りバルーンが出る</td></tr>
             <tr><th>司会</th><td>自分のスマホ</td><td><strong>司会者画面</strong>で「次へ」を押して進める。台本は紙で持つ</td></tr>
             <tr><th>観客</th><td>自分のスマホ</td><td>QRコードから<strong>観客ページ</strong>を開き、同じ問題に一緒に答える。最後にランキングが出る</td></tr>
-            <tr><th>裏方</th><td>パソコン1台</td><td>アプリを開いておくだけ。進行の計算は全部ここでする</td></tr>
+            <tr><th>裏方</th><td>Jetson（手のひら大の小さなコンピュータ）と Mac</td><td>Mac のアプリから、ふだんは Jetson で進行を動かす。進行の計算は全部ここでする。Jetson の調子が悪ければ、数秒で Mac に移せる</td></tr>
           </tbody>
         </table>
       </div>
@@ -358,8 +358,8 @@
             <div class="arrow" aria-hidden="true"></div>
             <div class="part">
               <span class="where">裏方</span>
-              <span class="name">進行係のパソコン</span>
-              <span class="what">今が何問目か、何個減ったかを全部決める。郵便受けを0.4秒ごとに見に行く。</span>
+              <span class="name">進行係のコンピュータ</span>
+              <span class="what">今が何問目か、何個減ったかを全部決める。郵便受けを0.4秒ごとに見に行く。ふだんは Jetson で動かし、Mac を予備に控えさせる。</span>
             </div>
           </div>
         </div>
@@ -468,7 +468,7 @@
             <tr><th>Scratch / TurboWarp</th><td>iPad と電子黒板の画面</td><td class="sub">Scratch担当が作った絵と演出をそのまま使い、ログインなしで開ける形にして配れる</td></tr>
             <tr><th>cloud-server</th><td>黒板・郵便受け・画面の配信</td><td class="sub">TurboWarp が公開している黒板のプログラムに、郵便受けと画面を足して自分たちで動かしている</td></tr>
             <tr><th>Render</th><td>cloud-server の置き場</td><td class="sub">無料で使え、鍵付きの通信が最初から使える。日本に近いシンガポールに置いた</td></tr>
-            <tr><th>pytest など</th><td>自動テスト</td><td class="sub">採点・進行・合言葉・画面の作り直しを255項目で確かめる。1秒かからず全部通る</td></tr>
+            <tr><th>pytest など</th><td>自動テスト</td><td class="sub">採点・進行・合言葉・画面の作り直しを258項目で確かめる。1秒かからず全部通る</td></tr>
           </tbody>
         </table>
       </div>
@@ -556,13 +556,13 @@
         <table>
           <thead><tr><th>部品</th><th>状態</th><th>確かめたこと</th></tr></thead>
           <tbody>
-            <tr><th>進行と採点</th><td><span class="pill ok">完了</span></td><td class="sub">自動テスト255項目</td></tr>
+            <tr><th>進行と採点</th><td><span class="pill ok">完了</span></td><td class="sub">自動テスト258項目。Jetson の上でも全部通った</td></tr>
             <tr><th>黒板と郵便受けのサーバ</th><td><span class="pill ok">稼働中</span></td><td class="sub">150人まで実測</td></tr>
             <tr><th>本番の問題</th><td><span class="pill ok">完了</span></td><td class="sub">企画側の問題表20問と一致</td></tr>
             <tr><th>司会者画面</th><td><span class="pill ok">確認ずみ</span></td><td class="sub">本物のスマホで通した。10/21 に全部の画面をつないだ20問の通しも、368項目すべて合格</td></tr>
             <tr><th>観客ページ・ランキング</th><td><span class="pill ok">確認ずみ</span></td><td class="sub">本物のスマホで通した。300人の一斉送信も確かめた</td></tr>
             <tr><th>出演者の予備の画面</th><td><span class="pill ok">公開ずみ</span></td><td class="sub">スマホから4桁の合言葉で答えられる</td></tr>
-            <tr><th>裏方のアプリ</th><td><span class="pill ok">完了</span></td><td class="sub">落ちても「続きから」再開できる。起動時に全部の画面を照合する</td></tr>
+            <tr><th>裏方のアプリ</th><td><span class="pill ok">完了</span></td><td class="sub">落ちても「続きから」再開できる。起動時に全部の画面を照合する。10/24 から Jetson で動かし、Mac と行き来できる（アプリのボタンを本番と同じように押して確かめるのはこれから）</td></tr>
             <tr><th>iPad と電子黒板の画面</th><td><span class="pill wait">電子黒板待ち</span></td><td class="sub">10/22 に iPad 本体で全体結果まで通した。電子黒板（Windows PC）はまだ</td></tr>
             <tr><th>当日の段取り</th><td><span class="pill wait">調整中</span></td><td class="sub">リハーサルの日程・チーム名など</td></tr>
           </tbody>
@@ -579,6 +579,7 @@
             <li>観客ランキングを作る。20問のズレの合計が少ない人が上位</li>
             <li>1チーム5問。誰が答えるかは当日その場で司会が決める</li>
             <li>10/28 にプログラムの変更を止め、以降は設定とデータの差し替えだけにする</li>
+            <li>進行係は、ふだん Jetson で動かし、Mac を予備にする。2台で同時には動かさない</li>
           </ul>
         </div>
         <div class="panel">
@@ -587,7 +588,7 @@
             <li>リハーサルの日時。会場の Wi-Fi と電子黒板は会場でしか確かめられない</li>
             <li>チーム名と登場順。決まれば設定を書き換えて画面を作り直すだけで、数分で終わる</li>
             <li>音を電子黒板と iPad のどちらから出すか。両方から出すと二重に聞こえる。iPad から出すなら、消音モードを切っておく</li>
-            <li>裏方のパソコンの置き場所と回線、番をする人</li>
+            <li>裏方の Jetson と Mac の置き場所と回線、番をする人</li>
           </ul>
         </div>
       </div>
@@ -606,6 +607,7 @@
             <tr><th>iPad が使えない</th><td>出演者に、スマホの予備の画面で答えてもらう（司会が4桁の合言葉を伝える）</td></tr>
             <tr><th>観客のスマホが固まった</th><td>ページを開き直せば、今の問題から追いつく</td></tr>
             <tr><th>司会のスマホから操作できない</th><td>裏方のパソコンで同じ司会者画面を開いて操作する</td></tr>
+            <tr><th>Jetson の調子が悪い</th><td>Mac のアプリで「このMacに移す」を押す。数秒で、同じ場面の続きから Mac で動く。Mac から Jetson に届かないときは、Jetson の電源を抜いてから Mac で動かす。このときは、最後に Mac で動かしたときの続きからになる</td></tr>
             <tr><th>裏方のパソコンが落ちた</th><td>司会者画面に「PCの応答なし」と出て、「次へ」は押せなくなる。アプリを開き直して「続きから」を選べば、落ちる前の問題とバルーンの数、届いていた答えから再開できる</td></tr>
             <tr><th>サーバにつながらない</th><td>裏方のパソコンで黒板を動かして外から見えるようにする（一度試して動いた）。URLが変わるのでQRコードを出し直す。最後の手段</td></tr>
           </tbody>
@@ -616,7 +618,7 @@
   </main>
 
   <footer class="end">
-    <p>鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」進行システムの解説。2026年10月22日時点。</p>
+    <p>鈴鹿高専 高専祭2026 ステージイベント「スズリーグ」進行システムの解説。2026年10月24日時点。</p>
     <p>画面とサーバ: <code>https://suzuleague-cloud.onrender.com</code>（観客ページ <code>/suzuleague.html</code>、ステージの画面 <code>/stage/view/</code>・<code>/stage/play/</code>）</p>
     <p>詳しい仕様は開発リポジトリの <code>docs/architecture.md</code>・<code>docs/protocol.md</code> にあります。</p>
   </footer>
