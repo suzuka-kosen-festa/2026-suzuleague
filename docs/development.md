@@ -497,6 +497,24 @@ uv run --with playwright python tools/stage_check.py --ipad --quick   # 1チー�
 - GPU のない環境では、ブラウザの画面を実機と同じ大きさ（480x360）にし、SwiftShader で描いている。
   大きな画面のままだと1秒に5コマほどしか進まず、コマ数で長さが決まる演出が実機の何倍もかかって、時間で区切った確かめが合わなくなる
 
+### 使い方マニュアル（PDF）を作り直す
+
+司会・進行マニュアルと出演者マニュアル（`docs/manual/*.pdf`）は、実際の画面の写真で作っている。
+司会者画面やステージ画面を変えたら、写真を撮り直して PDF を作り直す。原稿は `docs/manual/host.html`・`performer.html`。
+
+```bash
+# 手元で4チーム20問を流しながら画面を撮る（約12分）。書き出し先はリポジトリの外にする
+uv run --with "playwright==1.56.0" python tools/manual_shots.py /tmp/suzuleague-shots
+# 写真を埋め込んで PDF にする（写真は PDF の中にだけ入る）
+uv run --with "playwright==1.56.0" --with pillow --with qrcode python tools/manual_pdf.py /tmp/suzuleague-shots
+rm -rf /tmp/suzuleague-shots
+```
+
+- マニュアルは出演者も読むので、本番の問題と正解は写さない。裏方PCと観客ページの問題は例題に差し替えて撮り、
+  ステージ画面の問題文（絵）は PDF にするときに `manual.js` が隠す
+- 写真の注釈は、撮るときに記録した部品の位置（`shots.json`）に合わせて置く。PDF を作るときに
+  「位置がわからない注釈」と出たら、原稿の `data-part` / `data-sprite` の名前を見直す
+
 ### 本番サーバが落ちたときの代替手段
 
 Render のサーバが当日不調だった場合、裏方PC上でサーバを動かして

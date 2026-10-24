@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>スズリーグ 司会・進行マニュアル</title>
+<!--
+  イベント責任者・司会向けの使い方マニュアル。tools/manual_pdf.py で PDF にする（写真は tools/manual_shots.py で撮る）。
+  画面の部品の名前（data-part）は tools/manual_shots.py の HOST_PARTS など。
+-->
+<link rel="stylesheet" href="manual.css">
+</head>
+<body>
+
+<!-- ===== 表紙 ===== -->
+<section class="cover">
+  <div class="band"></div>
+  <div class="kicker">高専祭2026 ステージイベント</div>
+  <h1><small>スズリーグ</small>司会・進行マニュアル</h1>
+  <div class="for">イベント責任者・司会のみなさんへ<br><span class="muted">当日、スマホの「司会者画面」で進行を動かすための説明書です</span></div>
+  <div class="hero">
+    <figure class="shot phone" data-shot="host-question" style="width:52mm"></figure>
+    <figure class="shot screen" data-shot="view-keypad" style="width:112mm"></figure>
+  </div>
+  <div class="meta"><span>本番：10月31日（土）・11月1日（日）</span><span>2026年10月24日版</span></div>
+</section>
+
+<!-- ===== はじめに ===== -->
+<section>
+  <h2>はじめに：司会がすることは「読む」と「次へを押す」だけ</h2>
+  <p class="lead">
+    スズリーグは、司会のスマホの<b>「次へ」ボタン</b>で進みます。
+    「次へ」を1回押すと、ステージの iPad・電子黒板・観客のスマホが、全部いっしょに次の場面へ切り替わります。
+    司会は台本を読み、区切りごとに「次へ」を押してください。
+  </p>
+
+  <h3>当日つかう画面は4つ</h3>
+  <div class="devices">
+    <div class="device me"><div class="icon">📱</div><b>司会者画面</b>司会のスマホ<br><span class="small muted">進行を動かす。このマニュアルの主役</span></div>
+    <div class="device"><div class="icon">🖥️</div><b>大画面</b>電子黒板（スタッフのPC）<br><span class="small muted">会場のみんなが見る。操作しない</span></div>
+    <div class="device"><div class="icon">📲</div><b>出演者の画面</b>ステージの iPad<br><span class="small muted">出演者が数字を押して答える</span></div>
+    <div class="device"><div class="icon">👥</div><b>観客ページ</b>観客のスマホ<br><span class="small muted">QRコードから参加する</span></div>
+  </div>
+  <p>
+    このほかに、ステージ袖に<b>裏方のPC</b>があり、全部の画面をつないでいます。
+    裏方のPCは<b>システム担当</b>（このシステムを作った開発担当）が動かすので、司会やイベント責任者が触る必要はありません。
+  </p>
+
+  <h3>このマニュアルの読み方</h3>
+  <ul class="toc">
+    <li><span class="no">1</span>開演30分前に、4つの画面を開いておく<span class="when">当日の朝に読む</span></li>
+    <li><span class="no">2</span>司会者画面の見方：大事なのは一番下の「次へ」<span class="when">リハーサルまでに読む</span></li>
+    <li><span class="no">3</span>本番の進め方：1問は「次へ」4回で進む<span class="when">リハーサルまでに読む</span></li>
+    <li><span class="no">4</span>出演者の答えが届かないときは、司会が代わりに入れる<span class="when">リハーサルまでに読む</span></li>
+    <li><span class="no">5</span>観客ランキングで、変な名前を隠す<span class="when">必要なときに</span></li>
+    <li><span class="no">6</span>困ったとき：症状から探す<span class="when">本番中に開く</span></li>
+    <li><span class="no">7</span>付録：ページの一覧・ことば・連絡先<span class="when">必要なときに</span></li>
+  </ul>
+  <div class="box tip"><span class="title">写真の問題と数字は練習用です</span>
+    このマニュアルの画面写真は、練習用の例題で撮りました。本番の問題とは違います。
+    ステージの画面の問題文は、出演者に先に見えないように隠してあります。チーム名は本番のものです。
+  </div>
+</section>
+
+<!-- ===== 1 準備 ===== -->
+<section class="chapter">
+  <h2><span class="no">1</span>開演30分前に、4つの画面を開いておく</h2>
+  <p class="lead">
+    本番が始まる前に、4つの画面を開いて「待っている状態」にしておきます。
+    裏方のPCが先に動いている必要があるので、システム担当から「動かしたよ」と言われてから始めてください。
+  </p>
+
+  <h3>1-1　司会のスマホで司会者画面を開く</h3>
+  <div class="pair">
+    <figure class="shot phone" data-shot="host-token">
+      <i class="pin" data-part="token-input" data-at="left">1</i>
+      <i class="pin" data-part="token-btn" data-at="right">2</i>
+    </figure>
+    <div class="text">
+      <p>スマホのカメラで下のQRコードを読み取ると、司会者画面が開きます。</p>
+      <div class="qr" data-qr="host"></div>
+      <span class="qr small" style="margin-left:3mm;vertical-align:top">司会者画面<br><span class="url">suzuleague-cloud.onrender.com/host.html</span></span>
+      <ol class="notes" style="margin-top:3mm">
+        <li><b>合言葉を入れる</b>システム担当から聞いた合言葉を入れます。合言葉は観客に見せないでください。</li>
+        <li><b>「はじめる」を押す</b>一度入れると、そのスマホは次から合言葉を聞かれません。</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="pair">
+    <figure class="shot phone" data-shot="host-idle">
+      <i class="pin" data-part="conn" data-at="bottom">1</i>
+      <i class="pin" data-part="state" data-at="right" data-pad="1">2</i>
+      <i class="pin" data-part="next" data-at="top">3</i>
+    </figure>
+    <div class="text">
+      <p>この画面になれば準備はできています。</p>
+      <ol class="notes">
+        <li><b>右上が緑の「PCと接続中」</b>裏方のPCとつながっています。赤い字が出ているときは、<a href="#t-pc">6章「PCの応答なし」</a>を見てください。</li>
+        <li><b>「いまの進行」が「待機」</b>まだ始まっていない状態です。</li>
+        <li><b>青い「次へ」ボタン</b>本番が始まるまで<b>押さない</b>でください。押すと1チーム目が登場します。</li>
+      </ol>
+      <div class="box warn"><span class="title">スマホの設定を2つ確認</span>
+        自動ロック（画面が勝手に消える設定）を「なし」にして、充電を満タンにしておきます。
+        画面が消えても進行は止まりませんが、つけ直すのに手間取ります。
+      </div>
+    </div>
+  </div>
+
+  <h3>1-2　電子黒板（大画面）を開く</h3>
+  <p>電子黒板につないだスタッフの Windows PC で、ブラウザ（Chrome や Edge）を開き、次のアドレスを入れます。</p>
+  <p style="text-align:center;font-size:12.5pt"><span class="url" style="font-size:12pt">https://suzuleague-cloud.onrender.com/stage/view/</span></p>
+  <div class="flow">
+    <figure class="shot screen" data-shot="view-launch">
+      <i class="pin plain" data-box="50,50,0,0" data-at="left" data-dx="-7">1</i>
+      <span class="stamp" style="left:50%;top:66%">ここをクリック</span>
+    </figure>
+    <div class="arrow">1回<br>クリック</div>
+    <figure class="shot screen" data-shot="view-idle">
+      <i class="pin" data-box="97.9,0.5,1.7,3.1" data-at="left" data-pad="0.6">2</i>
+    </figure>
+  </div>
+  <ol class="notes">
+    <li><b>画面のまん中を1回クリックする</b>緑の旗のボタンを押すと、スズリーグの画面が始まります。クリックするまでは音も出ません。</li>
+    <li><b>右上のボタンで全画面にする</b>「開始までしばらくお待ちください…」と出たら、右上の四角いボタンを押して画面いっぱいに広げます。</li>
+  </ol>
+  <p>大画面はこのまま置いておけば、本番中は誰も触らなくても切り替わっていきます。クリックしても何も起きない作りなので、誤って触っても大丈夫です。</p>
+
+  <h3>1-3　ステージの iPad（出演者の画面）を開く</h3>
+  <div class="pair wide">
+    <figure class="shot tablet" data-shot="play-idle"></figure>
+    <div class="text">
+      <p>出演者が答えるための iPad です。Safari で次のアドレスを開き、画面を1回タップします。電子黒板と同じ「開始までしばらくお待ちください…」が出れば準備完了です。</p>
+      <p style="font-size:9.5pt"><span class="url">https://suzuleague-cloud.onrender.com/stage/play/</span></p>
+      <div class="qr" data-qr="play"></div>
+      <p class="small muted">開き方と答え方は、出演者向けの「出演者マニュアル」にもあります。</p>
+    </div>
+  </div>
+  <div class="box warn"><span class="title">音は「電子黒板」か「iPad」のどちらか片方だけ</span>
+    両方から音が出ると、効果音が二重に聞こえます。使わないほうの音量を0にしてください。
+    iPad から音を出すときは、iPad の消音モード（マナーモード）を切ります。消音モードのままだと音が鳴りません。
+    iPad の自動ロックも「なし」にしておきます。
+  </div>
+
+  <h3>1-4　観客にQRコードを読んでもらう</h3>
+  <div class="pair">
+    <figure class="shot phone" data-shot="aud-join">
+      <i class="pin" data-part="join-name" data-at="left">1</i>
+    </figure>
+    <div class="text">
+      <p>
+        クラス委員に、印刷したQRコードを掲げてもらいます。観客がQRを読むと「観客ページ」が開き、
+        ニックネームを入れて参加します（<b>1</b>）。ログインは要りません。
+      </p>
+      <div class="qr" data-qr="audience"></div>
+      <span class="qr small" style="margin-left:3mm;vertical-align:top">観客ページ<br><span class="url">suzuleague-cloud.onrender.com/suzuleague.html</span></span>
+      <p style="margin-top:3mm">観客ページは、司会が「次へ」を押すと自動で切り替わります。途中から来た人も、QRを読めばその時点から参加できます。</p>
+    </div>
+  </div>
+
+  <div class="box ok keep"><span class="title">開演前のチェック（全部 ✓ になったら始められます）</span>
+    <ul class="check">
+      <li>司会者画面の右上が緑の「PCと接続中」になっている</li>
+      <li>電子黒板と iPad の両方に「開始までしばらくお待ちください…」が出ている</li>
+      <li>音は片方だけ出る。iPad の自動ロックと消音モードは切ってある</li>
+      <li>司会のスマホは充電してあり、自動ロックは「なし」</li>
+      <li>クラス委員がQRコードを持っている</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== 2 画面の見方 ===== -->
+<section class="chapter">
+  <h2><span class="no">2</span>司会者画面の見方：大事なのは一番下の「次へ」</h2>
+  <p class="lead">
+    司会者画面は、上から「いまの状態」「いまの問題」「次へボタン」の順に並んでいます。
+    迷ったら<b>「次へ」ボタンの下の小さい字</b>を読んでください。押すと何が起きるかが書いてあります。
+  </p>
+  <div class="pair" style="grid-template-columns:70mm 1fr">
+    <figure class="shot phone" data-shot="host-question">
+      <i class="pin" data-part="conn" data-at="bottom">1</i>
+      <i class="pin" data-part="state" data-at="right" data-pad="1">2</i>
+      <i class="pin" data-part="code" data-at="right">3</i>
+      <i class="pin" data-part="team" data-at="left">4</i>
+      <i class="pin" data-part="question" data-at="left">5</i>
+      <i class="pin" data-part="reveal" data-at="right">6</i>
+      <i class="pin" data-part="next" data-at="left">7</i>
+    </figure>
+    <div class="text">
+      <ol class="notes">
+        <li><b>つながっているか</b>緑の「PCと接続中」なら大丈夫です。赤い字のときは6章へ。</li>
+        <li><b>いまの進行</b>「出題」「回答受付」「正解発表」など、いまの場面の名前です。</li>
+        <li><b>出演者の合言葉（4桁）</b>iPad が壊れたときに使う予備の画面の合言葉です。ふだんは使いません（4章）。</li>
+        <li><b>チーム名・何問目か・残りバルーン</b>ステージにいるチームの状態です。台本の「残りバルーンは◯個」はここを見て読みます。</li>
+        <li><b>問題文</b>読み上げる問題と、アンケートの出典です。</li>
+        <li><b>正解を見る</b>押している間だけ正解が出ます。指を離すと消えるので、周りから見られにくくなっています。</li>
+        <li><b>次へ</b>押すと、全部の画面が次の場面に進みます。下の小さい字は「押すと何が起きるか」です（この写真なら「回答受付を始める」）。</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>「次へ」が押せないときは、理由が小さい字で出る</h3>
+  <p>「次へ」が薄い色になって押せないときがあります。故障ではありません。小さい字に理由が出ているので、そのとおりに待つか、対応してください。</p>
+  <div class="row c3">
+    <figure class="shot phone cut" data-shot="host-answer-wait" data-crop="80,100">
+      <figcaption>回答受付中：出演者の答えが届くまで押せない。届かなければ代理入力（4章）</figcaption>
+    </figure>
+    <figure class="shot phone cut" data-shot="host-reveal-hold" data-crop="80,100">
+      <figcaption>正解発表の直後：大画面の演出が終わるまで約15秒押せない。残りの秒数が出る</figcaption>
+    </figure>
+    <figure class="shot phone cut" data-shot="host-no-response" data-crop="80,100">
+      <figcaption>裏方のPCが止まっている：押せない。システム担当を呼ぶ（6章）</figcaption>
+    </figure>
+  </div>
+
+  <h3>押している間だけ正解が見える</h3>
+  <div class="pair">
+    <figure class="shot phone cut" data-shot="host-reveal-peek" data-crop="45,72">
+      <i class="pin" data-part="reveal" data-at="left">1</i>
+    </figure>
+    <div class="text">
+      <p>「正解を見る」を指で押さえている間だけ、正解が出ます（<b>1</b>）。指を離すと元に戻ります。</p>
+      <p>正解の読み上げは、大画面で正解が出てからにしてください。観客のスマホにも、大画面の演出が終わってから正解が出ます。</p>
+    </div>
+  </div>
+
+  <h3>下のほうにある3つの欄は、ふだんは閉じたままでよい</h3>
+  <p>画面を下にずらすと「全チームの状況」「観客ランキング」「困ったとき」の3つの欄があります。三角（▶）を押すと開きます。</p>
+  <table class="grid">
+    <tr><th>全チームの状況</th><td>4チームの残りバルーン・何問終わったか・クリアしたかの一覧。表彰式の前の確認に使えます（3章の最後）。</td></tr>
+    <tr><th>観客ランキング</th><td>観客の順位。変なニックネームを隠せます（5章）。</td></tr>
+    <tr><th>困ったとき</th><td>大画面や iPad の表示がずれたときに直すボタン（6章）。</td></tr>
+  </table>
+</section>
+
+<!-- ===== 3 進め方 ===== -->
+<section class="chapter">
+  <h2><span class="no">3</span>本番の進め方：1問は「次へ」4回で進む</h2>
+  <p class="lead">
+    1チームは5問に答えます。1問ごとに「出題 → 回答受付 → 正解発表 → ラウンド結果」の4つの場面があり、
+    場面を変えるたびに「次へ」を1回押します。これを4チーム分くり返して、最後に表彰式です。
+  </p>
+  <table class="grid">
+    <tr><th>場面</th><th>司会がすること</th><th>次へを押すと</th></tr>
+    <tr><td>待機</td><td>開演・ルール説明</td><td>1チーム目が登場する</td></tr>
+    <tr><td>チーム紹介</td><td>登場インタビュー</td><td>1問目が出る</td></tr>
+    <tr><td>出題</td><td>問題を読み上げる</td><td>出演者が答えられるようになる</td></tr>
+    <tr><td>回答受付</td><td>シンキングタイム（20秒）</td><td>正解発表（答えが届いてから押せる）</td></tr>
+    <tr><td>正解発表</td><td>「回答者の答えは◯◯%！正解は…」</td><td>ラウンド結果（約15秒は押せない）</td></tr>
+    <tr><td>ラウンド結果</td><td>残りバルーンを読む</td><td>次の問題（5問目のあとはチーム結果）</td></tr>
+    <tr><td>チーム結果</td><td>クリア／失敗・インタビュー</td><td>次のチームが登場（4チーム目のあとは全体結果）</td></tr>
+    <tr><td>全体結果</td><td>表彰式</td><td>（これで終わり。もう押せない）</td></tr>
+  </table>
+  <div class="box warn"><span class="title">「次へ」は1回ずつ、ゆっくり押す</span>
+    続けて2回押すと、2回目は取り消されます（押しすぎて場面が飛ばないようにするため）。
+    1回押したら、画面の「いまの進行」が変わったのを見てから次に進んでください。
+    <b>前の場面に戻すボタンはありません。</b>早く進めてしまったときは、そのまま台本を続ければ大丈夫です。
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">場面 1</span><h3>チーム紹介：チームが登場する</h3></div>
+    <div class="flow">
+      <figure class="shot phone" data-shot="host-intro" style="flex:0 0 33mm">
+        <i class="pin" data-part="team" data-at="left">1</i>
+        <i class="pin" data-part="next-sub" data-at="left" data-pad="1.5">2</i>
+      </figure>
+      <div class="arrow">大画面<br>では</div>
+      <figure class="shot screen" data-shot="view-intro"></figure>
+    </div>
+    <ol class="notes">
+      <li><b>登場したチームの名前</b>大画面にもチーム名が出ます。</li>
+      <li><b>次は「1問目を出題する」</b>インタビューが終わったら押します。</li>
+    </ol>
+    <p class="say">それでは代表者の方にお話を聞いてみましょう。なぜこのチーム名なのですか？</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">場面 2</span><h3>出題：問題を読み上げる</h3></div>
+    <div class="flow">
+      <figure class="shot phone" data-shot="host-question" style="flex:0 0 33mm">
+        <i class="pin" data-part="question" data-at="left">1</i>
+        <i class="pin" data-part="next-sub" data-at="left" data-pad="1.5">2</i>
+      </figure>
+      <div class="arrow">大画面<br>では</div>
+      <figure class="shot screen" data-shot="view-question"></figure>
+    </div>
+    <ol class="notes">
+      <li><b>問題文と出典</b>このとおりに読み上げます。大画面と iPad にも問題が出ています。</li>
+      <li><b>次は「回答受付を始める」</b>読み終わったら押します。押すと iPad に数字のボタンが出ます。</li>
+    </ol>
+    <p class="say">◯つ目の問題はこちらです。（問題文）　これは鈴鹿高専生にアンケートをした問題です。</p>
+    <p class="small muted">各チームの1問目は、バルーンが出てくる演出があるため、問題が出るまで10秒ほどかかります。</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">場面 3</span><h3>回答受付：出演者が iPad で答える</h3></div>
+    <div class="flow">
+      <figure class="shot phone" data-shot="host-answer-wait" style="flex:0 0 33mm">
+        <i class="pin" data-part="answer-now" data-at="left">1</i>
+      </figure>
+      <div class="arrow">答えが<br>届くと</div>
+      <figure class="shot phone" data-shot="host-answer-got" style="flex:0 0 33mm">
+        <i class="pin" data-part="answer-now" data-at="left">2</i>
+        <i class="pin" data-part="next" data-at="top">3</i>
+      </figure>
+      <div class="arrow">大画面<br>では</div>
+      <figure class="shot screen" data-shot="view-sent">
+        <i class="pin" data-box="13.6,69.6,23.8,15" data-at="top">4</i>
+      </figure>
+    </div>
+    <ol class="notes">
+      <li><b>「回答を待っています」</b>出演者が iPad で数字を押して GO を押すまで、この表示です。「次へ」は押せません。</li>
+      <li><b>「届いた回答 ◯◯%」</b>出演者の答えが届きました。</li>
+      <li><b>「次へ」が押せるようになる</b>シンキングタイムが終わったら押して、正解発表に進みます。</li>
+      <li><b>大画面にも出演者の予想が出る</b>台本の「回答者の答えは◯◯%です！」はここを見て読めます。</li>
+    </ol>
+    <p class="say">シンキングタイムは20秒です。ではお考えください。…… それでは答えをどうぞ！</p>
+    <p class="small">答えがなかなか届かないときは、<b>4章の代理入力</b>で司会が数字を入れられます。</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">場面 4</span><h3>正解発表：大画面のゲージが動いて正解が出る</h3></div>
+    <div class="flow">
+      <figure class="shot phone" data-shot="host-reveal-hold" style="flex:0 0 33mm">
+        <i class="pin" data-part="next-sub" data-at="left" data-pad="1.5">1</i>
+      </figure>
+      <div class="arrow">大画面<br>では</div>
+      <figure class="shot screen" data-shot="view-gauge"><figcaption>ゲージが動く（約13秒）</figcaption></figure>
+      <div class="arrow"></div>
+      <figure class="shot screen" data-shot="view-correct"><figcaption>正解が出てバルーンが割れる</figcaption></figure>
+    </div>
+    <ol class="notes">
+      <li><b>約15秒は「次へ」が押せない</b>大画面の演出の途中で次に進まないように止めています。「あと◯秒で押せます」と出ます。</li>
+    </ol>
+    <p class="say">回答者の答えは◯◯%です！正解は・・・（大画面で正解が出てから）〇〇%でした！</p>
+    <p class="small muted">観客のスマホにも、大画面の演出が終わってから正解が出ます。大画面より先に答えがばれることはありません。</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">場面 5</span><h3>ラウンド結果：残りバルーンを伝える</h3></div>
+    <div class="pair" style="margin:0">
+      <figure class="shot phone" data-shot="host-round-result">
+        <i class="pin" data-part="result" data-at="left">1</i>
+        <i class="pin" data-part="balloons" data-at="left">2</i>
+        <i class="pin" data-part="next-sub" data-at="left" data-pad="1.5">3</i>
+      </figure>
+      <div class="text">
+        <ol class="notes">
+          <li><b>回答・正解・割れた数</b>答えと正解の差の数だけ、バルーンが割れます。ぴったりなら「0 ★」。</li>
+          <li><b>残りバルーン</b>このチームに残っているバルーンの数です。</li>
+          <li><b>次は「◯問目を出題する」</b>押すと次の問題（場面2）に戻ります。5問目のあとだけ「チーム結果を出す」になります。</li>
+        </ol>
+        <p class="say">次の問題です。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">場面 6</span><h3>チーム結果：クリアか失敗かを伝えて、インタビュー</h3></div>
+    <div class="flow">
+      <figure class="shot phone" data-shot="host-team-clear" style="flex:0 0 33mm">
+        <i class="pin" data-part="state" data-at="right" data-pad="1">1</i>
+        <i class="pin" data-part="next-sub" data-at="left" data-pad="1.5">2</i>
+      </figure>
+      <div class="arrow">大画面<br>では</div>
+      <figure class="shot screen" data-shot="view-team-clear"></figure>
+    </div>
+    <ol class="notes">
+      <li><b>「チーム結果」</b>5問が終わり、バルーンが1個でも残っていればクリアです。</li>
+      <li><b>次は「次のチームを登場させる」</b>インタビューが終わり、チームがステージ裏に戻ってから押します。4チーム目のあとは「全体結果を出す」になります。</li>
+    </ol>
+    <p class="say">クリアおめでとうございます！ ／ 残念ながらクリアとはなりませんでした。　イベントに参加していただいた感想があればお願いします！</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">もしも</span><h3>バルーンが0になったら、残りの問題は「エキシビション」</h3></div>
+    <div class="row c3" style="align-items:start">
+      <figure class="shot phone" data-shot="host-gameover">
+        <i class="pin" data-part="team" data-at="left">1</i>
+        <figcaption>バルーンが0になると「ゲームオーバー」と出る</figcaption>
+      </figure>
+      <figure class="shot phone" data-shot="host-exhibition">
+        <i class="pin" data-part="question" data-at="left">2</i>
+        <figcaption>残りの問題は「エキシビション・採点なし」</figcaption>
+      </figure>
+      <figure class="shot phone" data-shot="host-team-fail">
+        <figcaption>5問目のあと、チーム結果へ</figcaption>
+      </figure>
+    </div>
+    <ol class="notes">
+      <li><b>ゲームオーバー</b>バルーンがなくなったチームは、クリアできません。</li>
+      <li><b>エキシビション</b>残りの問題も同じように出題して答えてもらいますが、バルーンは減りません。進め方（「次へ」を押す場所）はふだんと同じです。誰に答えてもらうかは司会が決めます。</li>
+    </ol>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">最後</span><h3>全体結果：表彰式</h3></div>
+    <div class="flow">
+      <figure class="shot phone" data-shot="host-final" style="flex:0 0 33mm">
+        <i class="pin" data-part="winner" data-at="left">1</i>
+        <i class="pin" data-part="next-sub" data-at="left" data-pad="1.5">2</i>
+      </figure>
+      <div class="arrow">大画面<br>では</div>
+      <figure class="shot screen" data-shot="view-final"></figure>
+    </div>
+    <ol class="notes">
+      <li><b>優勝チーム</b>クリアしたチームのうち、残りバルーンが一番多いチームです。同じ数なら「同点優勝」と出て、全部のチームが優勝です。</li>
+      <li><b>「ゲームは終了しました」</b>これで終わりです。「次へ」はもう押せません。</li>
+    </ol>
+    <p class="say">みなさんご存知の通り、優勝は（チーム名）です！おめでとうございます！</p>
+  </div>
+
+  <div class="pair keep">
+    <figure class="shot phone cut" data-shot="host-teams" data-crop="38,100">
+      <i class="pin" data-part="teams" data-at="left">1</i>
+    </figure>
+    <div class="text">
+      <h4>表彰式の前に「全チームの状況」で順位を確かめられる</h4>
+      <p>
+        画面を下にずらして「全チームの状況」を開くと（<b>1</b>）、4チームの残りバルーンと、
+        クリア・ゲームオーバーが一覧で見られます。2位以下を読み上げたいときにも使えます。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 4 代理入力 ===== -->
+<section class="chapter">
+  <h2><span class="no">4</span>出演者の答えが届かないときは、司会が代わりに入れる</h2>
+  <p class="lead">
+    iPad の調子が悪い、押し方がわからない、などで答えが届かないときは、
+    出演者に答えを口で言ってもらい、司会者画面に司会が入力します。これを<b>代理入力</b>と呼びます。
+  </p>
+  <h3>代理入力のやり方</h3>
+  <div class="flow">
+    <figure class="shot phone" data-shot="host-proxy-typed" style="flex:0 0 44mm">
+      <i class="pin" data-part="proxy-input" data-at="left">1</i>
+      <i class="pin" data-part="proxy-btn" data-at="top">2</i>
+    </figure>
+    <div class="arrow">押すと</div>
+    <figure class="shot phone" data-shot="host-proxy-done" style="flex:0 0 44mm">
+      <i class="pin" data-part="answer-now" data-at="left">3</i>
+    </figure>
+    <div class="arrow">iPad<br>では</div>
+    <figure class="shot tablet" data-shot="play-proxied">
+      <i class="pin" data-box="5.2,69.4,29,15" data-at="top">4</i>
+    </figure>
+  </div>
+  <ol class="notes">
+    <li><b>数字を入れる</b>「回答受付」の場面で、「出演者の回答」の欄に 0〜100 の数字を入れます。</li>
+    <li><b>「代理入力」を押す</b></li>
+    <li><b>「届いた回答」に数字が出る</b>出演者が iPad で答えたときと同じ扱いになり、「次へ」が押せるようになります。</li>
+    <li><b>iPad と大画面にもその数字が出る</b>数字のボタンは引っ込みます。</li>
+  </ol>
+  <div class="box point">出演者がすでに iPad で答えていても、代理入力をすると、<b>あとから入れた数字</b>で上書きされます。押し間違いを直したいときにも使えます。</div>
+
+  <h3>iPad がまったく動かないときは、予備の回答画面を使う</h3>
+  <p>
+    iPad が固まって直らないときは、出演者のスマホで「予備の回答画面」を開いて答えてもらう方法もあります。
+    観客がなりすまして答えられないように、司会者画面に出ている<b>4桁の合言葉</b>を入れて使います。
+  </p>
+  <div class="flow">
+    <figure class="shot phone cut" data-shot="host-code" data-crop="0,36" style="flex:0 0 52mm">
+      <i class="pin" data-part="code" data-at="left">1</i>
+    </figure>
+    <div class="arrow">出演者に<br>伝える</div>
+    <figure class="shot phone" data-shot="player-code" style="flex:0 0 33mm">
+      <i class="pin" data-part="code-input" data-at="left">2</i>
+    </figure>
+    <div class="arrow">答える</div>
+    <figure class="shot phone" data-shot="player-typed" style="flex:0 0 33mm">
+      <i class="pin" data-part="send" data-at="top">3</i>
+    </figure>
+  </div>
+  <ol class="notes">
+    <li><b>司会者画面の「出演者の合言葉」</b>この4桁を、出演者にだけ聞こえるように伝えます。チームが変わると合言葉も変わります。</li>
+    <li><b>出演者のスマホで合言葉を入れる</b>予備の回答画面は、下のQRコードから開けます。</li>
+    <li><b>数字を押して「この数字で回答する」</b>司会者画面の「届いた回答」に出ます。</li>
+  </ol>
+  <div class="row c2" style="align-items:center">
+    <div><span class="qr" data-qr="player"></span> <span class="qr small" style="vertical-align:top;margin-left:2mm">予備の回答画面<br><span class="url">suzuleague-cloud.onrender.com/player.html</span></span></div>
+    <div class="box tip" style="margin:0">あわてているときは、予備の画面より<b>代理入力のほうが早い</b>です。まず代理入力を試してください。</div>
+  </div>
+</section>
+
+<!-- ===== 5 ランキング ===== -->
+<section class="chapter">
+  <h2><span class="no">5</span>観客ランキングで、変な名前を隠す</h2>
+  <p class="lead">
+    観客は、出演者と同じ問題にスマホで答えています。答えと正解の差が少ない人ほど上位になり、
+    表彰式のときに全員のスマホに上位の名前が出ます。名前は観客が自由に入れるので、ふさわしくない名前が混ざることがあります。
+  </p>
+  <div class="pair">
+    <figure class="shot phone" data-shot="host-ranking">
+      <i class="pin" data-box="7,40.6,36,4" data-at="left">1</i>
+      <i class="pin" data-box="78.9,57.4,12.2,12.1" data-at="left">2</i>
+      <i class="pin" data-part="ranking-reset" data-at="left">3</i>
+    </figure>
+    <div class="text">
+      <ol class="notes">
+        <li><b>「観客ランキング」を開く</b>画面を下にずらし、三角（▶）を押します。参加人数と、上位30人の名前が出ます。</li>
+        <li><b>「隠す」を押す</b>押した名前は、全員のスマホのランキングに出なくなります。間違えたら「戻す」で元に戻せます。</li>
+        <li><b>「ランキングをリセット」は本番中に押さない</b>観客の成績が全部消えて、元に戻せません。リハーサルのあとにシステム担当が使うボタンです。</li>
+      </ol>
+      <div class="box tip"><span class="title">観客の画面はこうなっている</span>
+        観客ページでは、正解発表のたびに自分の予想と正解が出て、最後に順位がわかります。
+      </div>
+    </div>
+  </div>
+  <div class="row c3">
+    <figure class="shot phone" data-shot="aud-answered"><figcaption>回答受付：スライダーで答える</figcaption></figure>
+    <figure class="shot phone" data-shot="aud-reveal"><figcaption>正解発表：自分の予想と正解</figcaption></figure>
+    <figure class="shot phone" data-shot="aud-final"><figcaption>全体結果：優勝と自分の順位</figcaption></figure>
+  </div>
+</section>
+
+<!-- ===== 6 困ったとき ===== -->
+<section class="chapter">
+  <h2><span class="no">6</span>困ったとき：症状から探す</h2>
+  <p class="lead">
+    まず落ち着いてください。どの場面でも、<b>進行の記録は裏方のPCに残っています</b>。
+    画面がおかしくなっても、開き直せば今の場面に戻ります。上から順に試して、直らなければシステム担当を呼びます。
+  </p>
+
+  <div class="trouble" id="t-pc">
+    <div class="q">司会者画面に赤い字で「PCの応答なし」と出て、「次へ」が押せない</div>
+    <div class="a">
+      <div class="pair narrow" style="margin:0">
+        <figure class="shot phone cut" data-shot="host-no-response" data-crop="0,24">
+          <i class="pin" data-part="conn" data-at="bottom">1</i>
+        </figure>
+        <div class="text">
+          <p>裏方のPCが止まっています。司会者画面からは直せません。</p>
+          <ol class="do">
+            <li><b>すぐにシステム担当を呼ぶ。</b>裏方のPCを起動し直して「続きから」を選ぶと、止まる前の問題・バルーンのまま再開できます（1〜2分）。</li>
+            <li>待っている間は「次へ」を連打しない。押せないようになっているので、押しても何も起きません。</li>
+            <li>右上が緑の「PCと接続中」に戻ったら、そのまま続けます。</li>
+          </ol>
+          <p class="small muted">「PCがまだつながっていません」と出るときも同じです（開演前なら、裏方のPCがまだ動いていません）。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">大画面や iPad の表示がおかしい・止まった・ずれている</div>
+    <div class="a">
+      <div class="pair narrow" style="margin:0">
+        <figure class="shot phone cut" data-shot="host-resync-done" data-crop="45,100">
+          <i class="pin" data-part="resync" data-at="left">1</i>
+          <i class="pin" data-part="toast" data-at="left" data-pad="0.3">2</i>
+        </figure>
+        <div class="text">
+          <ol class="do">
+            <li>おかしい画面（電子黒板のPC か iPad）を<b>再読み込み</b>して、画面を1回クリック（タップ）します。今の場面の画面に戻ります。</li>
+            <li>開いたまま直したいときは、司会者画面の「困ったとき」を開いて<b>「Scratch に今の状態を送り直す」</b>を押します（<b>1</b>）。下に「送り直しました」と出ます（<b>2</b>）。</li>
+            <li>それでもだめなら、出演者の答えは代理入力（4章）で入れて進めます。大画面がなくても、司会者画面と観客ページで進行は続けられます。</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">出演者の答えが司会者画面に届かない（ずっと「回答を待っています」）</div>
+    <div class="a">
+      <ol class="do">
+        <li>出演者が最後に <b>GO</b> を押したか確かめます。数字を押しただけでは届きません。</li>
+        <li>届かなければ、答えを口で言ってもらい、<b>代理入力</b>で入れます（4章）。</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">「次へ」を押したら、下に赤い字が出て進まない</div>
+    <div class="a">
+      <table class="grid" style="margin:0">
+        <tr><th>出た言葉</th><th>意味と、すること</th></tr>
+        <tr><td>続けて押されたので取り消しました</td><td>2回続けて押したので、2回目を取り消しました。少し待ってから1回だけ押します。</td></tr>
+        <tr><td>画面の表示が古いため操作を取り消しました</td><td>もう次の場面に進んでいます。「いまの進行」を見て、台本を合わせます。</td></tr>
+        <tr><td>正解発表の演出中です</td><td>大画面の演出が終わるまで待ちます（約15秒）。</td></tr>
+        <tr><td>送信できませんでした／PCに届いていません</td><td>スマホの電波が弱いか、裏方のPCが止まっています。もう一度押します。続くときはシステム担当を呼びます。</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">司会者画面を開いたら「合言葉を入力」と出る・「合言葉が違います」と出る</div>
+    <div class="a">
+      <div class="pair narrow" style="margin:0">
+        <figure class="shot phone cut" data-shot="host-token-wrong" data-crop="25,100"></figure>
+        <div class="text">
+          <p>合言葉が入っていないか、変わっています。システム担当に今の合言葉を聞いて入れ直します。</p>
+          <p class="small muted">合言葉はリハーサルのあとに変えることがあります。本番の前に、司会のスマホで一度開いて確かめておくと安心です。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">間違えて「次へ」を押して、場面が先に進んでしまった</div>
+    <div class="a">
+      <p>前の場面に戻すボタンはありません。進んだ場面に合わせて、台本を続けてください。</p>
+      <ul class="dots">
+        <li>問題を読む前に「回答受付」に進んだ → そのまま問題を読み、シンキングタイムにすれば大丈夫です。</li>
+        <li>答えが届く前に正解発表へは進めません（押せない作りです）。</li>
+        <li>点数がおかしくなったなど、困ったことになったらシステム担当を呼びます。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">音が出ない・二重に聞こえる</div>
+    <div class="a">
+      <ul class="dots">
+        <li>出ない：画面を1回クリック（タップ）したか、音量と消音モードを確かめます。</li>
+        <li>二重：電子黒板と iPad の両方から出ています。片方の音量を0にします。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">観客から「画面が進まない」と言われた</div>
+    <div class="a"><p>観客ページを再読み込みしてもらいます。途中からでも今の場面に追いつきます。</p></div>
+  </div>
+
+  <div class="trouble">
+    <div class="q">司会のスマホが使えなくなった（電池切れ・落とした）</div>
+    <div class="a"><p>別のスマホで司会者画面を開き、合言葉を入れれば同じように操作できます。間に合わないときは、裏方のPCにも同じ司会者画面が開いているので、システム担当に「次へ」を押してもらいます。</p></div>
+  </div>
+</section>
+
+<!-- ===== 7 付録 ===== -->
+<section class="chapter">
+  <h2><span class="no">7</span>付録：ページの一覧・ことば・連絡先</h2>
+  <h3>開くページの一覧</h3>
+  <p>どれも <span class="url">https://suzuleague-cloud.onrender.com</span> のあとに続くアドレスです。QRコードはスマホのカメラで読めます。</p>
+  <table class="grid">
+    <tr><th>画面</th><th>どこで開く</th><th>アドレス</th><th>QRコード</th></tr>
+    <tr><td><b>司会者画面</b></td><td>司会のスマホ</td><td><span class="url">/host.html</span><br><span class="small muted">合言葉が要る</span></td><td><span class="qr" data-qr="host"></span></td></tr>
+    <tr><td><b>大画面</b></td><td>電子黒板のPC</td><td><span class="url">/stage/view/</span></td><td><span class="qr" data-qr="view"></span></td></tr>
+    <tr><td><b>出演者の画面</b></td><td>ステージの iPad</td><td><span class="url">/stage/play/</span></td><td><span class="qr" data-qr="play"></span></td></tr>
+    <tr><td><b>観客ページ</b></td><td>観客のスマホ</td><td><span class="url">/suzuleague.html</span></td><td><span class="qr" data-qr="audience"></span></td></tr>
+    <tr><td><b>予備の回答画面</b></td><td>出演者のスマホ（iPad が動かないときだけ）</td><td><span class="url">/player.html</span><br><span class="small muted">4桁の合言葉が要る</span></td><td><span class="qr" data-qr="player"></span></td></tr>
+  </table>
+
+  <h3>このマニュアルに出てくることば</h3>
+  <table class="grid">
+    <tr><th>司会者画面</th><td>司会のスマホで開く、進行を動かす画面。</td></tr>
+    <tr><th>裏方のPC</th><td>ステージ袖に置く、全部の画面をつないでいるPC。システム担当が動かす。</td></tr>
+    <tr><th>合言葉</th><td>司会者画面を開くためのパスワード。観客に知られると進行を勝手に動かされるので、人に見せない。</td></tr>
+    <tr><th>出演者の合言葉（4桁）</th><td>予備の回答画面に入るための数字。司会者画面に出る。チームごとに変わる。</td></tr>
+    <tr><th>代理入力</th><td>出演者の答えを、司会が司会者画面から入れること。</td></tr>
+    <tr><th>エキシビション</th><td>バルーンが0になったチームの残りの問題。答えても点数は変わらない。</td></tr>
+    <tr><th>再読み込み</th><td>ページを開き直すこと。iPad の Safari ならアドレスの横の「↻」、PC ならキーボードの F5。</td></tr>
+    <tr><th>全画面</th><td>画面いっぱいに広げること。大画面の右上のボタンで切り替える。</td></tr>
+  </table>
+
+  <h3>困ったときの連絡先</h3>
+  <div class="box point big">
+    システム担当（裏方のPCの係）：<span class="fill" style="display:inline-block;min-width:50mm;border-bottom:.4mm solid var(--ink)">&nbsp;</span><br>
+    <span class="small">連絡のしかた：<span style="display:inline-block;min-width:60mm;border-bottom:.3mm solid var(--ink)">&nbsp;</span></span>
+  </div>
+  <p class="small muted">名前と連絡のしかたは、印刷したあとに手で書き込んでください。</p>
+</section>
+
+<script src="manual.js"></script>
+</body>
+</html>

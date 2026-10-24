@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>スズリーグ 出演者マニュアル</title>
+<!--
+  出演者（4チーム）向けの使い方マニュアル。tools/manual_pdf.py で PDF にする（写真は tools/manual_shots.py で撮る）。
+  ステージ画面の部品は Scratch のスプライト名（data-sprite）で指す。問題文の絵は manual.js がいつも隠す。
+-->
+<link rel="stylesheet" href="manual.css">
+</head>
+<body>
+
+<!-- ===== 表紙 ===== -->
+<section class="cover">
+  <div class="band"></div>
+  <div class="kicker">高専祭2026 ステージイベント</div>
+  <h1><small>スズリーグ</small>出演者マニュアル</h1>
+  <div class="for">出演する4チームのみなさんへ<br><span class="muted">ルールと、ステージの iPad で答える方法の説明書です</span></div>
+  <div class="hero">
+    <figure class="shot tablet" data-shot="play-typed" style="width:150mm"></figure>
+  </div>
+  <div class="meta"><span>本番：10月31日（土）・11月1日（日）</span><span>2026年10月24日版</span></div>
+</section>
+
+<!-- ===== はじめに ===== -->
+<section>
+  <h2>はじめに：答えるときに押すのは「数字」と「GO」だけ</h2>
+  <p class="lead">
+    スズリーグは、アンケートの結果が何パーセントだったかを当てるクイズです。
+    ステージには iPad が1台置いてあり、答える人は<b>数字を押して、最後に「GO」</b>を押します。
+    それ以外の操作は、司会と係の人がやります。
+  </p>
+  <ul class="toc">
+    <li><span class="no">1</span>ルール：100個のバルーンを、5問でなるべく残す</li>
+    <li><span class="no">2</span>ステージでの流れ：登場してから戻るまで</li>
+    <li><span class="no">3</span>iPad で答える：数字を押して GO</li>
+    <li><span class="no">4</span>チームの結果と、バルーンがなくなったとき</li>
+    <li><span class="no">5</span>iPad が動かないときは、スマホで答える</li>
+    <li><span class="no">6</span>困ったとき</li>
+  </ul>
+  <div class="box tip"><span class="title">写真の問題と数字は練習用です</span>
+    このマニュアルの写真は練習用の例題で撮りました。本番の問題は当日のお楽しみなので、
+    写真の問題文は隠してあります。チーム名は本番のものです。
+  </div>
+</section>
+
+<!-- ===== 1 ルール ===== -->
+<section style="margin-top:8mm">
+  <h2><span class="no">1</span>ルール：100個のバルーンを、5問でなるべく残す</h2>
+  <p class="lead">
+    チームは<b>バルーン100個</b>を持ってスタートします。
+    問題は「◯◯な人は何パーセント？」という形で、0〜100の数字で答えます。
+    答えと正解がずれた分だけ、バルーンが割れて減っていきます。
+  </p>
+
+  <div class="box point big keep">
+    <b>割れるバルーンの数 ＝ 答えと正解の差</b><br>
+    <span class="small">例：答えが 62%、正解が 64% なら、差は 2。バルーンが <b>2個</b> 割れて、残りは 98個</span>
+  </div>
+
+  <div class="pair wide">
+    <figure class="shot tablet" data-shot="play-correct">
+      <i class="pin" data-box="5.2,69.4,29,15" data-at="top">1</i>
+      <i class="pin" data-box="34.4,69.4,29,15" data-at="top">2</i>
+      <i class="pin" data-box="81.6,32.6,14,22.5" data-at="left">3</i>
+      <i class="pin" data-box="81.6,57,14,22.5" data-at="left">4</i>
+    </figure>
+    <div class="text">
+      <ol class="notes">
+        <li><b>予想</b>チームが答えた数字</li>
+        <li><b>正解</b>アンケートの本当の結果</li>
+        <li><b>誤差</b>2つの差。この数だけバルーンが割れる</li>
+        <li><b>残り</b>チームに残っているバルーンの数</li>
+      </ol>
+      <p class="small">ぴったり当てれば、バルーンは1個も割れません。</p>
+    </div>
+  </div>
+
+  <table class="grid">
+    <tr><th>問題の数</th><td>1チーム5問。チームの中で誰が何問目に答えるかは、司会がその場で指名します。人数が少ないチームは、1人が2問以上答えることがあります。</td></tr>
+    <tr><th>クリア</th><td>5問が終わったとき、バルーンが1個でも残っていればクリアです。</td></tr>
+    <tr><th>ゲームオーバー</th><td>途中でバルーンが0個になると、ゲームオーバーです。残りの問題は「エキシビション」（点数に関係ない、おまけの問題）として答えます（4章）。</td></tr>
+    <tr><th>優勝</th><td>クリアしたチームの中で、バルーンが一番多く残ったチームが優勝です。景品はお菓子の詰め合わせ。同じ数なら、そのチーム全部が優勝です。</td></tr>
+  </table>
+  <div class="box tip">観客のみなさんも、自分のスマホで同じ問題に答えています。観客に負けないようにがんばってください。</div>
+</section>
+
+<!-- ===== 2 流れ ===== -->
+<section class="chapter">
+  <h2><span class="no">2</span>ステージでの流れ：登場してから戻るまで</h2>
+  <p class="lead">1チームがステージにいるのは8分ほどです。呼ばれるまではステージ裏で待ちます。</p>
+  <table class="grid first-nowrap">
+    <tr><th>順番</th><th>すること</th><th>iPad の画面</th></tr>
+    <tr><td>① 登場</td><td>司会に呼ばれたらステージへ。代表の人が、チーム名の由来と意気込みを話します。</td><td>チーム名が出る</td></tr>
+    <tr><td>② 問題</td><td>司会が問題を読みます。答える人を司会が指名します。</td><td>問題が出る</td></tr>
+    <tr><td>③ 答える</td><td>シンキングタイム（20秒）の間に、iPad で数字を押して GO（3章）。チームで相談しても大丈夫です。</td><td>数字のボタンが出る</td></tr>
+    <tr><td>④ 正解発表</td><td>司会が「回答者の答えは◯◯%です！正解は…」と言い、正解が出ます。</td><td>ゲージが動いて正解が出る</td></tr>
+    <tr><td>⑤ くり返し</td><td>②〜④を5問くり返します。</td><td></td></tr>
+    <tr><td>⑥ 結果</td><td>クリアか失敗かが出ます。そのあと感想インタビュー。終わったらステージ裏へ戻ります。</td><td>チームの結果が出る</td></tr>
+    <tr><td>⑦ 表彰式</td><td>4チームが終わったら、全チームでもう一度ステージへ。優勝チームの発表です。</td><td>全体の結果が出る</td></tr>
+  </table>
+  <div class="row c3">
+    <figure class="shot tablet" data-shot="play-intro"><figcaption>① 登場：チーム名が出る</figcaption></figure>
+    <figure class="shot tablet" data-shot="play-question"><figcaption>② 問題が出る</figcaption></figure>
+    <figure class="shot tablet" data-shot="play-keypad"><figcaption>③ 数字のボタンが出たら答える</figcaption></figure>
+  </div>
+  <div class="box point">画面は司会の進行に合わせて<b>自動で切り替わります</b>。答えるとき以外は、iPad に触らなくて大丈夫です。</div>
+</section>
+
+<!-- ===== 3 iPad ===== -->
+<section class="chapter">
+  <h2><span class="no">3</span>iPad で答える：数字を押して GO</h2>
+  <p class="lead">司会が「ではお考えください」と言うと、画面の下に数字のボタンが出ます。答えは次の3ステップで送ります。</p>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">ステップ 1</span><h3>数字のボタンが出るのを待つ</h3></div>
+    <figure class="shot tablet" data-shot="play-keypad">
+      <i class="pin" data-sprite="キー" data-at="top">1</i>
+      <i class="pin" data-sprite="決定" data-at="top">2</i>
+      <i class="pin" data-sprite="delete" data-at="top">3</i>
+      <i class="pin" data-box="5.2,69.4,29,15" data-at="top">4</i>
+    </figure>
+    <ol class="notes" style="margin-top:3mm">
+      <li><b>数字のボタン（1〜9、0）</b>答えの数字を押します。</li>
+      <li><b>GO（赤い丸）</b>答えを送るボタン。最後に押します。</li>
+      <li><b>Delete（青い丸）</b>押した数字を消します。押し間違えたときに使います。</li>
+      <li><b>予想</b>押した数字がここに出ます。</li>
+    </ol>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">ステップ 2</span><h3>数字を押して、「予想」の数字を確かめる</h3></div>
+    <div class="pair wide" style="margin:0">
+      <figure class="shot tablet" data-shot="play-typed">
+        <i class="pin" data-box="5.2,69.4,29,15" data-at="top">1</i>
+      </figure>
+      <div class="text">
+        <p>たとえば 62% と答えるなら、<span class="btn gray">6</span> → <span class="btn gray">2</span> の順に押します。</p>
+        <ol class="notes">
+          <li><b>「予想」に押した数字が出る</b>思っている数字と同じか、必ず確かめてください。</li>
+        </ol>
+        <ul class="dots small">
+          <li>100% のときは <span class="btn gray">1</span> <span class="btn gray">0</span> <span class="btn gray">0</span>、5% のときは <span class="btn gray">5</span> だけ押します。</li>
+          <li>間違えたら <b>Delete</b> で消して、押し直します。</li>
+          <li>画面は指で軽くトンと押します。強く長く押す必要はありません。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="step">ステップ 3</span><h3>「GO」を押すと答えが送られる</h3></div>
+    <div class="pair wide" style="margin:0">
+      <figure class="shot tablet" data-shot="play-sent">
+        <i class="pin" data-box="5.2,69.4,29,15" data-at="top">1</i>
+      </figure>
+      <div class="text">
+        <p>赤い <b>GO</b> を押すと、答えが司会に届きます。数字のボタンが引っ込めば成功です（<b>1</b> の数字が残ります）。</p>
+        <div class="box warn"><span class="title">GO のあとは直せません</span>
+          GO を押すと数字のボタンが消えるので、iPad では直せなくなります。
+          どうしても直したいときは、すぐに司会に伝えてください。司会が直せます。
+        </div>
+        <p class="small">大画面（電子黒板）にも、チームの予想の数字が出ます。</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>GO のあと：ゲージが動いて正解が出る</h3>
+  <div class="flow">
+    <figure class="shot tablet" data-shot="play-gauge"><figcaption>ゲージが少しずつ伸びる（約13秒）</figcaption></figure>
+    <div class="arrow">正解が<br>出る</div>
+    <figure class="shot tablet" data-shot="play-correct"><figcaption>正解・誤差・残りバルーンが出る</figcaption></figure>
+  </div>
+  <p>司会が「正解は…」と言うと、画面のゲージが伸びていき、止まったところで正解が出ます。誤差の数だけバルーンが割れて、右下の「残り」が減ります。このあとは次の問題に進みます。</p>
+</section>
+
+<!-- ===== 4 結果 ===== -->
+<section style="margin-top:8mm">
+  <h2><span class="no">4</span>チームの結果と、バルーンがなくなったとき</h2>
+  <h3>5問終わってバルーンが残っていれば「クリア」</h3>
+  <div class="row c2">
+    <figure class="shot tablet" data-shot="play-team-clear"><figcaption>クリア：バルーンが空へ飛んでいき、残った数が「獲得ポイント」になる</figcaption></figure>
+    <figure class="shot tablet" data-shot="play-team-fail"><figcaption>クリアできなかったとき：「獲得ポイント」は0</figcaption></figure>
+  </div>
+  <p>結果が出たら、司会が感想を聞きます。インタビューが終わったらステージ裏に戻ってください。</p>
+
+  <h3>途中でバルーンが0になったら、残りは「エキシビション」</h3>
+  <div class="row c2">
+    <figure class="shot tablet" data-shot="play-gameover"><figcaption>バルーンが0になると「GAME OVER」</figcaption></figure>
+    <figure class="shot tablet" data-shot="play-exhibition-question"><figcaption>残りの問題はエキシビション</figcaption></figure>
+  </div>
+  <p>
+    ゲームオーバーになっても、ステージから下りずに残りの問題に答えます。
+    エキシビションの問題は点数に関係しないので、気楽に答えてください。答え方（数字を押して GO）は同じです。
+  </p>
+
+  <h3>表彰式：4チームの結果がそろって出る</h3>
+  <div class="pair wide">
+    <figure class="shot tablet" data-shot="play-final"></figure>
+    <div class="text">
+      <p>4チーム全部が終わると、全チームがステージに上がり、チームごとの残りバルーンと順位が出ます。</p>
+      <p>優勝チームには、イベント代表者から景品（お菓子の詰め合わせ）が渡されます。優勝インタビューもあるので、ひとこと考えておいてください。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 5 予備 ===== -->
+<section class="chapter">
+  <h2><span class="no">5</span>iPad が動かないときは、スマホで答える</h2>
+  <p class="lead">
+    iPad が固まったときは、司会が答えを代わりに入れてくれます（答えを口で伝えてください）。
+    司会に「スマホで答えて」と言われたときだけ、自分のスマホで<b>予備の回答画面</b>を開きます。
+  </p>
+  <div class="row c2" style="align-items:center">
+    <div style="text-align:center"><span class="qr" data-qr="player"></span></div>
+    <div><p>スマホのカメラでこのQRコードを読むと、予備の回答画面が開きます。</p><p class="small"><span class="url">suzuleague-cloud.onrender.com/player.html</span></p></div>
+  </div>
+  <div class="flow">
+    <figure class="shot phone" data-shot="player-code">
+      <i class="pin" data-part="code-input" data-at="left">1</i>
+    </figure>
+    <div class="arrow">入ると</div>
+    <figure class="shot phone" data-shot="player-typed">
+      <i class="pin" data-part="readout" data-at="left">2</i>
+      <i class="pin" data-part="send" data-at="left">3</i>
+    </figure>
+    <div class="arrow">送ると</div>
+    <figure class="shot phone" data-shot="player-sent">
+      <i class="pin" data-part="send-status" data-at="left">4</i>
+    </figure>
+    <div class="arrow">正解発表</div>
+    <figure class="shot phone" data-shot="player-result">
+      <i class="pin" data-part="result" data-at="left">5</i>
+    </figure>
+  </div>
+  <ol class="notes">
+    <li><b>4桁の合言葉を入れる</b>司会から教えてもらった4桁の数字を入れます。合言葉は観客に言わないでください。</li>
+    <li><b>数字を押す</b>押した数字が大きく出ます。</li>
+    <li><b>「この数字で回答する」を押す</b>答えが司会に届きます。</li>
+    <li><b>送れたことを確かめる</b>届いたことが表示されます。</li>
+    <li><b>正解発表のあとに結果が出る</b>正解と割れたバルーンの数が出ます。</li>
+  </ol>
+</section>
+
+<!-- ===== 6 困ったとき ===== -->
+<section class="chapter">
+  <h2><span class="no">6</span>困ったとき</h2>
+  <p class="lead">困ったら、まず<b>司会に声をかけてください</b>。司会の手元のスマホで、たいていのことは直せます。</p>
+
+  <div class="trouble">
+    <div class="q">数字のボタンが出てこない</div>
+    <div class="a"><p>司会が「ではお考えください」と言ったあとに出ます。それでも出なければ、答えの数字を司会に口で伝えてください。司会が代わりに入れます。</p></div>
+  </div>
+  <div class="trouble">
+    <div class="q">押し間違えたまま GO を押してしまった</div>
+    <div class="a"><p>すぐに司会に、本当の答えを伝えてください。正解発表の前なら、司会が直せます。</p></div>
+  </div>
+  <div class="trouble">
+    <div class="q">ボタンを押しても反応しない・画面が止まった</div>
+    <div class="a"><p>指で軽くトンと押し直してみます。それでもだめなら、自分で直そうとせずに司会か係の人に伝えてください。係の人が画面を開き直します。</p></div>
+  </div>
+  <div class="trouble">
+    <div class="q">チームで答えが決まらない</div>
+    <div class="a"><p>シンキングタイムは20秒です。迷ったら、指名された人が決めて GO を押してください。</p></div>
+  </div>
+
+  <div class="box warn keep"><span class="title">iPad のここは触らないでください</span>
+    <ul class="dots" style="margin:0">
+      <li>画面の右上の四角いボタン（全画面の切り替え）</li>
+      <li>Safari のアドレスや「戻る」「↻（再読み込み）」</li>
+      <li>iPad の横や上のボタン（画面が消えたり、音が変わったりします）</li>
+    </ul>
+  </div>
+  <div class="box ok big keep">楽しんでください！ 観客もスマホで一緒に答えています。</div>
+</section>
+
+<script src="manual.js"></script>
+</body>
+</html>
