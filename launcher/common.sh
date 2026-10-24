@@ -1,4 +1,5 @@
-# launch.sh（ターミナル版）と app.sh（アプリ版）で共通の設定と関数。source して使う。
+# launch.sh（ターミナル版）と app.sh（アプリ版）と jetson.sh（Jetson の遠隔操作）で共通の設定と関数。source して使う。
+# app.sh は Jetson の上でもそのまま動く（jetson.sh が SSH 越しに呼ぶ）。
 #
 # 試験用に、本番と別のルーム・ポート・合言葉ファイルで動かせるよう環境変数で差し替えられる
 # （SUZULEAGUE_LAUNCH_ROOM / _PORT / _SETTINGS / _RUN_DIR）。ふだんは何も設定しない。
@@ -12,6 +13,10 @@ CLOUD_HOST="wss://suzuleague-cloud.onrender.com"
 SERVER_URL="https://suzuleague-cloud.onrender.com"
 ROOM_ID="${SUZULEAGUE_LAUNCH_ROOM:-1364239598}"
 WEB_PORT="${SUZULEAGUE_LAUNCH_PORT:-8000}"
+
+# 進行役を動かす Jetson（~/.ssh/config の Host 名。Tailscale 経由）と、その上での置き場所（ホームからの相対パス）
+JETSON_HOST="${SUZULEAGUE_JETSON_HOST:-jetson}"
+JETSON_DIR="${SUZULEAGUE_JETSON_DIR:-suzuleague}"
 
 # Finder やアプリから開くとシェルの設定が読まれず uv が見つからないため、よくある置き場所を足しておく
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -61,7 +66,26 @@ token_http_status() {
 }
 
 port_in_use() {
-  lsof -iTCP:"$WEB_PORT" -sTCP:LISTEN >/dev/null 2>&1
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -iTCP:"$WEB_PORT" -sTCP:LISTEN >/dev/null 2>&1
+  else  # Jetson（Ubuntu）には lsof が入っていないことがある
+    ss -Hltn "sport = :$WEB_PORT" 2>/dev/null | grep -q .
+  fi
+}
+
+# どこかの裏方PCが最後に司会者画面の状態を預けてから何秒たったか（none=一度も預けていない、unknown=確かめられない）。
+# 動いている裏方PCは2秒ごとに預けるので、数秒なら別の場所でまだ動いている。
+# Mac と Jetson で同時に動かすと進行がぶつかるため、起動の前に確かめる
+host_age() {
+  curl -s --max-time 30 -H "X-Host-Token: $SUZULEAGUE_HOST_TOKEN" "$SERVER_URL/api/host/state" |
+    uv run python -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print(int(data["age"]) if data.get("state") else "none")
+except (ValueError, KeyError, TypeError):
+    print("unknown")
+'
 }
 
 # 本番の画面が最新か確かめる。司会者画面・観客ページ・予備の回答画面（publish）に加えて、

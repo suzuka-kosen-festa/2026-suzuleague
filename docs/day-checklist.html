@@ -79,8 +79,8 @@
       <h2>開演30分前<span class="when">全員</span></h2>
       <ul>
         <li><span class="who ura">裏方</span>ブラウザで <code>suzuleague-cloud.onrender.com</code> を開いてサーバを起こす（寝ていると約20秒）</li>
-        <li><span class="who ura">裏方</span>裏方PCのスリープを切り、電源につなぐ</li>
-        <li><span class="who ura">裏方</span><code>スズリーグ.app</code> で「本番」→ <b class="warn">「最初から」</b>を選ぶ（リハーサルの続きで始めない）</li>
+        <li><span class="who ura">裏方</span>裏方PCのスリープを切り、電源につなぐ。Jetson も電源とネットにつなぎ、Mac と Jetson の Tailscale をオンにする</li>
+        <li><span class="who ura">裏方</span><code>スズリーグ.app</code> で「Jetson」→「本番」→ <b class="warn">「最初から」</b>を選ぶ（リハーサルの続きで始めない）</li>
         <li><span class="who shikai">司会</span>司会者画面が「PCと接続中」になっている</li>
         <li><span class="who stage">電子黒板</span>スタッフの Windows PC で <code>/stage/view/</code> を開いて1回クリック → 右上で全画面</li>
         <li><span class="who stage">出演者</span>iPad で <code>/stage/play/</code> を開いて1回タップ</li>
@@ -105,6 +105,7 @@
       <table>
         <tr><th>大画面・出演者の画面がおかしい</th><td>再読み込みして1回クリック。または司会者画面「困ったとき」→「Scratch に今の状態を送り直す」</td></tr>
         <tr><th>司会者画面が「PCの応答なし」</th><td>裏方PCで <code>スズリーグ.app</code> を開き直し、<b>「続きから」</b></td></tr>
+        <tr><th>Jetson が止まった・つながらない</th><td><code>スズリーグ.app</code> で「このMacに移す」。「Jetson につながりません」と出たら、Jetson の電源を抜いてから「このMacで起動」</td></tr>
         <tr><th>司会のスマホで操作できない</th><td>裏方PCの司会者画面（自動で開いている）で続ける</td></tr>
         <tr><th>出演者の端末が動かない</th><td>予備の回答画面 <code>/player.html</code>（合言葉は司会者画面に出る）か「代理入力」</td></tr>
         <tr><th>Render が落ちた</th><td><code>development.md</code>「本番サーバが落ちたときの代替手段」</td></tr>

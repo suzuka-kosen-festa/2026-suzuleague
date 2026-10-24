@@ -159,13 +159,64 @@ PCのブラウザに開く司会者画面（`localhost`）は予備で、観客�
 | ファイル | 役割 |
 |---|---|
 | `launcher/app.applescript` | アプリの画面（ダイアログ）。書き換えたら `launcher/build-app.sh` で `.app` を作り直す |
-| `launcher/app.sh` | アプリの裏側（合言葉の確認・起動・終了） |
+| `launcher/app.sh` | アプリの裏側（合言葉の確認・起動・終了）。Jetson の上でもこのまま動く |
+| `launcher/jetson.sh` | Jetson の遠隔操作（コードを送る・起動・終了・進行の保存を移す）。[Jetson で動かす](#jetson-で動かす) |
 | `launcher/デモを起動.command` / `本番を起動.command` | **ターミナル版（予備）**。コマンドも打てる。終えるときは窓で `quit` |
 | `launcher/launch.sh` | ターミナル版の中身 |
-| `launcher/common.sh` | 両方で共通の設定（接続先・ルームID・合言葉の保存） |
+| `launcher/common.sh` | 共通の設定（接続先・ルームID・合言葉の保存・Jetson の接続先） |
 
 CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchのどこから操作しても、
 同じ `GameController`（`controller.py`）を通るので食い違わない。
+
+### Jetson で動かす
+
+2026-10-24 から、ダッシュボードは**ふだん Jetson Orin Nano で動かし、Jetson が使えないときは Mac で動かす**。
+操作はどちらも Mac の `launcher/スズリーグ.app` から行う。アプリを開くと「どこで動かしますか？」と聞かれるので、ふだんは「Jetson」を選ぶ。
+司会のスマホは、どちらで動いていても同じ司会者画面のまま使える。ダッシュボードは Render に自分から接続しに行くだけなので、動かす機械が変わってもスマホ側は何も変えなくてよい。
+
+Jetson には、Mac から Tailscale 経由の SSH（`~/.ssh/config` の `Host jetson`、ユーザー `suzuka`）で入る。
+会場の Wi-Fi が端末どうしの通信を遮っていても、Mac と Jetson の両方がネットにつながっていれば届く。
+**Mac と Jetson の両方で Tailscale をオンにしておく。**
+
+アプリが Jetson で起動するときの流れは次のとおり。
+
+1. この Mac のコード・`teams.json`・合言葉（`launcher/settings.env`）を、rsync で Jetson の `~/suzuleague` に送る。コードを直したら、次に起動するだけで Jetson に届く
+2. Jetson で `uv sync --locked` を実行し、Mac と同じ版の依存をそろえる。初回は uv と Python 3.12 も入るので数分かかる（2回目からは数秒）
+3. Jetson 上の `launcher/app.sh start` を呼ぶ。進行の保存は Jetson の `~/suzuleague/launcher/run/` に残る
+4. Jetson の予備の司会者画面を SSH で Mac の `http://localhost:8001/host` につなぎ、Mac のブラウザで開く
+
+#### Mac と Jetson のあいだで移す
+
+起動中にアプリを開くと、「このMacに移す」（Jetson で動いているとき）と「Jetsonに移す」（Mac で動いているとき）を選べる。
+アプリは**動いているほうを止めてから進行の保存（`game-*.json`）をコピーし、移した先で「続きから」起動する**。
+何問目か・バルーン・届いていた回答・出演者の合言葉はそのまま引き継がれる。
+2026-10-24 に試験用のルームで確かめたところ、Jetson から Mac へは約5秒、Mac から Jetson へは約11秒で移せた。
+そのあいだは司会者画面の操作が効かない。止まっていたあいだに押された操作は捨てられ、あとからまとめて実行されることはない。
+Jetson に移して起動できなかったときは、アプリがこの Mac で続きから起動し直す。
+
+上書きされる側の保存は、`game-*.before-pull.json`（Mac）と `game-*.before-push.json`（Jetson）として1つだけ残る。
+
+#### Jetson に SSH が届かないとき
+
+アプリは「Jetson につながりません」と出し、この Mac で起動するか聞く。
+このとき Jetson の進行の保存は持ってこられないので、Mac に残っている保存から続きを始める。Mac に残っているのは、最後に Mac で動かしたときの進行である。
+
+SSH が届かなくても、Jetson のダッシュボードは Render につながったまま動いていることがある（Tailscale だけ切れた場合など）。
+2台で同時に動かすと進行がぶつかるので、アプリは起動の前に Render に問い合わせ、10秒以内にどこかの裏方PCが状態を預けていれば「別の裏方PCがまだ動いているようです」と止める。
+この警告が出たら、Jetson の電源を抜くなどしてもう一方を確実に止めてから起動する。
+
+#### ターミナルから操作する
+
+アプリを使わずに、`launcher/jetson.sh` を直接呼んでもよい。使えるサブコマンドはファイルの先頭に書いてある。
+
+```bash
+launcher/jetson.sh status              # running / stopped / not-setup / unreachable
+launcher/jetson.sh start demo          # コードを送ってから起動（続きからは demo resume）
+launcher/jetson.sh pull-save demo      # Jetson の進行の保存を Mac に持ってくる
+ssh jetson tail -f suzuleague/launcher/run/dashboard.log   # Jetson のダッシュボードのログ
+```
+
+`SUZULEAGUE_LAUNCH_ROOM` で試験用のルームを指定すると、Jetson にも同じルームが渡る（本番のステージ画面に影響させずに試せる）。
 
 ### 安全のための仕組み
 
@@ -667,7 +718,8 @@ Scratch で「スプライトの他のスクリプトを止める」を受け手
 - [ ] **開演30分前** に <https://suzuleague-cloud.onrender.com> をブラウザで開く
       （15分無通信でスピンダウンする。実測での復帰は22.8秒、公称は約1分）
 - [ ] 裏方PCの**スリープを切り**、電源につなぐ（止まってもアプリの「続きから」で再開できるが、止まらないに越したことはない）
-- [ ] `launcher/スズリーグ.app` の「本番」で、**「最初から」を選んで**ダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
+- [ ] Jetson を電源とネットにつなぎ、**Mac と Jetson の Tailscale をオンにする**。アプリを開いて「Jetson につながりません」と出たら、この Mac で動かす（[Jetson で動かす](#jetson-で動かす)）
+- [ ] `launcher/スズリーグ.app` で「Jetson」→「本番」を選び、**「最初から」を選んで**ダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
 - [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
 - [ ] 電子黒板につなぐ Windows PC で <https://suzuleague-cloud.onrender.com/stage/view/> を、出演者の iPad で <https://suzuleague-cloud.onrender.com/stage/play/> を開き、画面を1回クリックして「開始までお待ちください」になることを確認（アプリより先に開いてもよい）
 - [ ] 音は電子黒板の PC か出演者の iPad の片方だけから出す。iPad から出すなら、iPad の**消音モードを切る**（消音モードだと Safari の音が鳴らない。2026-10-22 の実機確認で分かった）

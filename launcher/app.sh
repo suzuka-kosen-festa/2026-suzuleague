@@ -3,18 +3,23 @@
 # ダッシュボードはターミナルを開かずに裏で動かし、ログは launcher/run/dashboard.log に残す。
 #
 #   app.sh status             → running（このアプリで起動中）/ busy（ポートが他で使用中）/ stopped
+#   app.sh mode               → 起動中のモード（demo / production）。止まっていれば none
+#   app.sh host-age           → どこかの裏方PCが状態を預けてからの秒数 / none / unknown（二重起動の確認）
 #   app.sh check-token        → ok / missing / wrong / unset / unknown:<HTTPコード>（Render を起こしてから確かめる）
 #   app.sh save-token         ← 標準入力の合言葉を保存する
 #   app.sh check-pages        → 本番の画面（ステージ画面も）が最新でなければ終了コード1
 #   app.sh resume-info demo|production → none / invalid:<理由> / 前回の続きの説明
 #   app.sh start demo|production [resume] → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
 #   app.sh stop               → 終了させる
+#
+# Jetson でもこのファイルをそのまま使う（Mac の jetson.sh が SSH 越しに呼ぶ）。
 set -u
 
 # shellcheck source=common.sh
 source "$(dirname "$0")/common.sh"
 
 PID_FILE="$RUN_DIR/dashboard.pid"
+MODE_FILE="$RUN_DIR/dashboard.mode"
 LOG_FILE="$RUN_DIR/dashboard.log"
 
 cd "$REPO_DIR" || exit 1
@@ -39,6 +44,19 @@ case "${1:-}" in
     else
       echo stopped
     fi
+    ;;
+
+  mode)
+    if running_pid >/dev/null && [ -f "$MODE_FILE" ]; then
+      cat "$MODE_FILE"
+    else
+      echo none
+    fi
+    ;;
+
+  host-age)
+    load_token
+    host_age
     ;;
 
   check-token)
@@ -87,6 +105,7 @@ case "${1:-}" in
     set_dashboard_cmd "${3:-}"
     PYTHONUNBUFFERED=1 nohup "${DASHBOARD_CMD[@]}" --headless >"$LOG_FILE" 2>&1 </dev/null &
     echo $! >"$PID_FILE"
+    echo "$2" >"$MODE_FILE"
 
     # cloud サーバへの接続（寝ていれば起こしてやり直す）が済むと、予備の司会者画面が開く
     for _ in $(seq 150); do
@@ -105,7 +124,7 @@ $(tail -n 8 "$LOG_FILE")"
     ;;
 
   stop)
-    pid=$(running_pid) || { rm -f "$PID_FILE"; echo ok; exit 0; }
+    pid=$(running_pid) || { rm -f "$PID_FILE" "$MODE_FILE"; echo ok; exit 0; }
     # uv run の下で Python が動いているので、子プロセスにも終了を伝える
     pkill -TERM -P "$pid" 2>/dev/null
     kill -TERM "$pid" 2>/dev/null
@@ -117,11 +136,11 @@ $(tail -n 8 "$LOG_FILE")"
       pkill -KILL -P "$pid" 2>/dev/null
       kill -KILL "$pid" 2>/dev/null
     fi
-    rm -f "$PID_FILE"
+    rm -f "$PID_FILE" "$MODE_FILE"
     echo ok
     ;;
 
   *)
-    fail "使い方: app.sh status|check-token|save-token|check-pages|start|stop"
+    fail "使い方: app.sh status|mode|host-age|check-token|save-token|check-pages|resume-info|start|stop"
     ;;
 esac
