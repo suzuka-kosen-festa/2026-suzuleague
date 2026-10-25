@@ -171,7 +171,14 @@ class Shots:
         out.mkdir(parents=True, exist_ok=True)
 
     def take(self, page: Any, name: str, parts: dict[str, str] | None = None, stage: bool = False) -> None:
-        page.screenshot(path=str(self.out / f"{name}.png"))
+        for attempt in range(3):  # 演出の重い画面では、撮るのがまれに時間切れになる
+            try:
+                page.screenshot(path=str(self.out / f"{name}.png"), timeout=60000)
+                break
+            except Exception:
+                if attempt == 2:
+                    raise
+                time.sleep(1)
         size = page.viewport_size
         entry: dict[str, Any] = {"w": size["width"], "h": size["height"]}
         if parts:

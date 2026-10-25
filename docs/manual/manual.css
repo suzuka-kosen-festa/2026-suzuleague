@@ -197,3 +197,7 @@ table.grid.first-nowrap td:first-child { white-space: nowrap; }
 .stage .flow { justify-content: center; margin: 1mm 0 2mm; }
 .stage ol.notes > li { margin-bottom: 1.6mm; }
 .stage .say { margin: 1.5mm 0; }
+/* 写真の枠がページの境目で割れて、上の辺だけが前のページに残らないようにする */
+figure.shot, figure.shot .frame, .pair, .flow, .row { break-inside: avoid; page-break-inside: avoid; }
+.pair { display: grid; }
+.pair > figure.shot { display: block; }
