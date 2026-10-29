@@ -92,7 +92,7 @@ Issue は6件（2026-10-24 時点）。10/24 に、Jetson で動かす形の残�
 | 期日 | Issue | 内容 |
 |---|---|---|
 | **リハーサル前**（M3） | [#54](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/54) | **ステージ画面を実機で通す**（10/19 に 10/18 版から作り直したもので。出演者の iPad で `/stage/play/`、電子黒板につなぐ Windows PC で `/stage/view/`）。テンキー・音・全画面・動きの重さ・再読み込み |
-| リハーサル前（M3） | [#62](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/62) | **Jetson で動かす形を実機で確かめる**。アプリのダイアログ（Jetson で起動・このMacに移す・Jetsonに移す）、Jetson に届かないときの動き、会場の回線で Mac が Tailscale につながるか、john を自宅に置いたままにするか会場に持っていくか |
+| リハーサル前（M3） | [#62](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/62) | **Jetson で動かす形を実機で確かめる**。アプリのダイアログ（Jetson で起動・このMacに移す・Jetsonに移す）、Jetson に届かないときの動き、会場の回線で Mac が Tailscale につながるか。john は自宅に置いたまま使う（10/29 決定） |
 | リハーサル前（M3） | [#47](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/47) | ~~チーム名を `teams.json` に入れ、ステージ画面を作り直す~~（10/22 に済み）。残りは、アプリの「本番」で起動して、司会者画面・観客ページ・ステージ画面のチーム名を実機で見ること |
 | リハーサル前（M3） | [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45) | cloud-server を Org のリポジトリにまとめる（承認が下りてから。10/28 までに下りなければ2つのまま本番へ） |
 | 日時は未定（M3） | — | 会場リハーサル（会場Wi-Fi・観客の同時接続・電子黒板・アプリの「本番」での起動・「続きから」の練習）。確認項目は [リリースチェックリスト](./development.md#リリース本番投入チェックリスト) |
@@ -209,7 +209,7 @@ Issue は6件（2026-10-24 時点）。10/24 に、Jetson で動かす形の残�
 | リハーサルの観客ランキングが本番に残る | 本番の順位がおかしくなる | リハーサル後に司会者画面の「ランキングをリセット」を押す（チェックリストに記載） |
 | Render に届かない（司会の操作だけ） | スマホから操作できない | 裏方PC上の同じ画面で操作を続ける（CLIも残す） |
 | 裏方PCの Python が止まる・誤って終了する | 止まっている間は進行できない | 操作のたびに進行を保存し、アプリを開き直して「続きから」で再開できる（[#51](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/51)。10/6 実装）。PC のスリープを切る・「終了する」は確認ダイアログを挟む |
-| Jetson に SSH が届かない（Tailscale が切れた・Jetson の回線が落ちた） | Jetson の進行を止める・Mac に移すことができない | アプリは「このMacで起動」を出す。Jetson が Render につながったまま動いていれば、起動の前に「別の裏方PCが動いている」と止めるので、Jetson の電源を抜いてから Mac で起動する。このとき Jetson の最新の進行は持ってこられず、Mac に残っている保存から続ける（[#62](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/62)）。john を自宅に置いたままだと、自宅の停電や回線断でも同じことが起き、会場からは電源を抜けない |
+| Jetson に SSH が届かない（Tailscale が切れた・Jetson の回線が落ちた） | Jetson の進行を止める・Mac に移すことができない | アプリは「このMacで起動」を出す。Jetson が Render につながったまま動いていれば、起動の前に「別の裏方PCが動いている」と止めるので、Jetson の電源を抜いてから Mac で起動する。このとき Jetson の最新の進行は持ってこられず、Mac に残っている保存から続ける（[#62](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/62)）。john は自宅に置いたまま使うので、自宅の停電や回線断でも同じことが起き、会場からは電源を抜けない。回線だけなら、戻れば john が自分でつなぎ直す。戻らなければ Mac で起動するが、止まる前の場面には戻せない |
 | 会場ネットワークの品質 | 観客参加・ランキングが成立しない | 会場でのリハーサル（M3）で確認する |
 | cloud サーバの単一障害点 | サーバが落ちると進行が止まる | 代替手段は確認済み（[手順](./development.md#本番サーバが落ちたときの代替手段)）。ランキングのデータはサーバ再起動で消えるが、イベント中は HEARTBEAT で起きている |
 | Render 無料枠のスピンダウン（17分放置で復帰に22.8秒） | 開演直後にサーバが応答しない | **開演30分前に必ず起こす**。HEARTBEATを送り続けている間は眠らないことを実測済み |
