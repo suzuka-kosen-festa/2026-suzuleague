@@ -174,9 +174,11 @@ CLIのコマンドもそのまま使える。CLI・司会者画面・Scratchの�
 操作はどちらも Mac の `launcher/スズリーグ.app` から行う。アプリを開くと「どこで動かしますか？」と聞かれるので、ふだんは「Jetson」を選ぶ。
 司会のスマホは、どちらで動いていても同じ司会者画面のまま使える。ダッシュボードは Render に自分から接続しに行くだけなので、動かす機械が変わってもスマホ側は何も変えなくてよい。
 
-Jetson には、Mac から Tailscale 経由の SSH（`~/.ssh/config` の `Host jetson`、ユーザー `suzuka`）で入る。
+使う Jetson は、10/29 から開発者の自宅にある「john」（Jetson Orin Nano・Ubuntu 24.04）にした（10/24〜10/28 は遠藤研究室の Jetson を使っていた）。
+Mac からは、個人の Tailscale 経由の SSH（`~/.ssh/config` の `Host jetson-ts`、ユーザー `john`）で入る。接続先を変えるときは `launcher/common.sh` の `JETSON_HOST` を書き換える。
 会場の Wi-Fi が端末どうしの通信を遮っていても、Mac と Jetson の両方がネットにつながっていれば届く。
-**Mac と Jetson の両方で Tailscale をオンにしておく。**
+**Mac と Jetson の両方で Tailscale をオンにしておく。** Mac は john と同じ個人の Tailscale（inouekoshi1250）に入っている必要がある。
+Tailscale はどこからでも届くので、john は自宅に置いたままでも使える。ただしそのときは、自宅の停電や回線断で john に届かなくなり、会場から john の電源を抜くこともできない（[Jetson に SSH が届かないとき](#jetson-に-ssh-が届かないとき)）。
 
 アプリが Jetson で起動するときの流れは次のとおり。
 
@@ -213,7 +215,7 @@ SSH が届かなくても、Jetson のダッシュボードは Render につな�
 launcher/jetson.sh status              # running / stopped / not-setup / unreachable
 launcher/jetson.sh start demo          # コードを送ってから起動（続きからは demo resume）
 launcher/jetson.sh pull-save demo      # Jetson の進行の保存を Mac に持ってくる
-ssh jetson tail -f suzuleague/launcher/run/dashboard.log   # Jetson のダッシュボードのログ
+ssh jetson-ts tail -f suzuleague/launcher/run/dashboard.log   # Jetson のダッシュボードのログ
 ```
 
 `SUZULEAGUE_LAUNCH_ROOM` で試験用のルームを指定すると、Jetson にも同じルームが渡る（本番のステージ画面に影響させずに試せる）。
@@ -736,7 +738,7 @@ Scratch で「スプライトの他のスクリプトを止める」を受け手
 - [ ] **開演30分前** に <https://suzuleague-cloud.onrender.com> をブラウザで開く
       （15分無通信でスピンダウンする。実測での復帰は22.8秒、公称は約1分）
 - [ ] 裏方PCの**スリープを切り**、電源につなぐ（止まってもアプリの「続きから」で再開できるが、止まらないに越したことはない）
-- [ ] Jetson を電源とネットにつなぎ、**Mac と Jetson の Tailscale をオンにする**。アプリを開いて「Jetson につながりません」と出たら、この Mac で動かす（[Jetson で動かす](#jetson-で動かす)）
+- [ ] Jetson（john）を電源とネットにつなぎ、**Mac と Jetson の Tailscale をオンにする**。アプリを開いて「Jetson につながりません」と出たら、この Mac で動かす（[Jetson で動かす](#jetson-で動かす)）
 - [ ] `launcher/スズリーグ.app` で「Jetson」→「本番」を選び、**「最初から」を選んで**ダッシュボードを起動して接続を確立する（以降 `HEARTBEAT` が15秒毎に流れるので眠らない）
 - [ ] 司会のスマホの司会者画面が「PCと接続中」になっていることを確認
 - [ ] 電子黒板につなぐ Windows PC で <https://suzuleague-cloud.onrender.com/stage/view/> を、出演者の iPad で <https://suzuleague-cloud.onrender.com/stage/play/> を開き、画面を1回クリックして「開始までお待ちください」になることを確認（アプリより先に開いてもよい）

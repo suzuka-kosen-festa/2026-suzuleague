@@ -14,8 +14,9 @@ SERVER_URL="https://suzuleague-cloud.onrender.com"
 ROOM_ID="${SUZULEAGUE_LAUNCH_ROOM:-1364239598}"
 WEB_PORT="${SUZULEAGUE_LAUNCH_PORT:-8000}"
 
-# 進行役を動かす Jetson（~/.ssh/config の Host 名。Tailscale 経由）と、その上での置き場所（ホームからの相対パス）
-JETSON_HOST="${SUZULEAGUE_JETSON_HOST:-jetson}"
+# 進行役を動かす Jetson（~/.ssh/config の Host 名。Tailscale 経由）と、その上での置き場所（ホームからの相対パス）。
+# 2026-10-29 から、遠藤研究室の Jetson（Host jetson）をやめ、開発者の自宅の Jetson「john」（Host jetson-ts。個人の Tailscale）にした
+JETSON_HOST="${SUZULEAGUE_JETSON_HOST:-jetson-ts}"
 JETSON_DIR="${SUZULEAGUE_JETSON_DIR:-suzuleague}"
 
 # Finder やアプリから開くとシェルの設定が読まれず uv が見つからないため、よくある置き場所を足しておく

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Jetson で進行役（ダッシュボード）を動かすための、Mac 側の遠隔操作。スズリーグ.app から呼ばれる。
-# Jetson には Tailscale 経由の SSH（~/.ssh/config の Host jetson）で入り、Jetson 上の app.sh を呼ぶ。
+# Jetson には Tailscale 経由の SSH（~/.ssh/config の Host jetson-ts。接続先は common.sh の JETSON_HOST）で入り、Jetson 上の app.sh を呼ぶ。
 #
 #   jetson.sh status             → running / stopped / busy / not-setup（まだ送っていない）/ unreachable（SSH が届かない）
 #   jetson.sh mode               → 起動中のモード（demo / production）。止まっていれば none
@@ -60,7 +60,7 @@ setup() {
   # 進行の保存（launcher/run）は Jetson 側のものを残す（--delete でも除外したものは消えない）
   rsync -a --delete -e "ssh ${SSH_OPTS[*]}" \
     --exclude .git/ --exclude .venv/ --exclude launcher/run/ --exclude '__pycache__/' \
-    --exclude .pytest_cache/ --exclude .DS_Store --exclude '*.app/' \
+    --exclude .pytest_cache/ --exclude .ruff_cache/ --exclude .DS_Store --exclude '*.app/' \
     --exclude tools/stage-packager/node_modules/ --exclude tools/stage-packager/.assets/ \
     ./ "$JETSON_HOST:$JETSON_DIR/" || fail "Jetson にコードを送れませんでした。"
   # uv は Mac と同じ公式の手順で入れる。依存は uv.lock のとおりにそろえる（Python 3.12 も uv が入れる）
