@@ -88,7 +88,7 @@ end main
 -- どこで動かすか聞く。Jetson なら true を返す
 on askPlace(jetState)
 	if jetState is "unreachable" then
-		display dialog "Jetson につながりません（Jetson の電源と、Mac・Jetson の Tailscale を確認してください）。" & return & return & "このMacで起動しますか？" buttons {"キャンセル", "このMacで起動"} default button "このMacで起動" cancel button "キャンセル" with icon caution with title appTitle
+		display dialog "Jetson につながりません（Jetson の電源と、Mac・Jetson の Tailscale を確認してください）。" & return & return & "司会者画面が「PCと接続中」なら、Jetson は動いています。このMacでは起動せず、キャンセルしてください。" & return & return & "Jetson が止まっているなら、このMacで起動できます。Jetson で動いていた進行は、数秒ごとにこのMacに写してあるので、「続きから」を選べば写せたところから続けられます。" buttons {"キャンセル", "このMacで起動"} default button "キャンセル" cancel button "キャンセル" with icon caution with title appTitle
 		return false
 	end if
 	if jetState is "busy" then
@@ -186,6 +186,10 @@ on askWhileRunning(sh, jsh)
 end askWhileRunning
 
 on askWhileJetsonRunning(sh, jsh)
+	-- この Mac を起動し直したなどで、進行の保存を写すのが止まっていれば始め直す
+	try
+		do shell script jsh & " mirror"
+	end try
 	set choice to button returned of (display dialog "スズリーグは Jetson で起動中です。" buttons {"終了する", "このMacに移す", "司会者画面を開く"} default button "司会者画面を開く" with title appTitle)
 	if choice is "司会者画面を開く" then
 		openHostScreen(jsh, true)

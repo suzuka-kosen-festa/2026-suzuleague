@@ -12,14 +12,19 @@
 #   jetson.sh push-save demo|production → この Mac の進行の保存を、Jetson に送る（Jetson に移すとき）
 #   jetson.sh tunnel             → Jetson の予備の司会者画面を、この Mac の http://localhost:8001/host で開けるようにする
 #   jetson.sh untunnel           → tunnel を閉じる
+#   jetson.sh mirror [demo|production] → Jetson の進行の保存を、3秒ごとにこの Mac の launcher/run/ へ写し続ける（裏で動く）
+#   jetson.sh unmirror           → mirror を止める
 #
 # Mac と Jetson で同時に動かすと進行がぶつかるので、移すときは必ず片方を止めてから保存を移し、もう片方で「続きから」起動する。
+# start は起動したあと mirror も始める。Jetson が止まって SSH も届かなくなっても、Mac には数秒前までの進行が残る。
+# Mac で起動するとき（app.sh start）は mirror を止めてから起動する。
 set -u
 
 # shellcheck source=common.sh
 source "$(dirname "$0")/common.sh"
 
 TUNNEL_PORT="${SUZULEAGUE_JETSON_TUNNEL_PORT:-8001}"
+MIRROR_INTERVAL="${SUZULEAGUE_JETSON_MIRROR_INTERVAL:-3}"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=8 -o ServerAliveInterval=15)
 
 cd "$REPO_DIR" || exit 1
@@ -105,11 +110,13 @@ case "${1:-}" in
   start)
     save_name "${2:-}" start >/dev/null
     setup
-    remote_app start "$2" ${3:+"$3"}
+    remote_app start "$2" ${3:+"$3"} || exit 1
+    "$0" mirror "$2" >/dev/null
     ;;
 
   stop)
     remote_app stop || fail "$(unreachable_msg)"
+    stop_mirror
     ;;
 
   pull-save)
@@ -155,7 +162,49 @@ case "${1:-}" in
     echo ok
     ;;
 
+  mirror)
+    if mirror_pid >/dev/null; then
+      echo ok
+      exit 0
+    fi
+    mode="${2:-}"
+    if [ -z "$mode" ]; then
+      mode=$(remote_app mode) || fail "$(unreachable_msg)"
+      [ "$mode" = none ] && { echo none; exit 0; }  # Jetson で動いていない
+    fi
+    name=$(save_name "$mode" mirror) || exit 1
+    mkdir -p "$RUN_DIR"
+    # Mac に前からあった保存は、写し始める前に1つだけ残しておく
+    [ -f "$RUN_DIR/$name" ] && mv "$RUN_DIR/$name" "$RUN_DIR/${name%.json}.before-pull.json"
+    nohup "$0" mirror-loop "$name" >/dev/null 2>&1 </dev/null &
+    # 裏の処理が MIRROR_PID_FILE を書くまで待つ（すぐにもう一度 mirror を呼ばれても二重に始めない）
+    for _ in $(seq 30); do
+      mirror_pid >/dev/null && break
+      sleep 0.1
+    done
+    echo ok
+    ;;
+
+  mirror-loop)  # mirror が裏で動かす。直接は呼ばない
+    name="$2"
+    echo $$ >"$MIRROR_PID_FILE"
+    while [ "$(cat "$MIRROR_PID_FILE" 2>/dev/null)" = "$$" ]; do
+      # Jetson は保存を別名で書いてから置き換えるので、書きかけを持ってくることはない
+      if scp -q "${SSH_OPTS[@]}" "$JETSON_HOST:$JETSON_DIR/launcher/run/$name" "$RUN_DIR/$name.mirror" 2>/dev/null &&
+        [ "$(cat "$MIRROR_PID_FILE" 2>/dev/null)" = "$$" ]; then
+        mv "$RUN_DIR/$name.mirror" "$RUN_DIR/$name"
+      fi
+      sleep "$MIRROR_INTERVAL"
+    done
+    rm -f "$RUN_DIR/$name.mirror"
+    ;;
+
+  unmirror)
+    stop_mirror
+    echo ok
+    ;;
+
   *)
-    fail "使い方: jetson.sh status|mode|setup|resume-info|start|stop|pull-save|push-save|tunnel|untunnel"
+    fail "使い方: jetson.sh status|mode|setup|resume-info|start|stop|pull-save|push-save|tunnel|untunnel|mirror|unmirror"
     ;;
 esac

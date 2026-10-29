@@ -74,6 +74,25 @@ port_in_use() {
   fi
 }
 
+# Jetson で動いているあいだ、Jetson の進行の保存を数秒ごとにこの Mac へ写す（jetson.sh mirror）。
+# Jetson は自宅に置いたまま使うので、Jetson が止まって SSH も届かなくなったときに、
+# Mac で止まる前の場面から「続きから」始められるようにするため（2026-10-29〜）
+MIRROR_PID_FILE="$RUN_DIR/mirror.pid"
+
+mirror_pid() {
+  local pid
+  pid=$(cat "$MIRROR_PID_FILE" 2>/dev/null) || return 1
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && echo "$pid"
+}
+
+# 写すのを止める。この Mac で起動する前に必ず呼ぶ（動き出した Mac の保存を、Jetson の保存で上書きしないため）。
+# 写している側は、写し終えて置き換える直前に MIRROR_PID_FILE を見直すので、ファイルを消せば以降は置き換えない
+stop_mirror() {
+  local pid
+  pid=$(mirror_pid) && kill "$pid" 2>/dev/null
+  rm -f "$MIRROR_PID_FILE"
+}
+
 # どこかの裏方PCが最後に司会者画面の状態を預けてから何秒たったか（none=一度も預けていない、unknown=確かめられない）。
 # 動いている裏方PCは2秒ごとに預けるので、数秒なら別の場所でまだ動いている。
 # Mac と Jetson で同時に動かすと進行がぶつかるため、起動の前に確かめる

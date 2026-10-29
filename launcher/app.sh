@@ -98,6 +98,7 @@ case "${1:-}" in
     running_pid >/dev/null && fail "すでに起動しています。"
     port_in_use && fail "ポート $WEB_PORT が使われています。ターミナルで起動したダッシュボードが残っていれば、そちらで quit してください。"
     load_token
+    stop_mirror  # Jetson から保存を写していれば止める（この Mac で動かすので、以後は Mac の保存が正）
 
     mkdir -p "$RUN_DIR"
     [ -f "$LOG_FILE" ] && mv "$LOG_FILE" "$RUN_DIR/dashboard.prev.log"
