@@ -1060,6 +1060,35 @@ def add_rehearsal(server_dir: Path) -> None:
     print(f"→ {server_dir} で差分を確認してコミットし、master に入れると Render がデプロイします")
 
 
+# 本番（11/1）は、この中身の画面で行うと決めた（2026-10-30）。Scratch の 10/18 の版から作り、
+# add_rehearsal() でリハーサル用の問題文を足したもの。Scratch 側は 10/25 にも更新されているが、
+# 直前に取り込むと確かめきれないので、本番が終わるまで取り込まない。
+# これがあるあいだ --check は Scratch を見ず、配信中の画面がこの中身のままかだけを確かめる。
+# Scratch の新しい版を取り込むときは None に戻す
+FROZEN_STAGE: dict[str, str] | None = {
+    "view": "730d8d31591c23366b90ef2b30d4bc4ef18c6f63ebefc9aecf2d51477972efdf",
+    "play": "b646cb13e6c66a51f363da9888d1b0e491fc77ec6a7a31eccd0e149983467641",
+}
+
+
+def check_frozen(base_url: str, room_id: str, frozen: dict[str, str]) -> list[str]:
+    """配信中の画面の中身（assets/project.json）が、本番用に決めたものと同じか。食い違いを返す。"""
+    problems = []
+    for variant, label in VARIANTS.items():
+        base = f"{base_url.rstrip('/')}/stage/{variant}"
+        try:
+            live = _get_json(f"{base}/version.json")
+            project = _get_json(f"{base}/assets/project.json")
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            problems.append(f"{label}: 取得できません（{e}）")
+            continue
+        if live.get("room") != room_id:
+            problems.append(f"{label}: ルームIDが違います（本番 {live.get('room')}）")
+        elif digest(project) != frozen[variant]:
+            problems.append(f"{label}: 本番の中身が、本番用に決めた画面と違います")
+    return problems
+
+
 def check(
     base_url: str, room_id: str, project_id: str = SCRATCH_PROJECT_ID, team_names: dict[int, str] | None = None
 ) -> list[str]:
@@ -1109,6 +1138,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         team_names = team_names_from(load_teams(args.teams)) if args.teams.exists() else {}
         print(f"チーム名: {'・'.join(team_names.values()) if team_names else '（入れない。「チームN」のまま）'}")
+        if args.check and FROZEN_STAGE:
+            problems = check_frozen(args.url, args.room_id, FROZEN_STAGE)
+            for p in problems:
+                print(f"✗ {p}")
+            if problems:
+                return 1
+            print(f"✓ {args.url} のステージ画面 {len(VARIANTS)} 件は、本番用に決めた画面（Scratch 10/18 の版＋リハーサル用の問題文）のままです")
+            return 0
         if args.check:
             problems = check(args.url, args.room_id, team_names=team_names)
             for p in problems:

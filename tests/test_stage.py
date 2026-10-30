@@ -885,3 +885,30 @@ class TestRehearsalQuestions:
         for costume in stage_result.rehearsal_questions():
             root = ElementTree.fromstring(costume.svg)
             assert root.tag.endswith("svg"), costume.name
+
+
+class TestCheckFrozen:
+    """本番用に決めた画面のままかだけを確かめる（Scratch の新しい版を取り込まないあいだ）。"""
+
+    def serve(self, monkeypatch, project: dict, room: str = "room") -> None:
+        def get(url: str):
+            return {"room": room} if url.endswith("version.json") else project
+
+        monkeypatch.setattr(stage, "_get_json", get)
+
+    def test_matches(self, monkeypatch):
+        project = {"targets": []}
+        self.serve(monkeypatch, project)
+        frozen = {v: stage.digest(project) for v in stage.VARIANTS}
+        assert stage.check_frozen("https://x", "room", frozen) == []
+
+    def test_changed_content(self, monkeypatch):
+        self.serve(monkeypatch, {"targets": [1]})
+        frozen = {v: stage.digest({"targets": []}) for v in stage.VARIANTS}
+        assert len(stage.check_frozen("https://x", "room", frozen)) == 2
+
+    def test_wrong_room(self, monkeypatch):
+        project = {"targets": []}
+        self.serve(monkeypatch, project, room="other")
+        frozen = {v: stage.digest(project) for v in stage.VARIANTS}
+        assert all("ルームID" in p for p in stage.check_frozen("https://x", "room", frozen))
