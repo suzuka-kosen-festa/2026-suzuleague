@@ -102,8 +102,12 @@ case "${1:-}" in
     ;;
 
   resume-info)
-    out=$(remote "test -x ~/$JETSON_DIR/launcher/app.sh || { echo none; exit 0; }
-      cd ~/$JETSON_DIR && launcher/app.sh resume-info $(printf '%q' "${2:-}")") || fail "$(unreachable_msg)"
+    # 先にコードを送る。Jetson の app.sh が古いと、新しく足したモード（rehearsal など）を知らずに失敗する
+    setup
+    out=$(remote "cd ~/$JETSON_DIR && launcher/app.sh resume-info $(printf '%q' "${2:-}")" 2>&1)
+    code=$?
+    [ "$code" -eq 255 ] && fail "$(unreachable_msg)"
+    [ "$code" -ne 0 ] && fail "Jetson で前回の続きを確かめられませんでした: $out"
     echo "$out"
     ;;
 
