@@ -20,6 +20,7 @@ Scratch担当がプロジェクトを直すたびに、ステージ画面を作�
 
     uv run --with playwright python tools/stage_check.py
     uv run --with playwright python tools/stage_check.py --quick      # 1チームだけ（約7分）
+    uv run --with playwright python tools/stage_check.py --rehearsal  # リハーサル（架空の問題・各チーム2問）で通す
     uv run --with playwright python tools/stage_check.py --headed     # ブラウザを見ながら
 
     # 出演者用を iPad（Safari と同じ WebKit・横向き・タッチ）で開いて通す。初回だけ WebKit を入れる
@@ -50,6 +51,7 @@ from suzuleague.controller import GameController
 from suzuleague.engine import GameEngine, GameError, State
 from suzuleague.models import Team
 from suzuleague.protocol import REVEAL_SECONDS
+from suzuleague.questions import QuestionSet
 from suzuleague.publish import DEFAULT_SERVER_DIR
 from suzuleague.stage import SCRATCH_PROJECT_ID
 
@@ -260,7 +262,10 @@ class Run:
         self.report = Report()
         self.reopen = not args.no_reopen
         teams = [Team(number=n, name=f"チーム{n}") for n in range(1, 2 if args.quick else 4)]
-        self.engine = GameEngine(teams=teams, initial_balloons=INITIAL_BALLOONS)
+        # リハーサルでは、問題文の絵が「R1-1」などのリハーサル用になる
+        question_set = QuestionSet.rehearsal() if args.rehearsal else QuestionSet()
+        self.costume_prefix = "R" if args.rehearsal else ""
+        self.engine = GameEngine(teams=teams, question_set=question_set, initial_balloons=INITIAL_BALLOONS)
         self.received: list[int] = []
         self.bridge = CloudBridge(args.room_id, cloud_host=f"ws://localhost:{port}", on_answer=self._on_answer)
         self.controller = GameController(self.engine, self.bridge)
@@ -299,8 +304,9 @@ class Run:
                     question = page.shown(snap, "問題") + page.shown(snap, "問題数")
                     self.report.check(not question, f"{where}: 問題文と問題番号が隠れる（ゲームオーバー・クリアの演出）")
                     continue
-                question = page.shown(snap, "問題", f"{team}-{round_no}")
-                self.report.check(bool(question), f"{where}: 問題文が {team}-{round_no}", str([p["costume"] for p in page.shown(snap, "問題")]))
+                costume = f"{self.costume_prefix}{team}-{round_no}"
+                question = page.shown(snap, "問題", costume)
+                self.report.check(bool(question), f"{where}: 問題文が {costume}", str([p["costume"] for p in page.shown(snap, "問題")]))
                 number = page.shown(snap, "問題数", str(round_no))
                 self.report.check(bool(number), f"{where}: 問題番号が {round_no}", str([p["costume"] for p in page.shown(snap, "問題数")]))
                 tag = [p for p in page.shown(snap, "UI") if p["role"] == "7"]
@@ -365,13 +371,14 @@ class Run:
         title = f"チーム{team.number}"
         print(f"\n== {title} ==")
         self.check_common(f"{title} チーム紹介")
-        for round_no in range(1, 6):
+        last = self.engine.rounds_per_team
+        for round_no in range(1, last + 1):
             q_title = f"{title} {round_no}問目"
             self.controller.advance()  # 出題
             started = time.monotonic()
             if round_no == 1:
                 # 1問目も、登場の効果音を待たずに問題文が出る（#59。元は約8秒かかった）
-                shown = _wait_until(lambda: bool(self.view.shown(self.view.snapshot(), "問題", f"{team.number}-1")), 6)
+                shown = _wait_until(lambda: bool(self.view.shown(self.view.snapshot(), "問題", f"{self.costume_prefix}{team.number}-1")), 6)
                 self.report.check(shown and time.monotonic() - started < 4, f"{q_title}: 問題文がすぐ出る", f"{time.monotonic() - started:.1f}秒")
             time.sleep(2.5)
             self.check_common(f"{q_title} 出題")
@@ -410,7 +417,7 @@ class Run:
                 )
             self.advance(2.0)  # ラウンド結果
             self.check_common(f"{q_title} ラウンド結果", revealed=True)
-            if round_no == 5:
+            if round_no == last:
                 self.compare_after_reopen(f"{q_title} ラウンド結果", lambda page, snap, result=result: self.check_end_texts_on(page, snap, result))
         self.advance(2.0)  # チーム結果
         self.compare_after_reopen(f"{title} チーム結果")
@@ -503,13 +510,15 @@ class Run:
         print("== 待機 ==")
         self.advance()  # チーム1の紹介
         teams = len(self.engine.teams)
+        last = self.engine.rounds_per_team
+
         def near(correct: int) -> int:
             return correct + 1 if correct < 100 else correct - 1
 
         plans: list[Callable[[int, int], int]] = [
-            lambda round_no, correct: correct if round_no == 5 else near(correct),  # 1ずれ×4・最後はぴったり → クリア
+            lambda round_no, correct: correct if round_no == last else near(correct),  # 1ずれ×4・最後はぴったり → クリア
             lambda round_no, correct: (0 if correct >= 50 else 100) if round_no == 2 else near(correct),  # 2問目でゲームオーバー
-            lambda round_no, correct: correct if round_no == 5 else near(correct),  # チーム1と同じ → 同点優勝
+            lambda round_no, correct: correct if round_no == last else near(correct),  # チーム1と同じ → 同点優勝
         ]
         for i in range(teams):
             if i:
@@ -537,6 +546,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--server-dir", type=Path, default=DEFAULT_SERVER_DIR, help="cloud-server のクローン先")
     parser.add_argument("--room-id", default=SCRATCH_PROJECT_ID, help="書き出したときのルームID")
     parser.add_argument("--quick", action="store_true", help="1チームだけ通す")
+    parser.add_argument("--rehearsal", action="store_true", help="リハーサル（架空の問題・各チーム2問）で通す")
     parser.add_argument("--no-reopen", action="store_true", help="開き直しの確かめを省く")
     parser.add_argument("--headed", action="store_true", help="ブラウザを見えるように開く")
     parser.add_argument("--ipad", action="store_true", help="WebKit で開き、出演者用を iPad（横向き・タッチ）にする")

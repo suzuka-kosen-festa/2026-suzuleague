@@ -14,7 +14,7 @@ import pytest
 from suzuleague import protocol
 from suzuleague.audience import build
 from suzuleague.models import Question
-from suzuleague.questions import QuestionSet
+from suzuleague.questions import PRODUCTION_QUESTIONS, REHEARSAL_IDS, REHEARSAL_QUESTIONS, SPARE_QUESTIONS, QuestionSet
 
 
 @pytest.fixture
@@ -47,9 +47,10 @@ class TestBuild:
         m = re.search(r"var QUESTIONS = (\{.*?\n\});", html, re.DOTALL)
         assert m, "問題テーブルが見つからない"
         table = json.loads(m.group(1))
-        assert len(table) == 20
+        assert len(table) == 20 + len(REHEARSAL_QUESTIONS)
+        rehearsal = {str(q.id): q.text for q in REHEARSAL_QUESTIONS}
         for key, value in table.items():
-            assert value == f"{marker}{key}"
+            assert value == rehearsal.get(key, f"{marker}{key}")
             assert "73" not in value
 
     def test_audience_never_writes_s2p(self, html):
@@ -81,7 +82,29 @@ class TestBuild:
 class TestQuestionSetExport:
     def test_audience_json_has_no_answers(self):
         data = json.loads(QuestionSet().export_audience_json())
-        assert len(data) == 20
+        assert len(data) == 20 + len(REHEARSAL_QUESTIONS)
         for qid, text in data.items():
             assert isinstance(text, str)
             assert int(qid) >= 1
+
+
+class TestRehearsal:
+    """リハーサルも同じ観客ページで行う。"""
+
+    def test_rehearsal_texts_are_embedded(self, html):
+        for q in REHEARSAL_QUESTIONS:
+            assert q.text in html
+            assert f'"{q.correct}"' not in html
+
+    def test_rehearsal_id_range_is_embedded(self, html):
+        assert "__REHEARSAL_IDS__" not in html
+        assert f"var REHEARSAL_IDS = [{REHEARSAL_IDS.start}, {REHEARSAL_IDS.stop}];" in html
+
+    def test_rehearsal_ids_are_accepted_by_the_ranking(self):
+        """観客ランキング（cloud-server）は「最後に答えた問題」の ID を 100 までしか受け付けない。"""
+        assert all(q.id in REHEARSAL_IDS for q in REHEARSAL_QUESTIONS)
+        assert REHEARSAL_IDS.stop - 1 <= 100
+
+    def test_rehearsal_ids_do_not_collide(self):
+        others = {q.id for q in (*PRODUCTION_QUESTIONS, *SPARE_QUESTIONS)}
+        assert not others & set(REHEARSAL_IDS)

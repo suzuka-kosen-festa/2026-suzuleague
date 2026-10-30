@@ -3,16 +3,16 @@
 # Jetson には Tailscale 経由の SSH（~/.ssh/config の Host jetson-ts。接続先は common.sh の JETSON_HOST）で入り、Jetson 上の app.sh を呼ぶ。
 #
 #   jetson.sh status             → running / stopped / busy / not-setup（まだ送っていない）/ unreachable（SSH が届かない）
-#   jetson.sh mode               → 起動中のモード（demo / production）。止まっていれば none
+#   jetson.sh mode               → 起動中のモード（demo / rehearsal / production）。止まっていれば none
 #   jetson.sh setup              → コード・チーム構成・合言葉を送り、uv と依存を入れる（初回とコードを直したとき）
-#   jetson.sh resume-info demo|production → app.sh と同じ（Jetson に残っている進行の続き）
-#   jetson.sh start demo|production [resume] → setup してから Jetson で起動する
+#   jetson.sh resume-info demo|rehearsal|production → app.sh と同じ（Jetson に残っている進行の続き）
+#   jetson.sh start demo|rehearsal|production [resume] → setup してから Jetson で起動する
 #   jetson.sh stop               → Jetson のダッシュボードを終了させる
-#   jetson.sh pull-save demo|production → Jetson の進行の保存を、この Mac に持ってくる（Mac に移すとき）
-#   jetson.sh push-save demo|production → この Mac の進行の保存を、Jetson に送る（Jetson に移すとき）
+#   jetson.sh pull-save demo|rehearsal|production → Jetson の進行の保存を、この Mac に持ってくる（Mac に移すとき）
+#   jetson.sh push-save demo|rehearsal|production → この Mac の進行の保存を、Jetson に送る（Jetson に移すとき）
 #   jetson.sh tunnel             → Jetson の予備の司会者画面を、この Mac の http://localhost:8001/host で開けるようにする
 #   jetson.sh untunnel           → tunnel を閉じる
-#   jetson.sh mirror [demo|production] → Jetson の進行の保存を、3秒ごとにこの Mac の launcher/run/ へ写し続ける（裏で動く）
+#   jetson.sh mirror [demo|rehearsal|production] → Jetson の進行の保存を、3秒ごとにこの Mac の launcher/run/ へ写し続ける（裏で動く）
 #   jetson.sh unmirror           → mirror を止める
 #
 # Mac と Jetson で同時に動かすと進行がぶつかるので、移すときは必ず片方を止めてから保存を移し、もう片方で「続きから」起動する。
@@ -53,8 +53,8 @@ unreachable_msg() {
 # モードの保存ファイル名（launcher/run からの相対）
 save_name() {
   case "${1:-}" in
-    demo | production) echo "game-$1.json" ;;
-    *) fail "使い方: jetson.sh ${2:-pull-save} demo|production" ;;
+    demo | rehearsal | production) echo "game-$1.json" ;;
+    *) fail "使い方: jetson.sh ${2:-pull-save} demo|rehearsal|production" ;;
   esac
 }
 

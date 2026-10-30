@@ -4,7 +4,7 @@ import pytest
 
 from suzuleague.engine import GameEngine, GameError, State
 from suzuleague.models import Question, Team
-from suzuleague.questions import QuestionSet
+from suzuleague.questions import PRODUCTION_QUESTIONS, REHEARSAL_QUESTIONS, QuestionSet
 
 
 def make_questions(corrects: list[int]) -> QuestionSet:
@@ -321,3 +321,36 @@ class TestTeamSetup:
         assert teams[0].balloons == 100
         engine.advance()
         assert engine.current_team.name == "A"
+
+
+class TestRehearsal:
+    """リハーサルは架空の問題で、各チーム2問だけ行う（本番の問題を見せない）。"""
+
+    def test_two_rounds_per_team_then_team_result(self):
+        engine = GameEngine(question_set=QuestionSet.rehearsal())
+        engine.advance()  # チーム1登場
+        engine.advance()  # 1問目
+        play_round(engine, 50)
+        engine.advance()  # 2問目
+        assert engine.snapshot().round_no == 2
+        play_round(engine, 50)
+        engine.advance()
+        assert engine.state is State.TEAM_RESULT
+        assert engine.snapshot().scores[0] == engine.teams[0].balloons  # 全問を終えたので全体結果に出る
+
+    def test_only_rehearsal_questions_are_asked(self):
+        engine = GameEngine(question_set=QuestionSet.rehearsal())
+        asked = set()
+        while engine.state is not State.FINISHED:
+            if engine.state in (State.ANSWERING, State.EXHIBITION_ANSWERING):
+                engine.submit_answer(50)
+            engine.advance()
+            if engine.current_question:
+                asked.add(engine.current_question.id)
+        assert asked == {q.id for q in REHEARSAL_QUESTIONS}
+        assert not asked & {q.id for q in PRODUCTION_QUESTIONS}
+
+    def test_production_is_not_rehearsal(self):
+        assert GameEngine().rounds_per_team == 5
+        assert not GameEngine().question_set.is_rehearsal
+        assert GameEngine(question_set=QuestionSet.rehearsal()).question_set.is_rehearsal

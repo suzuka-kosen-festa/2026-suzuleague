@@ -13,6 +13,7 @@ from suzuleague.dashboard import Dashboard, setup_save
 from suzuleague.engine import GameEngine, State
 from suzuleague.host import TeamCodes, build_host_state
 from suzuleague.models import Team
+from suzuleague.questions import QuestionSet
 
 
 def fixed_codes(engine: GameEngine, seed: int = 0) -> TeamCodes:
@@ -255,3 +256,26 @@ class TestSetupSave:
         dashboard = Dashboard(GameEngine(), None)
         setup_save(dashboard, tmp_path / "game.json", True)
         assert dashboard.engine.state is State.IDLE
+
+
+class TestRehearsal:
+    def test_round_trip(self):
+        engine = GameEngine(question_set=QuestionSet.rehearsal())
+        while engine.state is not State.TEAM_RESULT:
+            step(engine, lambda: 30)
+        data = json.loads(json.dumps(engine.export_state()))
+        other = GameEngine(question_set=QuestionSet.rehearsal())
+        other.restore_state(data)
+        assert other.snapshot() == engine.snapshot()
+        # リハーサルの保存は本番の問題では読めない（取り違えて本番を始めない）
+        with pytest.raises(ValueError):
+            GameEngine().restore_state(data)
+
+    def test_describe_command(self, tmp_path, capsys):
+        engine = GameEngine(question_set=QuestionSet.rehearsal())
+        for _ in range(3):
+            engine.advance()
+        path = tmp_path / "game.json"
+        savefile.save(path, engine, fixed_codes(engine))
+        assert savefile.main(["--describe", str(path), "--rehearsal"]) == 0
+        assert capsys.readouterr().out.startswith("チーム1 チーム1・1問目・回答受付")

@@ -6,6 +6,7 @@ PCのスリープや「終了する」の押し間違いで最初に戻らない
     uv run suzuleague --save-file launcher/run/game-demo.json            # 最初から（前回分は .prev に残す）
     uv run suzuleague --save-file launcher/run/game-demo.json --resume   # 続きから
     uv run python -m suzuleague.savefile --describe launcher/run/game-demo.json --teams docs/demo/teams-demo.json
+    uv run python -m suzuleague.savefile --describe launcher/run/game-rehearsal.json --teams teams.json --rehearsal
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from typing import Any
 from .engine import GameEngine, State
 from .host import TeamCodes
 from .labels import STATE_LABELS
+from .questions import QuestionSet
 from .teams import resolve_teams
 
 SAVE_VERSION = 1
@@ -103,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="保存された進行の中身を確かめる")
     parser.add_argument("--describe", type=Path, required=True, help="保存ファイル")
     parser.add_argument("--teams", default=None, help="チーム構成JSON（起動時と同じもの）")
+    parser.add_argument("--rehearsal", action="store_true", help="リハーサルの進行（起動時と同じもの）")
     args = parser.parse_args(argv)
 
     # 出力は launcher/app.sh が読む: none / invalid:<理由> / 続きの説明
@@ -110,7 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         print("none")
         return 0
     try:
-        engine = GameEngine(teams=resolve_teams(args.teams))
+        question_set = QuestionSet.rehearsal() if args.rehearsal else QuestionSet()
+        engine = GameEngine(teams=resolve_teams(args.teams), question_set=question_set)
         codes = TeamCodes([t.number for t in engine.teams])
         data = load(args.describe)
         restore(data, engine, codes)

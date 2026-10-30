@@ -35,7 +35,6 @@ from .controller import GameController
 from .engine import GameEngine, GameError, State
 from .labels import STATE_LABELS, team_status_label
 from .models import RoundResult, Team
-from .questions import ROUNDS_PER_TEAM
 
 ENV_HOST_TOKEN = "SUZULEAGUE_HOST_TOKEN"
 HOST_PAGE_PATH = Path(__file__).parent / "host.html"
@@ -112,7 +111,7 @@ def next_action_label(engine: GameEngine) -> str | None:
         return "ラウンド結果を出す"
     if state is State.ROUND_RESULT:
         round_no = engine.snapshot().round_no
-        if round_no >= ROUNDS_PER_TEAM:
+        if round_no >= engine.rounds_per_team:
             return "チーム結果を出す"
         return f"{round_no + 1}問目を出題する"
     if state is State.TEAM_RESULT:
@@ -130,7 +129,7 @@ def _team_summary(engine: GameEngine) -> list[dict[str, Any]]:
             "name": t.name,
             "balloons": t.balloons,
             "finished_rounds": t.finished_rounds,
-            "status": team_status_label(t),
+            "status": team_status_label(t, engine.rounds_per_team),
         }
         for t in engine.teams
     ]
@@ -181,7 +180,7 @@ def build_player_state(engine: GameEngine, *, hold_reveal: bool = False) -> dict
         "state_label": STATE_LABELS[engine.state],
         "team": _team_info(engine.current_team),
         "round": engine.snapshot().round_no,
-        "rounds_per_team": ROUNDS_PER_TEAM,
+        "rounds_per_team": engine.rounds_per_team,
         "question": (
             {"id": question.id, "text": question.text}
             if question and _shows_question(engine)
@@ -218,7 +217,7 @@ def _hide_reveal(state: dict[str, Any], engine: GameEngine) -> None:
     state["result"] = None
     state["team"] = _team_info(before)
     state["teams"] = [
-        {**entry, "balloons": before.balloons, "finished_rounds": before.finished_rounds, "status": team_status_label(before)}
+        {**entry, "balloons": before.balloons, "finished_rounds": before.finished_rounds, "status": team_status_label(before, engine.rounds_per_team)}
         if entry["number"] == team.number
         else entry
         for entry in state["teams"]
@@ -250,7 +249,8 @@ def build_host_state(
         "exhibition": engine.state is State.EXHIBITION_ANSWERING,
         "team": _team_info(team),
         "round": engine.snapshot().round_no,
-        "rounds_per_team": ROUNDS_PER_TEAM,
+        "rounds_per_team": engine.rounds_per_team,
+        "rehearsal": engine.question_set.is_rehearsal,
         "question": (
             {
                 "id": question.id,

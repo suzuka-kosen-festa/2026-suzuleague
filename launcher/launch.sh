@@ -22,7 +22,7 @@ pause_and_exit() {
 cd "$REPO_DIR" || pause_and_exit
 
 if ! select_teams "${1:-}"; then
-  echo "使い方: launch.sh demo|production"
+  echo "使い方: launch.sh demo|rehearsal|production"
   pause_and_exit
 fi
 

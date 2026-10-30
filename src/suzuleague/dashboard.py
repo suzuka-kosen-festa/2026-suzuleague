@@ -43,7 +43,7 @@ from .host import (
 )
 from .labels import NEXT_HINTS, STATE_LABELS, team_status_label
 from .protocol import ACK_ANIMATION_DONE, REVEAL_SECONDS
-from .questions import ROUNDS_PER_TEAM
+from .questions import QuestionSet
 from .teams import ENV_TEAMS, resolve_teams
 
 HELP_TEXT = """\
@@ -144,7 +144,7 @@ class Dashboard:
             )
         lines.append(f"[dim]▶ {NEXT_HINTS[snap.state]}[/]")
         conn = "オンライン" if self.bridge else "[yellow]オフライン[/]"
-        self.console.print(Panel("\n".join(lines), title=f"スズリーグ ({conn})"))
+        self.console.print(Panel("\n".join(lines), title=f"スズリーグ{'【リハーサル】' if engine.question_set.is_rehearsal else ''} ({conn})"))
 
     def print_teams(self) -> None:
         table = Table(title="チーム一覧")
@@ -155,14 +155,14 @@ class Dashboard:
         table.add_column("状態")
         colors = {"ゲームオーバー": "red", "クリア": "green"}
         for team in self.engine.teams:
-            status = team_status_label(team)
+            status = team_status_label(team, self.engine.rounds_per_team)
             if status in colors:
                 status = f"[{colors[status]}]{status}[/]"
             table.add_row(
                 str(team.number),
                 team.name,
                 str(team.balloons),
-                f"{team.finished_rounds}/{ROUNDS_PER_TEAM}",
+                f"{team.finished_rounds}/{self.engine.rounds_per_team}",
                 status,
             )
         self.console.print(table)
@@ -309,6 +309,11 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--rehearsal",
+        action="store_true",
+        help="リハーサル用の架空の問題で、各チーム2問だけ行う（本番の問題を出演者に見せないため）",
+    )
+    parser.add_argument(
         "--perfect-bonus",
         type=int,
         default=0,
@@ -323,7 +328,8 @@ def main() -> None:
     except ValueError as e:
         parser.error(str(e))
 
-    engine = GameEngine(teams=teams, perfect_bonus=args.perfect_bonus)
+    question_set = QuestionSet.rehearsal() if args.rehearsal else QuestionSet()
+    engine = GameEngine(teams=teams, question_set=question_set, perfect_bonus=args.perfect_bonus)
     bridge = None
     holder: list[Dashboard] = []  # cloud の受信コールバックからダッシュボードを参照する
     if not args.offline:

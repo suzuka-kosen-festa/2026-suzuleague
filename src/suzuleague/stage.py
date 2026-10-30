@@ -25,6 +25,9 @@ Scratch担当が絵や演出を直しても、作り直せばそのまま取り�
     # 本番で配信中のものが、今の Scratch プロジェクトから作ったものと同じか確かめる
     uv run python -m suzuleague.stage --check
 
+    # 書き出してある画面に、リハーサル用の問題文だけを足す（Scratch の新しい版を取り込まずに済ませる）
+    uv run python -m suzuleague.stage --add-rehearsal
+
 HTML への書き出しは TurboWarp Packager（tools/stage-packager）で行う。
 """
 
@@ -47,6 +50,7 @@ from typing import Any
 
 from . import stage_result
 from .publish import DEFAULT_SERVER_DIR, PRODUCTION_URL
+from .questions import REHEARSAL_IDS
 from .sb3 import (
     Block,
     Menu,
@@ -215,6 +219,7 @@ def transform(
     _add_rebuild_helpers(project, notes)
     _keep_keypad_on_first_question(project, notes)
     _show_first_question_with_start_sound(project, notes)
+    _add_rehearsal_questions(project)
     stage_result.add_result_screen(project, team_names)
     _put_team_names(project, team_names or {}, notes)
     if variant == "view":
@@ -250,6 +255,36 @@ def _put_team_names(project: dict[str, Any], team_names: dict[int, str], notes: 
             "rotationCenterX": tag.center[0],
             "rotationCenterY": tag.center[1],
         }
+
+
+def _add_rehearsal_questions(project: dict[str, Any]) -> None:
+    """リハーサルの ID（questions.REHEARSAL_IDS）が届いたら、問題文の絵をリハーサル用にする。
+
+    リハーサルでも本番と同じ画面を開くので、本番の問題文を出演者や周りに見せないために要る。
+    スプライト「問題」で絵を切り替えるブロックのすぐ下で、リハーサルなら「R1-1」などに切り替え直す。
+    同じスクリプトの中で続けて切り替えるので、本番の問題文が画面に出るすきはない。
+    """
+    target = find_target(project, "問題")
+    s = Scripts(project, "問題")
+    switches = [i for i, b in blocks_of(target).items() if b["opcode"] == "looks_switchcostumeto"]
+    for costume in stage_result.rehearsal_questions():
+        target["costumes"].append(
+            {
+                "name": costume.name,
+                "bitmapResolution": 1,
+                "dataFormat": "svg",
+                "assetId": costume.md5ext.removesuffix(".svg"),
+                "md5ext": costume.md5ext,
+                "rotationCenterX": costume.center[0],
+                "rotationCenterY": costume.center[1],
+            }
+        )
+    rehearsal = both(gt(Var(QID), REHEARSAL_IDS.start - 1), lt(Var(QID), REHEARSAL_IDS.stop))
+    for block_id in switches:
+        s.insert_after(
+            block_id,
+            when(rehearsal, Block("looks_switchcostumeto", {"COSTUME": join("R", join(Var(TEAM), join("-", Var(ROUND))))})),
+        )
 
 
 def team_names_from(teams: list[Any]) -> dict[int, str]:
@@ -999,6 +1034,32 @@ def build(
     print(f"→ {server_dir} で差分を確認してコミットし、master に入れると Render がデプロイします")
 
 
+def add_rehearsal(server_dir: Path) -> None:
+    """書き出してある画面（public/stage/）に、リハーサル用の問題文の絵と切り替えだけを足す。
+
+    2026-10-30、本番の2日前に足した。配信中の画面は Scratch の 10/18 の版から作ったもので、
+    Scratch 側は 10/25 にも更新されているが、本番の直前に取り込むと確かめきれない。
+    書き出した画面は assets/project.json と絵を開いたときに読むので、そこだけを書き換える。
+    """
+    for variant, label in VARIANTS.items():
+        out_dir = server_dir / "public" / "stage" / variant
+        project_file = out_dir / "assets" / "project.json"
+        project = json.loads(project_file.read_text(encoding="utf-8"))
+        if any(c["name"].startswith("R") for c in find_target(project, "問題")["costumes"]):
+            print(f"  {label}: すでに足してあります")
+            continue
+        _add_rehearsal_questions(project)
+        project_file.write_text(json.dumps(project, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        for costume in stage_result.rehearsal_questions():
+            (out_dir / "assets" / costume.md5ext).write_bytes(costume.data)
+        version_file = out_dir / "version.json"
+        version = json.loads(version_file.read_text(encoding="utf-8"))
+        version |= {"digest": digest(project), "rehearsal": "added"}
+        version_file.write_text(json.dumps(version, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"  → public/stage/{variant}/ にリハーサル用の問題文を足しました")
+    print(f"→ {server_dir} で差分を確認してコミットし、master に入れると Render がデプロイします")
+
+
 def check(
     base_url: str, room_id: str, project_id: str = SCRATCH_PROJECT_ID, team_names: dict[int, str] | None = None
 ) -> list[str]:
@@ -1030,6 +1091,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--room-id", default=SCRATCH_PROJECT_ID, help="接続先のルームID（観客ページと同じもの）")
     parser.add_argument("--server-dir", type=Path, default=DEFAULT_SERVER_DIR, help="cloud-server のクローン先")
     parser.add_argument("--check", action="store_true", help="書き出さずに、本番で配信中の画面と照合する")
+    parser.add_argument(
+        "--add-rehearsal", action="store_true", help="書き出してある画面に、リハーサル用の問題文だけを足す"
+    )
     parser.add_argument("--url", default=PRODUCTION_URL, help="--check で照合する先")
     parser.add_argument(
         "--teams",
@@ -1039,6 +1103,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.add_rehearsal:
+        add_rehearsal(args.server_dir)
+        return 0
     try:
         team_names = team_names_from(load_teams(args.teams)) if args.teams.exists() else {}
         print(f"チーム名: {'・'.join(team_names.values()) if team_names else '（入れない。「チームN」のまま）'}")

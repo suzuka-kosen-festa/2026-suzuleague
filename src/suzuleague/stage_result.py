@@ -46,6 +46,8 @@ from .sb3 import (
     when_else,
 )
 
+from .questions import TEAM_COUNT, QuestionSet
+
 SPRITE = "結果発表"
 SHOW_MESSAGE = "結果_出す"
 SCORES_LIST = "得点表"
@@ -217,6 +219,30 @@ def _gold_frame() -> Costume:
     return _costume("金枠", CARD_W, CARD_H, body)
 
 
+QUESTION_W, QUESTION_H = 470, 36
+
+
+def rehearsal_question(team: int, round_no: int, text: str) -> Costume:
+    """リハーサル用の問題文（スプライト「問題」のコスチューム）。元の問題文の絵と同じく、白い字に黒い縁で書く。"""
+    size = _fitting_size(text, 24, QUESTION_W - 16)
+    attrs = f'x="{QUESTION_W / 2}" y="{QUESTION_H / 2 + size * 0.36:.1f}" text-anchor="middle" font-size="{size}" {JP}'
+    body = (
+        f'<text {attrs} fill="#000000" stroke="#000000" stroke-width="6" stroke-linejoin="round">{escape(text)}</text>'
+        f'<text {attrs} fill="#ffffff">{escape(text)}</text>'
+    )
+    return _costume(f"R{team}-{round_no}", QUESTION_W, QUESTION_H, body)
+
+
+def rehearsal_questions() -> list[Costume]:
+    """リハーサル用の問題文の絵。名前は元の絵（「チーム番号-何問目」）の頭に R を付けたもの。"""
+    qs = QuestionSet.rehearsal()
+    return [
+        rehearsal_question(team, round_no, q.text)
+        for team in range(1, TEAM_COUNT + 1)
+        for round_no, q in enumerate(qs.for_team(team), start=1)
+    ]
+
+
 def costumes(team_names: dict[int, str] | None = None) -> list[Costume]:
     names = team_names or {}
     return [
@@ -231,8 +257,12 @@ def costumes(team_names: dict[int, str] | None = None) -> list[Costume]:
 
 
 def assets(team_names: dict[int, str] | None = None) -> dict[str, bytes]:
-    """この画面のために足す素材（sb3 の中でのファイル名 → 中身）。チームの札も含む。"""
-    added = [*costumes(team_names), *(team_tag(team, name) for team, name in (team_names or {}).items())]
+    """この画面のために足す素材（sb3 の中でのファイル名 → 中身）。チームの札とリハーサル用の問題文も含む。"""
+    added = [
+        *costumes(team_names),
+        *(team_tag(team, name) for team, name in (team_names or {}).items()),
+        *rehearsal_questions(),
+    ]
     return {c.md5ext: c.data for c in added}
 
 

@@ -3,13 +3,13 @@
 # ダッシュボードはターミナルを開かずに裏で動かし、ログは launcher/run/dashboard.log に残す。
 #
 #   app.sh status             → running（このアプリで起動中）/ busy（ポートが他で使用中）/ stopped
-#   app.sh mode               → 起動中のモード（demo / production）。止まっていれば none
+#   app.sh mode               → 起動中のモード（demo / rehearsal / production）。止まっていれば none
 #   app.sh host-age           → どこかの裏方PCが状態を預けてからの秒数 / none / unknown（二重起動の確認）
 #   app.sh check-token        → ok / missing / wrong / unset / unknown:<HTTPコード>（Render を起こしてから確かめる）
 #   app.sh save-token         ← 標準入力の合言葉を保存する
 #   app.sh check-pages        → 本番の画面（ステージ画面も）が最新でなければ終了コード1
-#   app.sh resume-info demo|production → none / invalid:<理由> / 前回の続きの説明
-#   app.sh start demo|production [resume] → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
+#   app.sh resume-info demo|rehearsal|production → none / invalid:<理由> / 前回の続きの説明
+#   app.sh start demo|rehearsal|production [resume] → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
 #   app.sh stop               → 終了させる
 #
 # Jetson でもこのファイルをそのまま使う（Mac の jetson.sh が SSH 越しに呼ぶ）。
@@ -86,13 +86,13 @@ case "${1:-}" in
     ;;
 
   resume-info)
-    select_teams "${2:-}" || fail "使い方: app.sh resume-info demo|production"
+    select_teams "${2:-}" || fail "使い方: app.sh resume-info demo|rehearsal|production"
     [ -f "$TEAMS" ] || { echo none; exit 0; }
     resume_info
     ;;
 
   start)
-    select_teams "${2:-}" || fail "使い方: app.sh start demo|production [resume]"
+    select_teams "${2:-}" || fail "使い方: app.sh start demo|rehearsal|production [resume]"
     [ -f "$TEAMS" ] || fail "チーム構成 $TEAMS がありません。teams.example.json を元に作ってください。"
     command -v uv >/dev/null 2>&1 || fail "uv が見つかりません。https://docs.astral.sh/uv/ からインストールしてください。"
     running_pid >/dev/null && fail "すでに起動しています。"

@@ -45,12 +45,7 @@ on main(sh, jsh)
 		set runner to sh
 	end if
 
-	set modeChoice to button returned of (display dialog "どちらで起動しますか？" buttons {"キャンセル", "本番", "デモ（1チーム5問）"} default button "デモ（1チーム5問）" cancel button "キャンセル" with title appTitle)
-	if modeChoice is "本番" then
-		set mode to "production"
-	else
-		set mode to "demo"
-	end if
+	set mode to askMode()
 	set resumeArg to askResume(runner, mode)
 
 	set progress total steps to 3
@@ -84,6 +79,18 @@ on main(sh, jsh)
 	end if
 	display dialog placeName(onJetson) & "で" & startedMsg & return & return & "司会のスマホ: " & phoneHostURL & return & "このPC: ブラウザで開いた司会者画面" & return & return & "終えるときや移すときは、このアプリをもう一度開いてください。" buttons {"OK"} default button "OK" with title appTitle
 end main
+
+-- どのモードで起動するか聞く（ボタンは3つまでしか並べられないので一覧から選ぶ）。
+-- リハーサルは本番のチームで、架空の問題を各チーム2問だけ出す（本番の問題を出演者に見せないため）
+on askMode()
+	set modeNames to {"本番", "リハーサル（架空の問題・各チーム2問）", "デモ（1チーム5問）"}
+	set picked to choose from list modeNames with prompt "どのモードで起動しますか？" & return & "出演者がいるリハーサルでは、本番を選ばないでください（本番の問題が見えてしまいます）。" default items {"デモ（1チーム5問）"} OK button name "起動" cancel button name "キャンセル" with title appTitle
+	if picked is false then error number -128
+	set modeChoice to item 1 of picked
+	if modeChoice is "本番" then return "production"
+	if modeChoice starts with "リハーサル" then return "rehearsal"
+	return "demo"
+end askMode
 
 -- どこで動かすか聞く。Jetson なら true を返す
 on askPlace(jetState)
@@ -209,7 +216,7 @@ end askWhileJetsonRunning
 on moveToMac(sh, jsh)
 	display dialog "Jetson を止めて、このMacで続きから動かします。" & return & return & "移し終えるまでの数十秒は、司会者画面の操作が効きません。" buttons {"キャンセル", "移す"} default button "移す" cancel button "キャンセル" with icon caution with title appTitle
 	set mode to do shell script jsh & " mode"
-	if mode is "none" then error "Jetson で動いているのがデモか本番かわかりませんでした。Jetson を終了してから、このMacで起動し直してください。"
+	if mode is "none" then error "Jetson で動いているのが本番・リハーサル・デモのどれかわかりませんでした。Jetson を終了してから、このMacで起動し直してください。"
 	set progress description to "Jetson を止めて、進行の保存を持ってきています…"
 	do shell script jsh & " stop"
 	do shell script jsh & " untunnel"
@@ -228,7 +235,7 @@ on moveToJetson(sh, jsh)
 	if jetState is "running" or jetState is "busy" then error "Jetson でもダッシュボードが動いています。先に Jetson のほうを止めてください。"
 	display dialog "このMacを止めて、Jetson で続きから動かします。" & return & return & "移し終えるまでの数十秒は、司会者画面の操作が効きません。" buttons {"キャンセル", "移す"} default button "移す" cancel button "キャンセル" with icon caution with title appTitle
 	set mode to do shell script sh & " mode"
-	if mode is "none" then error "このMacで動いているのがデモか本番かわかりませんでした。このMacを終了してから、Jetson で起動し直してください。"
+	if mode is "none" then error "このMacで動いているのが本番・リハーサル・デモのどれかわかりませんでした。このMacを終了してから、Jetson で起動し直してください。"
 	-- 止める前にコードを送っておき、操作が効かない時間を短くする
 	set progress description to "Jetson にコードを送っています（初回は数分かかります）…"
 	do shell script jsh & " setup"

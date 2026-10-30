@@ -23,13 +23,20 @@ JETSON_DIR="${SUZULEAGUE_JETSON_DIR:-suzuleague}"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 # 引数のモードからチーム構成と進行の保存先を決める。知らないモードなら 1 を返す
-# （デモと本番で保存先を分け、デモの続きで本番を始めてしまわないようにする）
+# （モードごとに保存先を分け、デモやリハーサルの続きで本番を始めてしまわないようにする）。
+# リハーサルは本番のチームで、架空の問題を各チーム2問だけ出す（本番の問題を出演者に見せないため）
 select_teams() {
   SAVE_FILE="$RUN_DIR/game-$1.json"
+  REHEARSAL=""
   case "$1" in
     demo)
       TEAMS="docs/demo/teams-demo.json"
       LABEL="デモ（1チーム5問）"
+      ;;
+    rehearsal)
+      TEAMS="teams.json"
+      LABEL="リハーサル（架空の問題・各チーム2問）"
+      REHEARSAL="--rehearsal"
       ;;
     production)
       TEAMS="teams.json"
@@ -120,7 +127,7 @@ check_pages() {
 
 # 前回の進行の続きを1行で返す: none / invalid:<理由> / 続きの説明（select_teams の後に呼ぶ）
 resume_info() {
-  uv run python -m suzuleague.savefile --describe "$SAVE_FILE" --teams "$TEAMS"
+  uv run python -m suzuleague.savefile --describe "$SAVE_FILE" --teams "$TEAMS" $REHEARSAL
 }
 
 # ダッシュボードの起動コマンドを DASHBOARD_CMD に入れる（select_teams の後に呼ぶ）。
@@ -134,6 +141,9 @@ set_dashboard_cmd() {
     --web --web-port "$WEB_PORT"
     --save-file "$SAVE_FILE"
   )
+  if [ -n "$REHEARSAL" ]; then
+    DASHBOARD_CMD+=("$REHEARSAL")
+  fi
   if [ "${1:-}" = resume ]; then
     DASHBOARD_CMD+=(--resume)
   fi

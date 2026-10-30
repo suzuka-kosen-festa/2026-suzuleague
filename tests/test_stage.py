@@ -14,6 +14,7 @@ from typing import ClassVar
 import pytest
 
 from suzuleague import stage, stage_result
+from suzuleague.questions import REHEARSAL_ROUNDS_PER_TEAM
 
 
 def _hat(message_id: str, message: str, next_id: str | None = None) -> dict:
@@ -148,7 +149,15 @@ def make_project() -> dict:
     show_target = _sprite("演出", show) | {"sounds": [{"name": "start", "rate": 22050, "sampleCount": 182364, "md5ext": "s.wav"}]}
 
     flag = {"opcode": "event_whenflagclicked", "next": None, "parent": None, "inputs": {}, "fields": {}, "shadow": False, "topLevel": True}
-    targets = [stage_target, show_target, _sprite("通信", old), _sprite("問題"), _sprite("GameOver", game_over), cleared]
+    # 問題: 出題_開始 で、問題文の絵を「チーム番号-何問目」に切り替える
+    question = {
+        "q-hat": _hat(msg_id["出題_開始"], "出題_開始", "q-look"),
+        "q-look": _block("looks_switchcostumeto", "q-hat", next_id="q-show", inputs={"COSTUME": [1, "q-menu"]}),
+        "q-menu": _block("looks_costume", "q-look", fields={"COSTUME": ["1-1", None]}, shadow=True),
+        "q-show": _block("looks_show", "q-look"),
+    }
+    question_target = _sprite("問題", question) | {"costumes": [{"name": "1-1", "md5ext": "q.png"}]}
+    targets = [stage_target, show_target, _sprite("通信", old), question_target, _sprite("GameOver", game_over), cleared]
     targets += [_sprite(name, {"flag": dict(flag)}) for name in stage.INPUT_SPRITES]
     return {"targets": targets, "monitors": [], "extensions": [], "meta": {"semver": "3.0.0"}}
 
@@ -313,7 +322,7 @@ class TestResultScreen:
         sprite = stage.find_target(made, stage_result.SPRITE)
         bundled = stage_result.assets()
         assert sprite["visible"] is False
-        assert {c["md5ext"] for c in sprite["costumes"]} == set(bundled)
+        assert {c["md5ext"] for c in sprite["costumes"]} <= set(bundled)
         names = [c["name"] for c in sprite["costumes"]]
         assert len(names) == len(set(names))
         for needed in ("背景", "カード1", "カード5", "数0", "数9", "順位1", "ゲームオーバー", "優勝", "金枠"):
@@ -376,7 +385,7 @@ class TestBuildSb3:
             assert archive.read("bbb.wav") == b"original:bbb.wav"
             for md5ext, data in stage_result.assets().items():
                 assert archive.read(md5ext) == data
-        original = {"aaa.svg", "bbb.wav", "c.svg", "s.wav"}  # c.svg・s.wav は make_project のスプライトの素材
+        original = {"aaa.svg", "bbb.wav", "c.svg", "s.wav", "q.png"}  # c.svg・s.wav・q.png は make_project のスプライトの素材
         assert sorted(fetched) == sorted(original)  # 足した素材は取りに行かない
         assert names == {"project.json", *original, *stage_result.assets()}
 
@@ -838,3 +847,41 @@ class TestTeamIntroIsOptional:
         assert "1_チーム紹介" not in source["targets"][0]["broadcasts"].values()
         made, _ = stage.transform(source, variant)
         assert "1_チーム紹介" in broadcasts_in(made, "通信")  # 古い版のために送るのは続ける
+
+
+class TestRehearsalQuestions:
+    """リハーサルの ID が届いたら、問題文の絵をリハーサル用にする（本番の問題を見せない）。"""
+
+    def test_costumes_are_added_and_bundled(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        costumes = {c["name"]: c for c in stage.find_target(made, "問題")["costumes"]}
+        bundled = stage_result.assets()
+        assert "1-1" in costumes  # 本番の絵はそのまま
+        for team in range(1, 5):
+            for round_no in range(1, REHEARSAL_ROUNDS_PER_TEAM + 1):
+                assert costumes[f"R{team}-{round_no}"]["md5ext"] in bundled
+
+    def test_every_switch_is_followed_by_the_rehearsal_switch(self, variant):
+        made, _ = stage.transform(make_project(), variant)
+        target = stage.find_target(made, "問題")
+        blocks = target["blocks"]
+        guards = [b for b in blocks.values() if b["opcode"] == "control_if"]
+        guarded = {b["inputs"]["SUBSTACK"][1] for b in guards}
+        switches = [i for i, b in blocks.items() if b["opcode"] == "looks_switchcostumeto" and i not in guarded]
+        assert len(switches) == 2  # 元の 出題_開始 と、作り直しの 途中復帰_出題UI同期
+        for block_id in switches:
+            after = blocks[blocks[block_id]["next"]]
+            assert after["opcode"] == "control_if"
+            inner = blocks[after["inputs"]["SUBSTACK"][1]]
+            assert inner["opcode"] == "looks_switchcostumeto"
+            name = blocks[inner["inputs"]["COSTUME"][1]]
+            assert name["opcode"] == "operator_join" and name["inputs"]["STRING1"][1][1] == "R"
+        # 元のスクリプトの続き（表示する）はそのまま
+        assert blocks[blocks["q-look"]["next"]]["next"] == "q-show"
+
+    def test_costumes_are_valid_svg(self):
+        from xml.etree import ElementTree
+
+        for costume in stage_result.rehearsal_questions():
+            root = ElementTree.fromstring(costume.svg)
+            assert root.tag.endswith("svg"), costume.name

@@ -26,18 +26,18 @@ NEXT_HINTS = {
     State.ANSWERING: "回答を受けてから next で正解発表",
     State.EXHIBITION_ANSWERING: "回答を受けてから next で正解発表",
     State.REVEAL: "next でラウンド結果へ",
-    State.ROUND_RESULT: "next で次の問題（5問目終了後はチーム結果）へ",
+    State.ROUND_RESULT: "next で次の問題（最後の問題の後はチーム結果）へ",
     State.TEAM_RESULT: "next で次のチーム（最終チーム後は全体結果）へ",
     State.FINISHED: "ゲーム終了",
 }
 
 
-def team_status_label(team: Team) -> str:
+def team_status_label(team: Team, rounds_per_team: int = ROUNDS_PER_TEAM) -> str:
     """チームの挑戦状況（司会者画面の「全チームの状況」とCLIの teams で共通）。"""
     if team.finished_rounds == 0:
         return "未挑戦"
     if team.is_failed:
         return "ゲームオーバー"
-    if team.finished_rounds < ROUNDS_PER_TEAM:
+    if team.finished_rounds < rounds_per_team:
         return "挑戦中"
     return "クリア"

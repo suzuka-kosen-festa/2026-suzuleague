@@ -13,7 +13,7 @@ from enum import IntEnum
 from typing import Any
 
 from .models import Question, RoundResult, Team
-from .questions import ROUNDS_PER_TEAM, QuestionSet
+from .questions import QuestionSet
 
 
 class State(IntEnum):
@@ -45,7 +45,7 @@ class Snapshot:
     correct: int  # 正解% (正解発表からチーム結果まで有効、それ以外は-1)
     balloons: int  # 現在チームのバルーン残数
     answer: int = -1  # 出演者の回答% (届いていなければ-1。出題のたびに-1に戻る)
-    scores: tuple[int, ...] = ()  # チームごとの残りバルーン（チーム番号順。5問を終えていないチームは-1）
+    scores: tuple[int, ...] = ()  # チームごとの残りバルーン（チーム番号順。全問を終えていないチームは-1）
     failed_round: int = 0  # 現在チームがゲームオーバーになった問題 (1-5。なっていなければ0)
 
 
@@ -95,6 +95,11 @@ class GameEngine:
         return self.question_set.for_team(team.number)[self._round_no - 1]
 
     @property
+    def rounds_per_team(self) -> int:
+        """1チームの問題数（本番は5。リハーサルは2）。"""
+        return self.question_set.rounds_per_team
+
+    @property
     def last_result(self) -> RoundResult | None:
         return self._last_result
 
@@ -129,7 +134,7 @@ class GameEngine:
             balloons=team.balloons if team else 0,
             answer=-1 if answer is None else answer,
             scores=tuple(
-                t.balloons if t.finished_rounds >= ROUNDS_PER_TEAM else -1
+                t.balloons if t.finished_rounds >= self.rounds_per_team else -1
                 for t in sorted(self.teams, key=lambda t: t.number)
             ),
             failed_round=team.failed_round if team else 0,
@@ -232,7 +237,7 @@ class GameEngine:
         self.state = State.ROUND_RESULT
 
     def _from_round_result(self) -> None:
-        if self._round_no >= ROUNDS_PER_TEAM:
+        if self._round_no >= self.rounds_per_team:
             self.state = State.TEAM_RESULT
         else:
             self._round_no += 1
@@ -287,7 +292,7 @@ class GameEngine:
             raise ValueError("チーム構成が保存時と違います（teams.json を確かめてください）")
         if not -1 <= team_idx < len(self.teams):
             raise ValueError(f"チームの位置が正しくありません: {team_idx}")
-        if not 0 <= round_no <= ROUNDS_PER_TEAM:
+        if not 0 <= round_no <= self.rounds_per_team:
             raise ValueError(f"問題の番号が正しくありません: {round_no}")
         if pending is not None and not (isinstance(pending, int) and 0 <= pending <= 100):
             raise ValueError(f"届いていた回答が正しくありません: {pending!r}")
@@ -300,7 +305,7 @@ class GameEngine:
                 balloons = int(saved["balloons"])
             except (KeyError, TypeError, ValueError) as e:
                 raise ValueError(f"チーム{team.number}の結果を読めません（{e}）") from e
-            if len(results) > ROUNDS_PER_TEAM:
+            if len(results) > self.rounds_per_team:
                 raise ValueError(f"チーム{team.number}の結果が多すぎます")
             for i, r in enumerate(results):
                 if r.round_no != i + 1 or r.question_id != questions[i].id:

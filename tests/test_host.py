@@ -510,3 +510,25 @@ class TestPlayerAnswer:
             self.controller, {"type": "answer", "value": 1, "source": "player"}, None
         )
         assert result["ok"] is False
+
+
+class TestRehearsal:
+    def test_host_state_tells_it_is_a_rehearsal(self):
+        engine = GameEngine(question_set=QuestionSet.rehearsal())
+        advance_to(engine, State.QUESTION)
+        state = build_host_state(engine)
+        assert state["rehearsal"] is True
+        assert state["rounds_per_team"] == 2
+        assert state["question"]["id"] == 91
+        assert build_player_state(engine)["rounds_per_team"] == 2
+
+    def test_team_result_comes_after_the_second_question(self):
+        engine = GameEngine(question_set=QuestionSet.rehearsal())
+        advance_to(engine, State.ROUND_RESULT)
+        assert next_action_label(engine) == "2問目を出題する"
+        engine.advance()
+        advance_to(engine, State.ROUND_RESULT)
+        assert next_action_label(engine) == "チーム結果を出す"
+
+    def test_production_is_not_a_rehearsal(self):
+        assert build_host_state(make_engine())["rehearsal"] is False

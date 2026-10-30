@@ -77,27 +77,55 @@ SPARE_QUESTIONS: list[Question] = [
     Question(110, "SNSのサブスクリプションを1つ以上登録している人は何パーセント？", 63, SURVEY_2),
 ]
 
+# リハーサル用。リハーサルで本番の問題を見せると出演者や周りに知られてしまうので、架空の問題を出す。
+# 本番より短く、各チーム2問。数字はアンケートの結果ではなく、それらしく決めたもの。
+# ID はこの範囲だけを使う。ステージ画面はこの範囲の ID が届くと、問題文の絵をリハーサル用に替える（stage.py）。
+# 観客ランキングは ID を「最後に答えた問題」として受け取り、100 までしか受け付けないので、100 より小さくする
+REHEARSAL_ROUNDS_PER_TEAM = 2
+REHEARSAL_IDS = range(91, 100)
+REHEARSAL_SOURCE = "リハーサル用（数字は架空）"
+REHEARSAL_QUESTIONS: list[Question] = [
+    Question(91, "朝ごはんを毎日食べる人の割合は？", 62, REHEARSAL_SOURCE),
+    Question(92, "自転車で通学している人の割合は？", 35, REHEARSAL_SOURCE),
+    Question(93, "犬より猫が好きな人の割合は？", 48, REHEARSAL_SOURCE),
+    Question(94, "休日は昼まで寝ている人の割合は？", 41, REHEARSAL_SOURCE),
+    Question(95, "辛い食べ物が苦手な人の割合は？", 29, REHEARSAL_SOURCE),
+    Question(96, "毎日湯船につかる人の割合は？", 57, REHEARSAL_SOURCE),
+    Question(97, "夏より冬が好きな人の割合は？", 46, REHEARSAL_SOURCE),
+    Question(98, "カラオケによく行く人の割合は？", 23, REHEARSAL_SOURCE),
+]
+
+
 class QuestionSet:
     """チーム×ラウンドへの問題割り当てを管理する。"""
 
-    def __init__(self, questions: list[Question] | None = None) -> None:
+    def __init__(self, questions: list[Question] | None = None, rounds_per_team: int = ROUNDS_PER_TEAM) -> None:
         self.questions = questions if questions is not None else PRODUCTION_QUESTIONS
-        need = TEAM_COUNT * ROUNDS_PER_TEAM
+        self.rounds_per_team = rounds_per_team
+        need = TEAM_COUNT * rounds_per_team
         if len(self.questions) < need:
             raise ValueError(f"問題数が不足: {len(self.questions)} < {need}")
         self._by_id = {q.id: q for q in self.questions}
         if len(self._by_id) != len(self.questions):
             raise ValueError("問題IDが重複しています")
 
+    @classmethod
+    def rehearsal(cls) -> QuestionSet:
+        return cls(REHEARSAL_QUESTIONS, REHEARSAL_ROUNDS_PER_TEAM)
+
+    @property
+    def is_rehearsal(self) -> bool:
+        return all(q.id in REHEARSAL_IDS for q in self.questions)
+
     def by_id(self, question_id: int) -> Question:
         return self._by_id[question_id]
 
     def for_team(self, team_no: int) -> list[Question]:
-        """チーム番号(1始まり)に割り当てられた5問を返す。"""
+        """チーム番号(1始まり)に割り当てられた問題（本番は5問）を返す。"""
         if not 1 <= team_no <= TEAM_COUNT:
             raise ValueError(f"チーム番号は1-{TEAM_COUNT}: {team_no}")
-        start = (team_no - 1) * ROUNDS_PER_TEAM
-        return self.questions[start : start + ROUNDS_PER_TEAM]
+        start = (team_no - 1) * self.rounds_per_team
+        return self.questions[start : start + self.rounds_per_team]
 
     def export_scratch_list(self) -> str:
         """Scratchのリストに貼り付けるためのテキストを生成する。
@@ -116,8 +144,10 @@ class QuestionSet:
 
         観客の画面は正解を先に知ってはいけないので、**問題文だけ**を渡す。
         正解は正解発表のタイミングで cloud 変数 P2S_CORRECT から届く。
+        リハーサルも同じページで行うので、リハーサル用の問題文も入れる。
         """
-        table = {str(q.id): q.text for q in sorted(self.questions, key=lambda q: q.id)}
+        questions = [*self.questions, *(q for q in REHEARSAL_QUESTIONS if q.id not in self._by_id)]
+        table = {str(q.id): q.text for q in sorted(questions, key=lambda q: q.id)}
         return json.dumps(table, ensure_ascii=False, indent=2)
 
 
