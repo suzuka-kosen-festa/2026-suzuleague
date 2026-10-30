@@ -261,6 +261,7 @@ class Run:
     def __init__(self, args: argparse.Namespace, browser: Any, port: int, play_device: dict[str, Any] | None = None) -> None:
         self.report = Report()
         self.reopen = not args.no_reopen
+        self.keypad_every_round = args.keypad_every_round
         teams = [Team(number=n, name=f"チーム{n}") for n in range(1, 2 if args.quick else 4)]
         # リハーサルでは、問題文の絵が「R1-1」などのリハーサル用になる
         question_set = QuestionSet.rehearsal() if args.rehearsal else QuestionSet()
@@ -307,6 +308,10 @@ class Run:
                 costume = f"{self.costume_prefix}{team}-{round_no}"
                 question = page.shown(snap, "問題", costume)
                 self.report.check(bool(question), f"{where}: 問題文が {costume}", str([p["costume"] for p in page.shown(snap, "問題")]))
+                # 予想・正解・誤差・残りの数字は「数字」のクローン（12個）が出す。チームの1問目で作られる
+                # （1問目かを問題IDで見分けていたので、リハーサルの ID では作られなかった。2026-10-30）
+                digits = sum(1 for p in snap["parts"] if p["name"] == "数字") - 1
+                self.report.check(digits >= 12, f"{where}: 数字を出す部品がそろっている", f"{digits}個")
                 number = page.shown(snap, "問題数", str(round_no))
                 self.report.check(bool(number), f"{where}: 問題番号が {round_no}", str([p["costume"] for p in page.shown(snap, "問題数")]))
                 tag = [p for p in page.shown(snap, "UI") if p["role"] == "7"]
@@ -397,7 +402,7 @@ class Run:
             question = self.engine.current_question
             assert question is not None
             answer = plan(round_no, question.correct)
-            if round_no == 1:
+            if round_no == 1 or self.keypad_every_round:
                 self.answer_with_keypad(q_title, answer)
             else:
                 self.controller.answer(answer)
@@ -548,6 +553,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quick", action="store_true", help="1チームだけ通す")
     parser.add_argument("--rehearsal", action="store_true", help="リハーサル（架空の問題・各チーム2問）で通す")
     parser.add_argument("--no-reopen", action="store_true", help="開き直しの確かめを省く")
+    parser.add_argument("--keypad-every-round", action="store_true", help="どの問題もテンキーで答える（ふだんは1問目だけ）")
     parser.add_argument("--headed", action="store_true", help="ブラウザを見えるように開く")
     parser.add_argument("--ipad", action="store_true", help="WebKit で開き、出演者用を iPad（横向き・タッチ）にする")
     args = parser.parse_args(argv)

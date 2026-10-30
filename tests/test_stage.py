@@ -912,3 +912,34 @@ class TestCheckFrozen:
         self.serve(monkeypatch, project, room="other")
         frozen = {v: stage.digest(project) for v in stage.VARIANTS}
         assert all("ルームID" in p for p in stage.check_frozen("https://x", "room", frozen))
+
+
+class TestFirstQuestionByRound:
+    """「数字」がチームの1問目かを、問題IDでなく問題の番号で見分ける（リハーサルの ID でも数字が出る）。"""
+
+    def project_with_digits(self) -> dict:
+        project = make_project()
+        qid = next(k for k, v in project["targets"][0]["variables"].items() if v[0] == "☁ P2S_QID")
+        team = next(k for k, v in project["targets"][0]["variables"].items() if v[0] == "☁ P2S_TEAM")
+        blocks = {
+            "eq": _block("operator_equals", None, top=True, inputs={"OPERAND1": [3, "sub", [10, ""]], "OPERAND2": [1, [10, "1"]]}),
+            "sub": _block("operator_subtract", "eq", inputs={"NUM1": [3, [12, "☁ P2S_QID", qid], [4, ""]], "NUM2": [3, "mul", [4, ""]]}),
+            "mul": _block("operator_multiply", "sub", inputs={"NUM1": [3, "sub2", [4, ""]], "NUM2": [1, [4, "5"]]}),
+            "sub2": _block("operator_subtract", "mul", inputs={"NUM1": [3, [12, "☁ P2S_TEAM", team], [4, ""]], "NUM2": [1, [4, "1"]]}),
+        }
+        project["targets"].append(_sprite("数字", blocks))
+        return project
+
+    def test_compares_the_round_number(self, variant):
+        made, _ = stage.transform(self.project_with_digits(), variant)
+        blocks = stage.find_target(made, "数字")["blocks"]
+        assert not {"sub", "mul", "sub2"} & set(blocks)  # 問題IDの計算は消える
+        assert blocks["eq"]["inputs"]["OPERAND1"][1][1] == "☁ P2S_ROUND"
+
+    def test_patch_is_idempotent(self):
+        project = self.project_with_digits()
+        assert stage._first_question_by_round(project) is True
+        assert stage._first_question_by_round(project) is False
+
+    def test_without_the_sprite(self):
+        assert stage._first_question_by_round(make_project()) is False

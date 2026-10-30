@@ -220,6 +220,7 @@ def transform(
     _keep_keypad_on_first_question(project, notes)
     _show_first_question_with_start_sound(project, notes)
     _add_rehearsal_questions(project)
+    _first_question_by_round(project)
     stage_result.add_result_screen(project, team_names)
     _put_team_names(project, team_names or {}, notes)
     if variant == "view":
@@ -285,6 +286,49 @@ def _add_rehearsal_questions(project: dict[str, Any]) -> None:
             block_id,
             when(rehearsal, Block("looks_switchcostumeto", {"COSTUME": join("R", join(Var(TEAM), join("-", Var(ROUND))))})),
         )
+
+
+def _first_question_by_round(project: dict[str, Any]) -> bool:
+    """「チームの1問目か」を、問題の番号（☁ P2S_ROUND）で見分けるようにする。直したら True を返す。
+
+    スプライト「数字」は、各チームの1問目の 出題_開始 で、予想・正解・誤差・残りを出すクローンを作り、
+    予想% を空にする。1問目かどうかを「問題ID − (チーム番号 − 1) × 5 = 1」で見分けているので、
+    本番の通し番号（1〜20）でしか成り立たない。リハーサルの ID（91〜98）では作られず、
+    大画面に数字が出ず、前のチームの予想が残ってテンキーで入力できなかった（2026-10-30）。
+    本番では「問題の番号 = 1」と同じ意味なので、そう書き換える。
+    """
+    target = _optional_target(project, "数字")
+    if target is None:
+        return False
+    blocks = blocks_of(target)
+    round_var = [3, [12, *Scripts(project, "数字").variable(ROUND)], [10, ""]]
+    changed = False
+    for block in blocks.values():
+        if block["opcode"] != "operator_equals":
+            continue
+        operand = block["inputs"].get("OPERAND1", [None, None])[1]
+        inner = blocks.get(operand) if isinstance(operand, str) else None
+        if inner is None or inner["opcode"] != "operator_subtract" or QID not in json.dumps(inner["inputs"], ensure_ascii=False):
+            continue
+        for block_id in _subtree(target, operand):
+            del target["blocks"][block_id]
+        block["inputs"]["OPERAND1"] = copy.deepcopy(round_var)
+        changed = True
+    return changed
+
+
+def _subtree(target: dict[str, Any], top_id: str) -> list[str]:
+    """ブロックと、その入力に入っているブロックすべて（次につながるブロックは含まない）。"""
+    blocks = blocks_of(target)
+    found, stack = [], [top_id]
+    while stack:
+        block_id = stack.pop()
+        found.append(block_id)
+        for value in blocks[block_id]["inputs"].values():
+            for inner in value[1:]:
+                if isinstance(inner, str) and inner in blocks:
+                    stack.append(inner)
+    return found
 
 
 def team_names_from(teams: list[Any]) -> dict[int, str]:
@@ -1037,6 +1081,8 @@ def build(
 def add_rehearsal(server_dir: Path) -> None:
     """書き出してある画面（public/stage/）に、リハーサル用の問題文の絵と切り替えだけを足す。
 
+    あわせて、1問目かどうかを問題IDでなく問題の番号で見分けるようにする（_first_question_by_round）。
+
     2026-10-30、本番の2日前に足した。配信中の画面は Scratch の 10/18 の版から作ったもので、
     Scratch 側は 10/25 にも更新されているが、本番の直前に取り込むと確かめきれない。
     書き出した画面は assets/project.json と絵を開いたときに読むので、そこだけを書き換える。
@@ -1045,10 +1091,12 @@ def add_rehearsal(server_dir: Path) -> None:
         out_dir = server_dir / "public" / "stage" / variant
         project_file = out_dir / "assets" / "project.json"
         project = json.loads(project_file.read_text(encoding="utf-8"))
-        if any(c["name"].startswith("R") for c in find_target(project, "問題")["costumes"]):
+        added = any(c["name"].startswith("R") for c in find_target(project, "問題")["costumes"])
+        if not added:
+            _add_rehearsal_questions(project)
+        if not _first_question_by_round(project) and added:
             print(f"  {label}: すでに足してあります")
             continue
-        _add_rehearsal_questions(project)
         project_file.write_text(json.dumps(project, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         for costume in stage_result.rehearsal_questions():
             (out_dir / "assets" / costume.md5ext).write_bytes(costume.data)
@@ -1056,18 +1104,18 @@ def add_rehearsal(server_dir: Path) -> None:
         version = json.loads(version_file.read_text(encoding="utf-8"))
         version |= {"digest": digest(project), "rehearsal": "added"}
         version_file.write_text(json.dumps(version, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(f"  → public/stage/{variant}/ にリハーサル用の問題文を足しました")
+        print(f"  → public/stage/{variant}/ をリハーサルに対応させました")
     print(f"→ {server_dir} で差分を確認してコミットし、master に入れると Render がデプロイします")
 
 
 # 本番（11/1）は、この中身の画面で行うと決めた（2026-10-30）。Scratch の 10/18 の版から作り、
-# add_rehearsal() でリハーサル用の問題文を足したもの。Scratch 側は 10/25 にも更新されているが、
+# add_rehearsal() でリハーサル用の問題文を足し、1問目の見分け方を直したもの。Scratch 側は 10/25 にも更新されているが、
 # 直前に取り込むと確かめきれないので、本番が終わるまで取り込まない。
 # これがあるあいだ --check は Scratch を見ず、配信中の画面がこの中身のままかだけを確かめる。
 # Scratch の新しい版を取り込むときは None に戻す
 FROZEN_STAGE: dict[str, str] | None = {
-    "view": "730d8d31591c23366b90ef2b30d4bc4ef18c6f63ebefc9aecf2d51477972efdf",
-    "play": "b646cb13e6c66a51f363da9888d1b0e491fc77ec6a7a31eccd0e149983467641",
+    "view": "8aca3d35ac65a98bcb6c00480eeec4490425151e0b54e262e15fe3bf562eb94d",
+    "play": "3e4be3d530b29f3e9fcae9b60f9b73a966acecfb7887df4339ac1b558d66902f",
 }
 
 
