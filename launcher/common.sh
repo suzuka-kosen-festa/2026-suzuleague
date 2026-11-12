@@ -8,6 +8,9 @@ LAUNCHER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$LAUNCHER_DIR")"
 SETTINGS="${SUZULEAGUE_LAUNCH_SETTINGS:-$LAUNCHER_DIR/settings.env}"
 RUN_DIR="${SUZULEAGUE_LAUNCH_RUN_DIR:-$LAUNCHER_DIR/run}"
+# 部門対抗モードの合言葉（カードに印刷する）。launcher/run と違って Jetson にも送るので、Mac で作っておく。
+# 公開リポジトリなので Git には入れない
+CODES_FILE="${SUZULEAGUE_LAUNCH_CODES:-$LAUNCHER_DIR/furikaeri-codes.json}"
 
 CLOUD_HOST="wss://suzuleague-cloud.onrender.com"
 SERVER_URL="https://suzuleague-cloud.onrender.com"
@@ -28,7 +31,20 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:
 select_teams() {
   SAVE_FILE="$RUN_DIR/game-$1.json"
   REHEARSAL=""
+  BATTLE=""
   case "$1" in
+    # 振り返り会（2026-12-03）の部門対抗モード。全部門が同じ問題に同時に答える（docs/furikaeri/）
+    furikaeri)
+      TEAMS="teams-furikaeri.json"
+      LABEL="振り返り会（部門対抗・6問）"
+      BATTLE="--battle"
+      ;;
+    furikaeri-rehearsal)
+      TEAMS="teams-furikaeri.json"
+      LABEL="振り返り会のリハーサル（架空の問題・2問）"
+      BATTLE="--battle"
+      REHEARSAL="--rehearsal"
+      ;;
     demo)
       TEAMS="docs/demo/teams-demo.json"
       LABEL="デモ（1チーム5問）"
@@ -127,7 +143,7 @@ check_pages() {
 
 # 前回の進行の続きを1行で返す: none / invalid:<理由> / 続きの説明（select_teams の後に呼ぶ）
 resume_info() {
-  uv run python -m suzuleague.savefile --describe "$SAVE_FILE" --teams "$TEAMS" $REHEARSAL
+  uv run python -m suzuleague.savefile --describe "$SAVE_FILE" --teams "$TEAMS" $REHEARSAL $BATTLE
 }
 
 # ダッシュボードの起動コマンドを DASHBOARD_CMD に入れる（select_teams の後に呼ぶ）。
@@ -143,6 +159,9 @@ set_dashboard_cmd() {
   )
   if [ -n "$REHEARSAL" ]; then
     DASHBOARD_CMD+=("$REHEARSAL")
+  fi
+  if [ -n "$BATTLE" ]; then
+    DASHBOARD_CMD+=("$BATTLE" --codes-file "$CODES_FILE")
   fi
   if [ "${1:-}" = resume ]; then
     DASHBOARD_CMD+=(--resume)

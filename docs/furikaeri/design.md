@@ -10,7 +10,7 @@
 |---|---|---|
 | 答える順 | 4チームが1チームずつ5問 | 最大10部門が同じ6問に同時に |
 | 1問の流れ | 出題 → 回答 → 正解発表 | 出題 → 回答 → **予想オープン** → 正解発表 → 途中順位 |
-| 回答の入力 | ステージの iPad（Scratch のテンキー） | 部門ごとのスマホ（回答ページ `player.html`。合言葉は部門ごと） |
+| 回答の入力 | ステージの iPad（Scratch のテンキー） | 部門ごとのスマホ（部門の回答ページ `furikaeri.html`。合言葉は部門ごと） |
 | 大画面 | Scratch から作ったステージ画面（`/stage/view/`） | 新しく作る大画面ページ（`/board.html`） |
 | 全員への配信 | クラウド変数 | 公開用の状態（`GET /api/player/state`）を1秒ごとに読む |
 | 観客ページ | 使う | 使わない |
@@ -27,7 +27,7 @@ flowchart LR
     end
     subgraph render["Render（cloud-server）"]
         mail[("郵便受け<br>/api/host/*<br>/api/player/*")]
-        pages["画面の配信<br>host.html / player.html / board.html"]
+        pages["画面の配信<br>furikaeri-host.html / furikaeri.html / board.html"]
     end
     host["司会のスマホ<br>司会者画面"]
     phones["各部門のスマホ（最大10台）<br>回答ページ"]
@@ -106,7 +106,9 @@ flowchart LR
 
 ### 部門ごとの合言葉
 
-合言葉は、チームごとに4桁を発行する今の `TeamCodes` を使う。ただし今の `TeamCodes` は、アプリを「最初から」で起動するたびに作り直す。部門対抗モードでは合言葉を事前にカードへ印刷するので、作り直されるとカードが使えなくなる。初回に作った合言葉を `launcher/run/furikaeri-codes.json`（Git 管理外）に書き出し、2回目からはそれを読む。作り直したいときはこのファイルを消す。
+合言葉は、チームごとに合言葉を発行する今の `TeamCodes` を使い、桁数だけ6桁にする。高専祭本番は登壇中の1チームの合言葉だけが有効だったが、今回は10部門ぶんが当日ずっと有効になるため、4桁では総当たりで当たりやすい（30回間違えると30秒止める仕組みのもとで、1時間に当たる見込みが4桁なら8割を超え、6桁なら2%ほど）。ただし今の `TeamCodes` は、アプリを「最初から」で起動するたびに作り直す。部門対抗モードでは合言葉を事前にカードへ印刷するので、作り直されるとカードが使えなくなる。初回に作った合言葉を `launcher/furikaeri-codes.json`（Git 管理外。公開リポジトリなので入れない）に書き出し、2回目からはそれを読む。作り直したいときはこのファイルを消す。
+
+置き場所を `launcher/run/` にしなかったのは、Jetson との行き来のためだ。`launcher/run/` は Jetson にコードを送るときに対象から外しているので、Mac と Jetson で別々の合言葉ができてしまう。`launcher/` に置けばコードと一緒に Jetson へ届く。ただし Jetson で先に作ると、次に Mac から送ったときに消える（送る側にないファイルは消す設定のため）。合言葉は必ず Mac で先に作っておく（11/12 に作成済み）。
 
 変えるのは cloud-server 側の照合だ。今は預かった状態の `player_code`（いま登壇中のチームの合言葉1つ）と比べているが、部門対抗モードでは `player_codes`（部門番号 → 合言葉）を預け、送られた合言葉がどの部門のものかを探す。見つかったら、その部門番号を付けて回答を郵便受けに積む。
 
@@ -142,11 +144,17 @@ flowchart LR
 
 `REVEAL` では、正解の数字を出してから約3秒かけて、各部門の残りバルーンを数え下げる。この演出の途中で司会が「次へ」を押すと、数え下げが終わらないまま途中順位に切り替わってしまう。そこで演出の長さ（4秒）だけ「次へ」を受け付けないようにする。
 
-高専祭本番の `reveal_hold` は「次へ」を止めるだけでなく、そのあいだ公開用の状態から正解を抜いていた。ステージ画面の演出より先に、観客ページで答えが分かってしまうのを防ぐためだ。部門対抗モードでは正解を出すのが大画面ページ自身なので、抜いてしまうと大画面に正解が出ない。`GameController` の待ちは「次へを止める」と「正解を隠す」に分け、部門対抗モードでは前者だけを使う。
+高専祭本番の `reveal_hold` は「次へ」を止めるだけでなく、そのあいだ公開用の状態から正解を抜いていた。ステージ画面の演出より先に、観客ページで答えが分かってしまうのを防ぐためだ。部門対抗モードでは正解を出すのが大画面ページ自身なので、抜いてしまうと大画面に正解が出ない。実装を見ると、「次へを止める」のは `GameController` で、「正解を抜く」のは高専祭本番の状態づくり（`host.build_player_state`）だった。そこで `GameController` の待ちはそのまま使い、`battle_host.py` の状態づくりでは正解を抜かないようにした。
 
 文字の大きさは、16:9 の画面で問題文が2行に収まり、後ろの席から部門名が読めることを目安にする。11/20 までに横長のブラウザで一度確かめる。
 
-### 回答ページ（player.html・改修）
+### 高専祭本番の画面には手を入れない
+
+回答ページと司会者画面は、高専祭本番の `player.html`・`host.html` を直さず、部門対抗モード用に `furikaeri.html`・`furikaeri-host.html` を新しく作った。どちらも状態の形と操作がほとんど違い、1つのページに分岐を入れると本番の画面まで壊しやすいためだ。
+
+既存の2ページには、部門対抗モードの状態（`mode` が `battle`）が届いたら新しいページへ切り替える1行だけを足した。司会がいつもの `host.html` を開いても、部門の入力係が `player.html` を開いても、正しい画面に行き着く。
+
+### 部門の回答ページ（furikaeri.html・新規）
 
 1. 合言葉を入れると `POST /api/player/check` で部門名が返り、「〇〇部門」と画面の上に出し続ける
 2. `ANSWERING` のときだけテンキーと送信ボタンが使える。送ったあとも締め切りまでは直せる
@@ -154,7 +162,7 @@ flowchart LR
 
 合言葉は端末に覚えさせ（`localStorage`）、開き直しても入れ直さなくてよいようにする。部門対抗モードかどうかは、公開用の状態の `mode` で見分ける。
 
-### 司会者画面（host.html・改修）
+### 司会者画面（furikaeri-host.html・新規）
 
 - `IDLE` のとき、部門ごとの参加・不参加のスイッチを出す
 - `ANSWERING` のとき、部門ごとの回答状況（済み・まだ）と、届いた数字を出す。数字は司会にだけ見える
@@ -191,7 +199,7 @@ flowchart LR
 
 `host.py`・`savefile.py`・`dashboard.py` はどれも `GameEngine` を前提に書かれている。ここに `if` で部門対抗モードを差し込むと、高専祭本番の分岐と混ざって読めなくなる。部門対抗モード用の状態づくりと操作の実行は `battle_host.py` に分けて置き、`host.py` の中継（`HostRelay`）からは、どちらを呼ぶかを起動時に1回決めるだけにする。
 
-`GameController` は `advance()`・`submit_answer()`・`state` しか使っていないので、`BattleEngine` も同じ名前で持たせればそのまま通る。回答だけは部門番号が要るので、`answer(value, team_no=None)` に広げる。CLI の画面表示（rich で描く一覧）は部門対抗モードでは1行の状態表示だけにする。本番はアプリから `--headless` で動かすので、凝った表示は要らない。
+`GameController` の「次へ」は `advance()` と `state` しか使っていないので、`BattleEngine` も同じ名前で持たせればそのまま通る。部門ごとの回答・参加の切り替え・締め切りは「次へ」に収まらないので、ロックの中でエンジンを操作して保存まで行う `apply()` を `GameController` に1つ足し、`battle_host.py` からはそれを使う。CLI の画面表示（rich で描く一覧）は部門対抗モードでは1行の状態表示だけにする。本番はアプリから `--headless` で動かすので、凝った表示は要らない。
 
 ## 起動
 
@@ -202,6 +210,16 @@ flowchart LR
 
 `--battle` のときはクラウド変数の接続（`CloudBridge`）を作らない。司会者画面の中継だけを動かす。今の `--offline` は中継まで止めてしまうので、それとは別のフラグにする。
 
+## 手元で通す
+
+Render を使わずに、Mac だけで全部の画面を通せる。予備の司会者画面（`--web`）が、回答ページと大画面も配り、回答の受け付けも cloud-server と同じ照合で行う。
+
+```bash
+uv run suzuleague --battle --rehearsal --offline --web --teams teams-furikaeri.json
+```
+
+`http://localhost:8000/host`（司会者画面）・`/board.html`（大画面）・`/furikaeri.html`（回答ページ）を開く。11/12 にこの形で、10部門のうち1つを不参加にして2問を最後まで通した。
+
 ## 作るものの一覧
 
 | ファイル | 種類 | 中身 |
@@ -210,14 +228,16 @@ flowchart LR
 | `src/suzuleague/battle_host.py` | 新規 | 部門対抗モードの公開用・司会用の状態、操作の実行（参加の切り替え・代理入力・締め切り）、回答の照合 |
 | `src/suzuleague/questions.py` | 追記 | `FURIKAERI_QUESTIONS`・`FURIKAERI_REHEARSAL_QUESTIONS` |
 | `src/suzuleague/engine.py` | 追記 | `State.OPEN = 9`。`labels.py` にも表示名を足す |
-| `src/suzuleague/controller.py` | 改修 | `answer(value, team_no=None)`。正解発表の待ちを「次へを止める」と「正解を隠す」に分ける |
-| `src/suzuleague/host.py` | 改修 | 中継が `battle_host.py` を呼べるようにする |
+| `src/suzuleague/battle_app.py` | 新規 | `--battle` の起動と、ターミナルの最小限の表示 |
+| `src/suzuleague/controller.py` | 追記 | `apply()`（エンジンへの操作をロックの中で行い、保存する） |
+| `src/suzuleague/host.py` | 改修 | 中継と予備の画面が、状態づくりと操作の実行を差し替えられるようにする。予備の画面（`--web`）でも回答ページと大画面を開けるようにし、cloud-server の `/api/player/*` をまねる |
 | `src/suzuleague/savefile.py` | 改修 | 部門対抗モードの保存と読み込み |
 | `src/suzuleague/dashboard.py` | 改修 | `--battle` の起動 |
 | `src/suzuleague/board.html` | 新規 | 大画面ページ |
-| `src/suzuleague/player.html` | 改修 | 合言葉の確認、部門名の表示 |
-| `src/suzuleague/host.html` | 改修 | 参加の切り替え、回答状況、部門を選ぶ代理入力 |
-| `src/suzuleague/publish.py` | 改修 | `board.html` を書き出しの対象に入れる |
+| `src/suzuleague/furikaeri.html` | 新規 | 部門の回答ページ |
+| `src/suzuleague/furikaeri-host.html` | 新規 | 部門対抗モードの司会者画面 |
+| `src/suzuleague/player.html`・`host.html` | 1行追記 | 部門対抗モードなら新しいページへ切り替える |
+| `src/suzuleague/publish.py` | 改修 | 新しい3ページを書き出しの対象に入れる |
 | `launcher/app.sh` ほか | 改修 | モードの追加 |
 | `teams-furikaeri.json` | 作成済み | 10部門の名前（11/12） |
 | cloud-server `src/hostApi.js` | 改修 | `player_codes` での照合、`POST /api/player/check` |

@@ -25,7 +25,13 @@ from pathlib import Path
 
 from . import audience
 from .cloud import DEFAULT_PROJECT_ID, resolve_project_id
-from .host import HOST_PAGE_PATH, PLAYER_PAGE_PATH
+from .host import (
+    BOARD_PAGE_PATH,
+    FURIKAERI_HOST_PAGE_PATH,
+    FURIKAERI_PAGE_PATH,
+    HOST_PAGE_PATH,
+    PLAYER_PAGE_PATH,
+)
 
 DEFAULT_SERVER_DIR = Path(__file__).resolve().parents[2].parent / "cloud-server"
 PRODUCTION_URL = "https://suzuleague-cloud.onrender.com"
@@ -37,6 +43,10 @@ def build_pages(room_id: str) -> dict[str, str]:
         "suzuleague.html": audience.build(room_id),
         "host.html": HOST_PAGE_PATH.read_text(encoding="utf-8"),
         "player.html": PLAYER_PAGE_PATH.read_text(encoding="utf-8"),
+        # 部門対抗モード（振り返り会 2026-12-03）
+        "board.html": BOARD_PAGE_PATH.read_text(encoding="utf-8"),
+        "furikaeri.html": FURIKAERI_PAGE_PATH.read_text(encoding="utf-8"),
+        "furikaeri-host.html": FURIKAERI_HOST_PAGE_PATH.read_text(encoding="utf-8"),
     }
 
 

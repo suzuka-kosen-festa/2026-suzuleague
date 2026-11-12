@@ -314,6 +314,17 @@ def main() -> None:
         help="リハーサル用の架空の問題で、各チーム2問だけ行う（本番の問題を出演者に見せないため）",
     )
     parser.add_argument(
+        "--battle",
+        action="store_true",
+        help="部門対抗モード（振り返り会）。全部門が同じ問題に同時に答える。クラウド変数にはつながない",
+    )
+    parser.add_argument(
+        "--codes-file",
+        type=Path,
+        default=None,
+        help="部門対抗モードの合言葉を残すファイル（なければ作る。既定 launcher/furikaeri-codes.json）",
+    )
+    parser.add_argument(
         "--perfect-bonus",
         type=int,
         default=0,
@@ -323,6 +334,15 @@ def main() -> None:
 
     if args.resume and args.save_file is None:
         parser.error("--resume には --save-file が必要です")
+    if args.battle:
+        from . import battle_app
+
+        if args.codes_file is None:
+            args.codes_file = battle_app.DEFAULT_CODES_FILE
+        battle_app.main(args, parser)
+        return
+    if args.codes_file is not None:
+        parser.error("--codes-file は --battle と一緒に使います")
     try:
         teams = resolve_teams(args.teams)
     except ValueError as e:

@@ -8,8 +8,8 @@
 #   app.sh check-token        → ok / missing / wrong / unset / unknown:<HTTPコード>（Render を起こしてから確かめる）
 #   app.sh save-token         ← 標準入力の合言葉を保存する
 #   app.sh check-pages        → 本番の画面（ステージ画面も）が最新でなければ終了コード1
-#   app.sh resume-info demo|rehearsal|production → none / invalid:<理由> / 前回の続きの説明
-#   app.sh start demo|rehearsal|production [resume] → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
+#   app.sh resume-info demo|rehearsal|production|furikaeri|furikaeri-rehearsal → none / invalid:<理由> / 前回の続きの説明
+#   app.sh start demo|rehearsal|production|furikaeri|furikaeri-rehearsal [resume] → 予備の司会者画面が開けるまで待つ。失敗したらログの末尾を返す
 #   app.sh stop               → 終了させる
 #
 # Jetson でもこのファイルをそのまま使う（Mac の jetson.sh が SSH 越しに呼ぶ）。
@@ -86,13 +86,13 @@ case "${1:-}" in
     ;;
 
   resume-info)
-    select_teams "${2:-}" || fail "使い方: app.sh resume-info demo|rehearsal|production"
+    select_teams "${2:-}" || fail "使い方: app.sh resume-info demo|rehearsal|production|furikaeri|furikaeri-rehearsal"
     [ -f "$TEAMS" ] || { echo none; exit 0; }
     resume_info
     ;;
 
   start)
-    select_teams "${2:-}" || fail "使い方: app.sh start demo|rehearsal|production [resume]"
+    select_teams "${2:-}" || fail "使い方: app.sh start demo|rehearsal|production|furikaeri|furikaeri-rehearsal [resume]"
     [ -f "$TEAMS" ] || fail "チーム構成 $TEAMS がありません。teams.example.json を元に作ってください。"
     command -v uv >/dev/null 2>&1 || fail "uv が見つかりません。https://docs.astral.sh/uv/ からインストールしてください。"
     running_pid >/dev/null && fail "すでに起動しています。"

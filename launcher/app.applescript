@@ -83,10 +83,12 @@ end main
 -- どのモードで起動するか聞く（ボタンは3つまでしか並べられないので一覧から選ぶ）。
 -- リハーサルは本番のチームで、架空の問題を各チーム2問だけ出す（本番の問題を出演者に見せないため）
 on askMode()
-	set modeNames to {"本番", "リハーサル（架空の問題・各チーム2問）", "デモ（1チーム5問）"}
+	set modeNames to {"振り返り会（部門対抗・6問）", "振り返り会のリハーサル（架空の問題・2問）", "本番", "リハーサル（架空の問題・各チーム2問）", "デモ（1チーム5問）"}
 	set picked to choose from list modeNames with prompt "どのモードで起動しますか？" & return & "出演者がいるリハーサルでは、本番を選ばないでください（本番の問題が見えてしまいます）。" default items {"デモ（1チーム5問）"} OK button name "起動" cancel button name "キャンセル" with title appTitle
 	if picked is false then error number -128
 	set modeChoice to item 1 of picked
+	if modeChoice starts with "振り返り会のリハーサル" then return "furikaeri-rehearsal"
+	if modeChoice starts with "振り返り会" then return "furikaeri"
 	if modeChoice is "本番" then return "production"
 	if modeChoice starts with "リハーサル" then return "rehearsal"
 	return "demo"

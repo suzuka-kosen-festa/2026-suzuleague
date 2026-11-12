@@ -20,9 +20,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .battle import BattleEngine
 from .engine import GameEngine, State
 from .host import TeamCodes
 from .labels import STATE_LABELS
+from .models import Team
 from .questions import QuestionSet
 from .teams import resolve_teams
 
@@ -61,31 +63,45 @@ def restore(data: dict[str, Any], engine: GameEngine, codes: TeamCodes) -> None:
     codes.restore(data["player_codes"])
 
 
-def check(data: dict[str, Any], engine: GameEngine) -> bool:
+def check(data: dict[str, Any], engine: GameEngine | BattleEngine) -> bool:
     """保存が今のチーム構成・問題で読めるか確かめ、続きから始める意味があるかを返す。
 
     本物のエンジンには触らない（読めなかったときに中途半端な状態を残さない）。
     """
-    probe = GameEngine(teams=copy.deepcopy(engine.teams), question_set=engine.question_set)
+    if isinstance(engine, BattleEngine):
+        probe: GameEngine | BattleEngine = BattleEngine(
+            [Team(t.number, t.name) for t in engine.teams], engine.questions, rehearsal=engine.is_rehearsal
+        )
+    else:
+        probe = GameEngine(teams=copy.deepcopy(engine.teams), question_set=engine.question_set)
     restore(data, probe, TeamCodes([t.number for t in probe.teams]))
     return is_resumable(probe)
 
 
-def is_resumable(engine: GameEngine) -> bool:
-    """続きから始める意味があるか。始まる前と終わった後は最初からでよい。"""
+def is_resumable(engine: GameEngine | BattleEngine) -> bool:
+    """続きから始める意味があるか。始まる前と終わった後は最初からでよい。
+
+    部門対抗モードは、始まる前でも不参加の部門を決めていれば続きから始められる
+    （開演前に裏方PCを起動し直しても、司会が切り替え直さずに済むように）。
+    """
+    if isinstance(engine, BattleEngine) and engine.state is State.IDLE:
+        return not all(t.active for t in engine.teams)
     return engine.state not in (State.IDLE, State.FINISHED)
 
 
-def describe(engine: GameEngine, saved_at: str) -> str:
+def describe(engine: GameEngine | BattleEngine, saved_at: str) -> str:
     """続きの中身を1行で（アプリのダイアログに出す）。"""
-    team = engine.current_team
-    assert team is not None
-    round_no = engine.snapshot().round_no
-    where = f"{round_no}問目・" if round_no else ""
     try:
         when = datetime.fromisoformat(saved_at).strftime("%m/%d %H:%M")
     except ValueError:
         when = saved_at
+    if isinstance(engine, BattleEngine):
+        where = f"{engine.round_no}問目・" if engine.round_no else ""
+        return f"部門対抗・{where}{STATE_LABELS[engine.state]}（{len(engine.active_teams)}部門。{when} に保存）"
+    team = engine.current_team
+    assert team is not None
+    round_no = engine.snapshot().round_no
+    where = f"{round_no}問目・" if round_no else ""
     return (
         f"チーム{team.number} {team.name}・{where}{STATE_LABELS[engine.state]}"
         f"（残りバルーン{team.balloons}。{when} に保存）"
@@ -106,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--describe", type=Path, required=True, help="保存ファイル")
     parser.add_argument("--teams", default=None, help="チーム構成JSON（起動時と同じもの）")
     parser.add_argument("--rehearsal", action="store_true", help="リハーサルの進行（起動時と同じもの）")
+    parser.add_argument("--battle", action="store_true", help="部門対抗モードの進行（起動時と同じもの）")
     args = parser.parse_args(argv)
 
     # 出力は launcher/app.sh が読む: none / invalid:<理由> / 続きの説明
@@ -113,8 +130,14 @@ def main(argv: list[str] | None = None) -> int:
         print("none")
         return 0
     try:
-        question_set = QuestionSet.rehearsal() if args.rehearsal else QuestionSet()
-        engine = GameEngine(teams=resolve_teams(args.teams), question_set=question_set)
+        engine: GameEngine | BattleEngine
+        if args.battle:
+            from .battle_app import make_engine
+
+            engine = make_engine(args.teams, args.rehearsal)
+        else:
+            question_set = QuestionSet.rehearsal() if args.rehearsal else QuestionSet()
+            engine = GameEngine(teams=resolve_teams(args.teams), question_set=question_set)
         codes = TeamCodes([t.number for t in engine.teams])
         data = load(args.describe)
         restore(data, engine, codes)

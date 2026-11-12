@@ -28,6 +28,7 @@ class State(IntEnum):
     TEAM_RESULT = 6  # チーム結果（クリア/ゲームオーバー）
     EXHIBITION_ANSWERING = 7  # エキシビション回答受付（採点なし）
     FINISHED = 8  # 全チーム終了・全体結果
+    OPEN = 9  # 予想オープン（部門対抗モードだけ。全部門の予想を並べる）
 
 
 class GameError(Exception):

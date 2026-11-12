@@ -16,6 +16,7 @@ STATE_LABELS = {
     State.TEAM_RESULT: "チーム結果",
     State.EXHIBITION_ANSWERING: "回答受付(エキシビション)",
     State.FINISHED: "全体結果",
+    State.OPEN: "予想オープン",
 }
 
 # 各ステートで「next」が何をするかの案内
@@ -29,6 +30,7 @@ NEXT_HINTS = {
     State.ROUND_RESULT: "next で次の問題（最後の問題の後はチーム結果）へ",
     State.TEAM_RESULT: "next で次のチーム（最終チーム後は全体結果）へ",
     State.FINISHED: "ゲーム終了",
+    State.OPEN: "next で正解発表",
 }
 
 

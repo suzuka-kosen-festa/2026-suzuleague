@@ -39,7 +39,17 @@ from .models import RoundResult, Team
 ENV_HOST_TOKEN = "SUZULEAGUE_HOST_TOKEN"
 HOST_PAGE_PATH = Path(__file__).parent / "host.html"
 PLAYER_PAGE_PATH = Path(__file__).parent / "player.html"
+BOARD_PAGE_PATH = Path(__file__).parent / "board.html"
+# 部門対抗モード（振り返り会）の回答ページと司会者画面
+FURIKAERI_PAGE_PATH = Path(__file__).parent / "furikaeri.html"
+FURIKAERI_HOST_PAGE_PATH = Path(__file__).parent / "furikaeri-host.html"
 TOKEN_HEADER = "X-Host-Token"
+
+# 司会者画面に出す状態を作る関数（直前の操作の結果, 正解発表の待ちの残り秒数）→ 状態。
+# 部門対抗モードは battle_host.py の関数を渡す
+StateBuilder = Callable[[dict[str, Any] | None, float], dict[str, Any]]
+# 届いた操作を1つ実行して結果を返す関数
+Executor = Callable[[dict[str, Any]], dict[str, Any]]
 
 ANSWERING_STATES = (State.ANSWERING, State.EXHIBITION_ANSWERING)
 REVEAL_STATES = (State.REVEAL, State.ROUND_RESULT)
@@ -67,13 +77,18 @@ class TeamCodes:
     司会者画面とCLIに出るので、予備の回答画面に切り替えたときに司会が出演者へ伝える。
     """
 
-    def __init__(self, team_numbers: list[int], randbelow: Callable[[int], int] = secrets.randbelow) -> None:
+    def __init__(
+        self,
+        team_numbers: list[int],
+        randbelow: Callable[[int], int] = secrets.randbelow,
+        digits: int = 4,  # 部門対抗モードは6桁（10部門の合言葉が当日ずっと有効なので、総当たりに強くする）
+    ) -> None:
         self._codes: dict[int, str] = {}
         used: set[str] = set()
         for number in team_numbers:
-            code = f"{randbelow(10_000):04d}"
+            code = f"{randbelow(10**digits):0{digits}d}"
             while code in used:  # 前のチームの合言葉で次のチームの回答ができないように
-                code = f"{randbelow(10_000):04d}"
+                code = f"{randbelow(10**digits):0{digits}d}"
             used.add(code)
             self._codes[number] = code
 
@@ -88,7 +103,7 @@ class TeamCodes:
         codes = {int(k): v for k, v in saved.items()}
         if set(codes) != set(self._codes):
             raise ValueError("出演者の合言葉のチームが保存時と違います")
-        if not all(isinstance(v, str) and len(v) == 4 and v.isdigit() for v in codes.values()):
+        if not all(isinstance(v, str) and 4 <= len(v) <= 6 and v.isdigit() for v in codes.values()):
             raise ValueError("出演者の合言葉の形式が正しくありません")
         self._codes = codes
 
@@ -393,9 +408,15 @@ class HostRelay:
         on_status: Callable[[bool, str], None] | None = None,
         clock: Callable[[], float] = time.monotonic,
         player_codes: TeamCodes | None = None,
+        build_state: StateBuilder | None = None,
+        execute: Executor | None = None,
     ) -> None:
         self.controller = controller
         self.player_codes = player_codes
+        self._build_state = build_state or (
+            lambda last, hold: build_host_state(controller.engine, last, player_codes, hold)
+        )
+        self._execute = execute or (lambda command: execute_command(controller, command, player_codes))
         self.transport = transport
         self.interval = interval
         self.state_interval = state_interval
@@ -421,18 +442,13 @@ class HostRelay:
             if seq <= self._last_seq:
                 continue
             self._last_seq = seq
-            result = execute_command(self.controller, command, self.player_codes)
+            result = self._execute(command)
             self._last_command = result
             if self._on_command:
                 self._on_command(command, result)
 
         with self.controller.lock:
-            state = build_host_state(
-                self.controller.engine,
-                self._last_command,
-                self.player_codes,
-                self.controller.hold_remaining(),
-            )
+            state = self._build_state(self._last_command, self.controller.hold_remaining())
         fingerprint = json.dumps(state, sort_keys=True, ensure_ascii=False)
         now = self._clock()
         if (
@@ -481,13 +497,45 @@ def serve_local(
     port: int = 8000,
     on_command: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
     player_codes: TeamCodes | None = None,
+    build_state: StateBuilder | None = None,
+    execute: Executor | None = None,
 ) -> ThreadingHTTPServer:
     """司会者画面を裏方PC上で配信する（Render に届かないときの予備）。
 
     操作はその場で実行する。合言葉は要らない（127.0.0.1 でしか待ち受けないため）。
+    回答ページ（/player.html）と大画面（/board.html）も同じように開ける。Render を通さずに
+    手元で通し試験をするためのもので、回答の受け付けは cloud-server と同じ照合をここでまねる。
     """
-    session = {"seq": 0, "last_command": None}
+    session: dict[str, Any] = {"seq": 0, "last_command": None}
     session_lock = threading.Lock()
+    build = build_state or (
+        lambda last, hold: build_host_state(controller.engine, last, player_codes, hold)
+    )
+    run = execute or (lambda command: execute_command(controller, command, player_codes))
+
+    def current_state() -> dict[str, Any]:
+        with controller.lock:
+            return build(session["last_command"], controller.hold_remaining())
+
+    def find_team(state: dict[str, Any], code: Any) -> int | None | bool:
+        """合言葉に合う部門番号。高専祭本番の形（合言葉1つ）なら True、合わなければ None。"""
+        codes = state.get("player_codes")
+        if codes:
+            for number, value in codes.items():
+                if value == code:
+                    return int(number)
+            return None
+        return True if code and code == state.get("player_code") else None
+
+    def run_command(body: dict[str, Any], source: str) -> dict[str, Any]:
+        with session_lock:
+            session["seq"] += 1
+            command = {**body, "seq": session["seq"], "source": source}
+            result = run(command)
+            session["last_command"] = result
+        if on_command:
+            on_command(command, result)
+        return {"seq": command["seq"], "result": result}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: Any) -> None:
@@ -507,22 +555,27 @@ def serve_local(
 
         def do_GET(self) -> None:
             path = self.path.split("?", 1)[0]
-            if path in ("/", "/host", "/host.html"):
-                self._send(200, "text/html; charset=utf-8", HOST_PAGE_PATH.read_bytes())
+            pages = {
+                "/": HOST_PAGE_PATH,
+                "/host": HOST_PAGE_PATH,
+                "/host.html": HOST_PAGE_PATH,
+                "/player.html": PLAYER_PAGE_PATH,
+                "/board.html": BOARD_PAGE_PATH,
+                "/furikaeri.html": FURIKAERI_PAGE_PATH,
+                "/furikaeri-host.html": FURIKAERI_HOST_PAGE_PATH,
+            }
+            if path in pages:
+                self._send(200, "text/html; charset=utf-8", pages[path].read_bytes())
             elif path == "/api/host/state":
-                with controller.lock:
-                    state = build_host_state(
-                        controller.engine,
-                        session["last_command"],
-                        player_codes,
-                        controller.hold_remaining(),
-                    )
-                self._send_json(200, {"state": state, "age": 0})
+                self._send_json(200, {"state": current_state(), "age": 0})
+            elif path == "/api/player/state":
+                self._send_json(200, {"state": current_state()["player"], "age": 0})
             else:
                 self._send_json(404, {"error": "not found"})
 
         def do_POST(self) -> None:
-            if self.path.split("?", 1)[0] != "/api/host/command":
+            path = self.path.split("?", 1)[0]
+            if path not in ("/api/host/command", "/api/player/answer", "/api/player/check"):
                 self._send_json(404, {"error": "not found"})
                 return
             try:
@@ -533,15 +586,47 @@ def serve_local(
             except ValueError:
                 self._send_json(400, {"error": "操作の形式が正しくありません"})
                 return
-            with session_lock:
-                session["seq"] += 1
+            if path == "/api/host/command":
                 # 予備の画面は司会専用。出演者の回答として扱わない
-                command = {**body, "seq": session["seq"], "source": "host"}
-                result = execute_command(controller, command)
-                session["last_command"] = result
-            if on_command:
-                on_command(command, result)
-            self._send_json(200, {"seq": command["seq"], "result": result})
+                self._send_json(200, run_command(body, "host"))
+                return
+
+            # 回答ページ（cloud-server の /api/player/* と同じ返し方をまねる）
+            state = current_state()
+            team = find_team(state, body.get("code"))
+            if team is None:
+                self._send_json(403, {"error": "合言葉が違います。司会に確認してください"})
+                return
+            if path == "/api/player/check":
+                name = next(
+                    (t["name"] for t in state.get("teams", []) if t.get("number") == team), None
+                )
+                if team is True:  # 高専祭本番の形（合言葉1つ）。部門名はない
+                    name = None
+                self._send_json(200, {"team": None if team is True else team, "name": name})
+                return
+            value = body.get("value")
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+                self._send_json(400, {"error": "回答は0〜100の整数で入力してください"})
+                return
+            player = state["player"]
+            if not player.get("accepting_answer"):
+                self._send_json(409, {"error": "いまは回答を受け付けていません"})
+                return
+            question = player.get("question") or {}
+            if body.get("question_id") != question.get("id"):
+                self._send_json(409, {"error": "問題が変わりました。画面を確認してください"})
+                return
+            command = {
+                "type": "answer",
+                "value": body.get("value"),
+                "code": body.get("code"),
+                "question_id": body.get("question_id"),
+            }
+            if team is not True:
+                command["team"] = team
+            response = run_command(command, "player")
+            self._send_json(200, {"seq": response["seq"]})
 
     server = ThreadingHTTPServer((host, port), Handler)
     threading.Thread(target=server.serve_forever, name="host-local", daemon=True).start()

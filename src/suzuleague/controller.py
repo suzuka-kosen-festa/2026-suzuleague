@@ -11,6 +11,7 @@ import math
 import threading
 import time
 from collections.abc import Callable
+from typing import Any, TypeVar
 
 from .cloud import CloudBridge
 from .engine import GameEngine, GameError, Snapshot, State
@@ -21,11 +22,13 @@ from .engine import GameEngine, GameError, Snapshot, State
 # （2026-10-12 の実機テストで発生し、手元で再現）。押し間違いで2段階進むのも防ぐ。
 MIN_ADVANCE_INTERVAL = 1.0
 
+T = TypeVar("T")
+
 
 class GameController:
     def __init__(
         self,
-        engine: GameEngine,
+        engine: GameEngine | Any,  # 部門対抗モードでは BattleEngine（advance・state が同じ名前）
         bridge: CloudBridge | None = None,
         on_push_error: Callable[[Exception], None] | None = None,
         on_change: Callable[[], None] | None = None,
@@ -96,6 +99,18 @@ class GameController:
             self.engine.submit_answer(percent)
             self._changed()
         self._push(lambda bridge, snapshot: bridge.push_answer(snapshot))
+
+    def apply(self, operation: Callable[[], T]) -> T:
+        """エンジンへの操作をロックの中で行い、変わったことを知らせる（保存・送信）。
+
+        部門対抗モードの「部門ごとの回答」「参加の切り替え」「締め切り」のように、
+        advance() と answer() に収まらない操作に使う。失敗（GameError）したら何も知らせない。
+        """
+        with self.lock:
+            result = operation()
+            self._changed()
+        self.push_state()
+        return result
 
     def _changed(self) -> None:
         if self.on_change:

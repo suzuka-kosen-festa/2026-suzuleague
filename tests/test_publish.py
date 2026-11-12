@@ -17,7 +17,9 @@ def pages() -> dict[str, str]:
 
 class TestBuildPages:
     def test_contains_all_pages(self, pages):
-        assert set(pages) == {"suzuleague.html", "host.html", "player.html"}
+        assert set(pages) == {
+            "suzuleague.html", "host.html", "player.html", "board.html", "furikaeri.html", "furikaeri-host.html"
+        }
 
     def test_audience_page_uses_given_room(self, pages):
         assert '"1364239598"' in pages["suzuleague.html"]
@@ -25,7 +27,7 @@ class TestBuildPages:
 
 class TestWritePages:
     def test_reports_only_changed_files(self, tmp_path, pages):
-        assert sorted(write_pages(pages, tmp_path)) == ["host.html", "player.html", "suzuleague.html"]
+        assert sorted(write_pages(pages, tmp_path)) == sorted(pages)
         assert write_pages(pages, tmp_path) == []
         (tmp_path / "host.html").write_text("古い画面", encoding="utf-8")
         assert write_pages(pages, tmp_path) == ["host.html"]
@@ -51,7 +53,7 @@ class TestCheckPages:
         def fetch(url):
             raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
 
-        assert len(check_pages(pages, "https://x", fetch=fetch)) == 3
+        assert len(check_pages(pages, "https://x", fetch=fetch)) == len(pages)
 
 
 class TestMain:
