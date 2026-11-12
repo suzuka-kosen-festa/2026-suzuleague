@@ -52,7 +52,7 @@
 
 ## 日程
 
-**11/12 時点：実装を前倒しで済ませ、手元で2問を通した。** 残りは Render への反映、本番の Render での通し試験、合言葉カードの印刷。合言葉は `launcher/furikaeri-codes.json` に作ってある。
+**11/12 時点：実装を前倒しで済ませ、手元で2問を通した。** 同じ日に Render へも反映した（cloud-server 3aca3c6。`publish --check` で本番の画面6件が手元と一致）。残りは本番の Render での通し試験と、合言葉カードの印刷。合言葉は `launcher/furikaeri-codes.json` に作ってある。
 
 Render へ反映するときは、**cloud-server の `src/hostApi.js` を先にデプロイし、そのあと `publish` で画面を書き出す**。順番を逆にすると次のことが起きる。古いサーバは部門ごとの合言葉を知らないので、どの部門の回答も「合言葉が違います」で弾かれる。また、司会者画面が、まだ存在しない `furikaeri-host.html` に移って開けなくなる。
 
