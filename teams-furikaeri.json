@@ -1,0 +1,52 @@
+[
+  {
+    "number": 1,
+    "name": "システム",
+    "members": []
+  },
+  {
+    "number": 2,
+    "name": "ステージイベント",
+    "members": []
+  },
+  {
+    "number": 3,
+    "name": "音響",
+    "members": []
+  },
+  {
+    "number": 4,
+    "name": "美術大工",
+    "members": []
+  },
+  {
+    "number": 5,
+    "name": "ライブ",
+    "members": []
+  },
+  {
+    "number": 6,
+    "name": "設営",
+    "members": []
+  },
+  {
+    "number": 7,
+    "name": "グッズ",
+    "members": []
+  },
+  {
+    "number": 8,
+    "name": "ゲームイベント",
+    "members": []
+  },
+  {
+    "number": 9,
+    "name": "物品バザー",
+    "members": []
+  },
+  {
+    "number": 10,
+    "name": "本部イベント",
+    "members": []
+  }
+]
