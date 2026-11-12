@@ -6,6 +6,18 @@
 司会と観客は自分のスマホ、出演者は手元の iPad のステージ画面（Scratch）で見る。**同じステージ画面を、入力なしで壇上の電子黒板にも映す**（2026-10-13〜。スタッフの Windows PC をつなぐ）。
 進行の中心は裏方PCで動く Python で、どの画面とも Render 上の cloud サーバを介してやり取りする。裏方PCはふだん Jetson Orin Nano で、Jetson が使えないときは Mac に移す（2026-10-24〜）。
 
+> **2026-11-12 時点**：高専祭本番は 11/1 に終わった（優勝はスシタベタイ）。次は **12/3 の高専祭振り返り会**で、アイスブレイクとして**部門対抗モード**を行う。最大10部門が同じ6問に同時に答え、プロジェクターの大画面に全部門の予想と残りバルーンを並べる。計画と作りは [docs/furikaeri/](docs/furikaeri/)。
+
+### 部門対抗モード（振り返り会）の画面
+
+| 画面 | URL | 使う人 |
+|---|---|---|
+| 大画面 | <https://suzuleague-cloud.onrender.com/board.html> | 会場の全員（プロジェクターに映す。入力なし） |
+| 部門の回答ページ | <https://suzuleague-cloud.onrender.com/furikaeri.html> | 各部門の入力係（6桁の合言葉が要る） |
+| 司会者画面 | <https://suzuleague-cloud.onrender.com/host.html> | 司会（部門対抗モードのときは自動で部門対抗用の画面に移る） |
+
+### 高専祭本番（1チームずつ5問）の画面
+
 ```
 司会のスマホ（司会者画面）     ─操作─┐
 ステージの端末（ステージ画面） ─回答─┼─▶ cloud サーバ（Render）◀─▶ 裏方PC（Python：進行・採点。ふだんは Jetson）
@@ -28,7 +40,8 @@
 | ドキュメント | 内容 | 対象読者 |
 |---|---|---|
 | [**しくみの図解**](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/2026-suzuleague/blob/main/docs/explainer.html) | システムの仕組みを図で説明（専門用語なし） | **全員（プログラム未経験でも読める）** |
-| [docs/status.md](docs/status.md) | 進捗状況・残タスク・未解決の論点・リスク | 全員（現状把握） |
+| [docs/status.md](docs/status.md) | 進捗状況・残タスク・高専祭本番の結果・これまでの記録 | 全員（現状把握） |
+| [docs/furikaeri/plan.md](docs/furikaeri/plan.md) / [design.md](docs/furikaeri/design.md) | 振り返り会（12/3）の部門対抗モードの計画書と設計書 | 振り返り会の準備をする人 |
 | [docs/users.md](docs/users.md) | 使う人（司会・出演者・観客など）と、それぞれが見る画面 | 全員（画面や機能を足す前に読む） |
 | [docs/demo/README.md](docs/demo/README.md) | デモ・リハーサルの段取り（端末・準備・本編・困ったとき） | デモやリハーサルをする人 |
 | [docs/scratch/README.md](docs/scratch/README.md) | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト・これまでの依頼の経緯） | Scratch担当 |
@@ -80,13 +93,17 @@ uv run suzuleague --offline --web
 | `src/suzuleague/controller.py` | 進行操作の窓口（CLI・司会者画面・Scratch・出演者の回答を直列化） |
 | `src/suzuleague/host.py` | 司会者画面・回答画面の中継（Render 経由）・出演者の合言葉・予備サーバ |
 | `src/suzuleague/host.html` / `player.html` | 司会者画面・出演者の回答画面 |
-| `src/suzuleague/publish.py` | 3画面の cloud-server への書き出しと本番との照合 |
+| `src/suzuleague/publish.py` | スマホ向けの画面と大画面（6ページ）の cloud-server への書き出しと本番との照合 |
 | `src/suzuleague/stage.py` | ステージ画面（大画面用・出演者用）を Scratch のプロジェクトから作り、書き出す・本番と照合する |
 | `src/suzuleague/stage_result.py` | ステージ画面の全体結果（残りバルーン・順位・優勝）とチーム名の札。絵も SVG でここから作る |
 | `src/suzuleague/sb3.py` | Scratch のプロジェクトのブロックを組み立てる道具（`stage.py` が使う） |
 | `tools/stage-packager/` | ステージ画面を HTML に書き出す TurboWarp Packager（Node.js。`stage.py` が呼ぶ） |
 | `tools/stage_check.py` | 書き出したステージ画面を、手元のサーバと自動操作のブラウザで通しに動かして確かめる（Playwright） |
 | `tools/system_check.py` | 全部の画面（司会者画面・観客ページ・予備の回答画面・ステージ画面）を開き、4チーム20問を通して確かめる |
+| `src/suzuleague/battle.py` | 部門対抗モードの進行・採点・順位（全部門が同じ問題に同時に答える） |
+| `src/suzuleague/battle_host.py` | 部門対抗モードの、画面に渡す状態と操作の実行・部門の合言葉 |
+| `src/suzuleague/battle_app.py` | 部門対抗モードの起動（`uv run suzuleague --battle`） |
+| `src/suzuleague/board.html` / `furikaeri.html` / `furikaeri-host.html` | 部門対抗モードの大画面・部門の回答ページ・司会者画面 |
 | `src/suzuleague/savefile.py` | 進行の保存と、裏方PCを起動し直したときの途中からの再開 |
 | `src/suzuleague/labels.py` | ステートの表示名（CLIと画面で共通） |
 | `src/suzuleague/dashboard.py` | 起動とCLIダッシュボード（中継・予備サーバも立ち上げる） |
@@ -95,7 +112,7 @@ uv run suzuleague --offline --web
 | `src/suzuleague/audience.py` | 観客ページの生成（問題文を埋め込む） |
 | `src/suzuleague/audience_template.html` | 観客ページ（自己採点・観客ランキング・全体結果） |
 | `src/suzuleague/loadtest.py` | 同時接続数・観客ランキングの一斉送信の負荷テスト（開発用） |
-| `tests/` | ユニットテスト（ネットワーク不要。258件） |
+| `tests/` | ユニットテスト（ネットワーク不要。338件） |
 | `launcher/` | ダッシュボードの起動アプリ（`スズリーグ.app`）とターミナル版（`*.command`）。`jetson.sh` は Jetson の遠隔操作 |
 | `docs/scratch/` | Scratch担当に渡すもの（ステージ画面の作り直しで頼っている名前・問題文リスト） |
 | `docs/qr/` | QRコードと印刷用ページ |
@@ -104,7 +121,7 @@ uv run suzuleague --offline --web
 
 - このリポジトリ: Python / scratchattach / uv と、スマホの画面（HTML）
 - cloud サーバ: [inouekoshi/cloud-server](https://github.com/inouekoshi/cloud-server)（TurboWarp の cloud-server のフォーク。Render で稼働。
-  デモ後にこのリポジトリへまとめる予定 → [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45)）
+  このリポジトリへまとめる案は優先度を下げて残してある → [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45)）
 - Scratch側: 別担当者が開発（本番プロジェクト [`1364239598`](https://scratch.mit.edu/projects/1364239598/)）。絵・音・演出はそのまま使い、裏方PCとやり取りする部分だけを入れ替えて Render から配る（`uv run python -m suzuleague.stage`）
 - 作業は main に直接コミットして push する（cloud-server の master への push は即本番デプロイ）
 - 連絡・相談はDiscordで随時
