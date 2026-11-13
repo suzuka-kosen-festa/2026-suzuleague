@@ -74,8 +74,15 @@ def check(data: dict[str, Any], engine: GameEngine | BattleEngine) -> bool:
         )
     else:
         probe = GameEngine(teams=copy.deepcopy(engine.teams), question_set=engine.question_set)
-    restore(data, probe, TeamCodes([t.number for t in probe.teams]))
+    restore(data, probe, codes_for(probe))
     return is_resumable(probe)
+
+
+def codes_for(engine: GameEngine | BattleEngine) -> TeamCodes:
+    """保存を読み戻すときの合言葉の入れ物。部門対抗モードには合言葉がないので空。"""
+    if isinstance(engine, BattleEngine):
+        return TeamCodes([])
+    return TeamCodes([t.number for t in engine.teams])
 
 
 def is_resumable(engine: GameEngine | BattleEngine) -> bool:
@@ -138,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             question_set = QuestionSet.rehearsal() if args.rehearsal else QuestionSet()
             engine = GameEngine(teams=resolve_teams(args.teams), question_set=question_set)
-        codes = TeamCodes([t.number for t in engine.teams])
+        codes = codes_for(engine)
         data = load(args.describe)
         restore(data, engine, codes)
     except ValueError as e:

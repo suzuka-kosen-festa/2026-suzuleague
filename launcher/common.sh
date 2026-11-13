@@ -8,9 +8,6 @@ LAUNCHER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$LAUNCHER_DIR")"
 SETTINGS="${SUZULEAGUE_LAUNCH_SETTINGS:-$LAUNCHER_DIR/settings.env}"
 RUN_DIR="${SUZULEAGUE_LAUNCH_RUN_DIR:-$LAUNCHER_DIR/run}"
-# 部門対抗モードの合言葉（カードに印刷する）。launcher/run と違って Jetson にも送るので、Mac で作っておく。
-# 公開リポジトリなので Git には入れない
-CODES_FILE="${SUZULEAGUE_LAUNCH_CODES:-$LAUNCHER_DIR/furikaeri-codes.json}"
 
 CLOUD_HOST="wss://suzuleague-cloud.onrender.com"
 SERVER_URL="https://suzuleague-cloud.onrender.com"
@@ -161,7 +158,7 @@ set_dashboard_cmd() {
     DASHBOARD_CMD+=("$REHEARSAL")
   fi
   if [ -n "$BATTLE" ]; then
-    DASHBOARD_CMD+=("$BATTLE" --codes-file "$CODES_FILE")
+    DASHBOARD_CMD+=("$BATTLE")
   fi
   if [ "${1:-}" = resume ]; then
     DASHBOARD_CMD+=(--resume)

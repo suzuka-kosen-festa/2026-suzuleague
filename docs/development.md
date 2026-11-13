@@ -103,7 +103,7 @@ Render を使わずに、Mac だけで大画面・部門の回答ページ・司
 uv run suzuleague --battle --rehearsal --offline --web --teams teams-furikaeri.json
 ```
 
-`http://localhost:8000/host`・`/board.html`・`/furikaeri.html` を開く。部門の合言葉はターミナルに出る（`launcher/furikaeri-codes.json` から読む。なければ作る）。アプリで起動するときは、モードの一覧から「振り返り会」か「振り返り会のリハーサル（架空の問題・2問）」を選ぶ。作りと注意点は [furikaeri/design.md](./furikaeri/design.md)。
+`http://localhost:8000/host`・`/board.html`・`/furikaeri.html` を開く。部門対抗モードに合言葉はなく、回答ページで部門をボタンで選ぶ。アプリで起動するときは、モードの一覧から「振り返り会」か「振り返り会のリハーサル（架空の問題・2問）」を選ぶ。作りと注意点は [furikaeri/design.md](./furikaeri/design.md)。
 
 ## ダッシュボードのコマンド
 

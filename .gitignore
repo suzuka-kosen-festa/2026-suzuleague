@@ -21,8 +21,6 @@ teams.json
 
 # 起動用ファイルが保存する合言葉
 launcher/settings.env
-# 部門対抗モード（振り返り会）の合言葉。カードに印刷する
-launcher/furikaeri-codes.json
 launcher/run/
 
 # ステージ画面の書き出しに使う TurboWarp Packager

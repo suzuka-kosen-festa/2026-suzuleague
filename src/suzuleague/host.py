@@ -77,18 +77,13 @@ class TeamCodes:
     司会者画面とCLIに出るので、予備の回答画面に切り替えたときに司会が出演者へ伝える。
     """
 
-    def __init__(
-        self,
-        team_numbers: list[int],
-        randbelow: Callable[[int], int] = secrets.randbelow,
-        digits: int = 4,  # 部門対抗モードは6桁（10部門の合言葉が当日ずっと有効なので、総当たりに強くする）
-    ) -> None:
+    def __init__(self, team_numbers: list[int], randbelow: Callable[[int], int] = secrets.randbelow) -> None:
         self._codes: dict[int, str] = {}
         used: set[str] = set()
         for number in team_numbers:
-            code = f"{randbelow(10**digits):0{digits}d}"
+            code = f"{randbelow(10_000):04d}"
             while code in used:  # 前のチームの合言葉で次のチームの回答ができないように
-                code = f"{randbelow(10**digits):0{digits}d}"
+                code = f"{randbelow(10_000):04d}"
             used.add(code)
             self._codes[number] = code
 
@@ -103,7 +98,7 @@ class TeamCodes:
         codes = {int(k): v for k, v in saved.items()}
         if set(codes) != set(self._codes):
             raise ValueError("出演者の合言葉のチームが保存時と違います")
-        if not all(isinstance(v, str) and 4 <= len(v) <= 6 and v.isdigit() for v in codes.values()):
+        if not all(isinstance(v, str) and len(v) == 4 and v.isdigit() for v in codes.values()):
             raise ValueError("出演者の合言葉の形式が正しくありません")
         self._codes = codes
 
@@ -517,15 +512,26 @@ def serve_local(
         with controller.lock:
             return build(session["last_command"], controller.hold_remaining())
 
-    def find_team(state: dict[str, Any], code: Any) -> int | None | bool:
-        """合言葉に合う部門番号。高専祭本番の形（合言葉1つ）なら True、合わなければ None。"""
-        codes = state.get("player_codes")
-        if codes:
-            for number, value in codes.items():
-                if value == code:
-                    return int(number)
-            return None
-        return True if code and code == state.get("player_code") else None
+    def player_error(state: dict[str, Any], body: dict[str, Any]) -> tuple[int, str] | None:
+        """回答を受け付けない理由（cloud-server の pushPlayerAnswer と同じ順で確かめる）。"""
+        player = state["player"]
+        value = body.get("value")
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+            return 400, "回答は0〜100の整数で入力してください"
+        if player.get("mode") == "battle":
+            # 部門対抗モード: 合言葉はなく、参加している部門の番号で受け付ける
+            numbers = [t.get("number") for t in player.get("teams", [])]
+            team = body.get("team")
+            if isinstance(team, bool) or team not in numbers:
+                return 400, "部門を選び直してください"
+        elif not body.get("code") or body.get("code") != state.get("player_code"):
+            return 403, "合言葉が違います。司会に確認してください"
+        if not player.get("accepting_answer"):
+            return 409, "いまは回答を受け付けていません"
+        question = player.get("question") or {}
+        if body.get("question_id") != question.get("id"):
+            return 409, "問題が変わりました。画面を確認してください"
+        return None
 
     def run_command(body: dict[str, Any], source: str) -> dict[str, Any]:
         with session_lock:
@@ -575,7 +581,7 @@ def serve_local(
 
         def do_POST(self) -> None:
             path = self.path.split("?", 1)[0]
-            if path not in ("/api/host/command", "/api/player/answer", "/api/player/check"):
+            if path not in ("/api/host/command", "/api/player/answer"):
                 self._send_json(404, {"error": "not found"})
                 return
             try:
@@ -591,40 +597,21 @@ def serve_local(
                 self._send_json(200, run_command(body, "host"))
                 return
 
-            # 回答ページ（cloud-server の /api/player/* と同じ返し方をまねる）
+            # 回答ページ（cloud-server の /api/player/answer と同じ返し方をまねる）
             state = current_state()
-            team = find_team(state, body.get("code"))
-            if team is None:
-                self._send_json(403, {"error": "合言葉が違います。司会に確認してください"})
-                return
-            if path == "/api/player/check":
-                name = next(
-                    (t["name"] for t in state.get("teams", []) if t.get("number") == team), None
-                )
-                if team is True:  # 高専祭本番の形（合言葉1つ）。部門名はない
-                    name = None
-                self._send_json(200, {"team": None if team is True else team, "name": name})
-                return
-            value = body.get("value")
-            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
-                self._send_json(400, {"error": "回答は0〜100の整数で入力してください"})
-                return
-            player = state["player"]
-            if not player.get("accepting_answer"):
-                self._send_json(409, {"error": "いまは回答を受け付けていません"})
-                return
-            question = player.get("question") or {}
-            if body.get("question_id") != question.get("id"):
-                self._send_json(409, {"error": "問題が変わりました。画面を確認してください"})
+            error = player_error(state, body)
+            if error is not None:
+                self._send_json(error[0], {"error": error[1]})
                 return
             command = {
                 "type": "answer",
                 "value": body.get("value"),
-                "code": body.get("code"),
                 "question_id": body.get("question_id"),
             }
-            if team is not True:
-                command["team"] = team
+            if state["player"].get("mode") == "battle":
+                command["team"] = body.get("team")
+            else:
+                command["code"] = body.get("code")
             response = run_command(command, "player")
             self._send_json(200, {"seq": response["seq"]})
 

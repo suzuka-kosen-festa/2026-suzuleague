@@ -13,7 +13,6 @@ from suzuleague.battle_host import (
     build_host_state,
     build_player_state,
     execute_command,
-    load_or_create_codes,
 )
 from suzuleague.engine import State
 from suzuleague.host import serve_local
@@ -24,14 +23,13 @@ def make_app(corrects=(40, 70), n_teams=3, hold=0.0) -> BattleApp:
     teams = [Team(i, f"部門{i}") for i in range(1, n_teams + 1)]
     questions = [Question(200 + i, f"Q{i}", c) for i, c in enumerate(corrects, start=1)]
     engine = BattleEngine(teams, questions)
-    codes = load_or_create_codes(engine, None)
-    app = BattleApp(engine, codes, reveal_hold=hold)
+    app = BattleApp(engine, reveal_hold=hold)
     app.controller._min_advance_interval = 0.0
     return app
 
 
 def host(app: BattleApp, **command):
-    return execute_command(app.controller, app.codes, command)
+    return execute_command(app.controller, command)
 
 
 def player(app: BattleApp, team_no: int, value: int, **extra):
@@ -39,13 +37,12 @@ def player(app: BattleApp, team_no: int, value: int, **extra):
     command = {
         "type": "answer",
         "source": "player",
-        "code": app.codes.for_team(team_no),
         "team": team_no,
         "value": value,
         "question_id": q.id if q else None,
     }
     command.update(extra)
-    return execute_command(app.controller, app.codes, command)
+    return execute_command(app.controller, command)
 
 
 def to_answering(app: BattleApp) -> None:
@@ -96,35 +93,41 @@ class TestPublicState:
         result = host(app, type="next")
         assert not result["ok"]  # 数え下げの演出中は次へ進ませない
 
-    def test_codes_only_in_host_state(self):
+    def test_no_codes_in_battle_mode(self):
         app = make_app()
-        state = build_host_state(app.engine, app.codes)
-        code = app.codes.for_team(1)
-        assert state["player_codes"]["1"] == code
-        assert code not in json.dumps(state["player"])
+        state = build_host_state(app.engine)
+        assert "player_codes" not in state
+        assert state["player_code"] is None
+        assert state["player"]["mode"] == "battle"
 
     def test_inactive_team_not_public(self):
         app = make_app()
         assert host(app, type="set_active", team=2, active=False)["ok"]
         state = build_player_state(app.engine)
         assert [t["number"] for t in state["teams"]] == [1, 3]
-        host_state = build_host_state(app.engine, app.codes)
+        host_state = build_host_state(app.engine)
         assert [t["active"] for t in host_state["teams"]] == [True, False, True]
 
 
 class TestCommands:
-    def test_wrong_code_rejected(self):
+    def test_player_answer_by_team_number(self):
         app = make_app()
         to_answering(app)
-        result = player(app, 1, 50, code="0000" if app.codes.for_team(1) != "0000" else "0001")
-        assert not result["ok"]
+        assert player(app, 2, 33)["ok"]
+        assert app.engine.answers == {2: 33}
+
+    def test_unknown_team_rejected(self):
+        app = make_app()
+        to_answering(app)
+        assert not player(app, 9, 50)["ok"]
+        assert not player(app, 1, 50, team=None)["ok"]
         assert app.engine.answers == {}
 
-    def test_code_and_team_must_match(self):
+    def test_inactive_team_rejected(self):
         app = make_app()
+        host(app, type="set_active", team=3, active=False)
         to_answering(app)
-        result = player(app, 1, 50, team=2)
-        assert not result["ok"]
+        assert not player(app, 3, 50)["ok"]
 
     def test_old_question_rejected(self):
         app = make_app()
@@ -134,7 +137,7 @@ class TestCommands:
 
     def test_player_cannot_advance(self):
         app = make_app()
-        result = execute_command(app.controller, app.codes, {"type": "next", "source": "player"})
+        result = execute_command(app.controller, {"type": "next", "source": "player"})
         assert not result["ok"]
         assert app.engine.state is State.IDLE
 
@@ -171,21 +174,6 @@ class TestCommands:
         assert calls
 
 
-class TestCodes:
-    def test_codes_persist(self, tmp_path):
-        path = tmp_path / "codes.json"
-        engine = make_app().engine
-        first = load_or_create_codes(engine, path)
-        second = load_or_create_codes(make_app().engine, path)
-        assert first.export() == second.export()
-
-    def test_codes_reject_other_teams(self, tmp_path):
-        path = tmp_path / "codes.json"
-        load_or_create_codes(make_app(n_teams=3).engine, path)
-        with pytest.raises(ValueError, match="消して"):
-            load_or_create_codes(make_app(n_teams=4).engine, path)
-
-
 class TestSaveFile:
     def test_round_trip(self, tmp_path):
         app = make_app()
@@ -200,7 +188,6 @@ class TestSaveFile:
         savefile.restore(data, other.engine, other.codes)
         assert other.engine.state is State.ANSWERING
         assert other.engine.answers == {2: 61}
-        assert other.codes.export() == app.codes.export()
         assert "部門対抗・1問目" in savefile.describe(other.engine, data["saved_at"])
 
 
@@ -208,7 +195,7 @@ class TestSaveFile:
 def local_server():
     app = make_app(corrects=(40,))
     server = serve_local(
-        app.controller, port=0, player_codes=app.codes, build_state=app.build_state, execute=app.execute
+        app.controller, port=0, build_state=app.build_state, execute=app.execute
     )
     base = f"http://127.0.0.1:{server.server_address[1]}"
     yield app, base
@@ -235,19 +222,16 @@ class TestLocalServer:
 
     def test_player_flow(self, local_server):
         app, base = local_server
-        status, body = call(base, "/api/player/check", {"code": app.codes.for_team(2)})
-        assert status == 200 and body == {"team": 2, "name": "部門2"}
-        status, _ = call(base, "/api/player/check", {"code": "abcd"})
-        assert status == 403
-
         call(base, "/api/host/command", {"type": "next"})
         app.controller._last_advance = None
-        status, _ = call(base, "/api/player/answer", {"code": app.codes.for_team(2), "value": 5, "question_id": 201})
+        status, _ = call(base, "/api/player/answer", {"team": 2, "value": 5, "question_id": 201})
         assert status == 409  # 出題中（読み上げ）はまだ受け付けない
         call(base, "/api/host/command", {"type": "next"})
-        status, _ = call(base, "/api/player/answer", {"code": app.codes.for_team(2), "value": 5, "question_id": 201})
+        status, _ = call(base, "/api/player/answer", {"team": 2, "value": 5, "question_id": 201})
         assert status == 200
         assert app.engine.answers == {2: 5}
+        status, _ = call(base, "/api/player/answer", {"team": 9, "value": 5, "question_id": 201})
+        assert status == 400
 
         status, body = call(base, "/api/player/state")
         assert body["state"]["teams"][1]["answered"] is True
@@ -256,41 +240,6 @@ class TestLocalServer:
 
 class TestReviewFixes:
     """2026-11-12 の検品で見つかった点。"""
-
-    def test_codes_are_six_digits(self):
-        app = make_app()
-        assert all(len(c) == 6 for c in app.codes.export().values())
-
-    def test_codes_kept_when_finished(self):
-        app = make_app(corrects=(50,))
-        to_answering(app)
-        host(app, type="close")
-        for _ in range(3):
-            app.controller._last_advance = None
-            host(app, type="next")
-        assert app.engine.state is State.FINISHED
-        state = build_host_state(app.engine, app.codes)
-        assert state["player_codes"]["1"] == app.codes.for_team(1)
-        assert state["player"]["accepting_answer"] is False
-
-    def test_resume_keeps_codes_from_file(self, tmp_path):
-        from suzuleague.battle_app import setup_save
-
-        codes_file = tmp_path / "codes.json"
-        save_file = tmp_path / "game.json"
-        app = make_app()
-        app.codes = load_or_create_codes(app.engine, codes_file)
-        setup_save(app, save_file, resume=False)
-        to_answering(app)  # 保存される
-        old = app.codes.export()
-
-        codes_file.unlink()  # 合言葉を作り直してカードを刷り直した
-        again = make_app()
-        again.codes = load_or_create_codes(again.engine, codes_file)
-        setup_save(again, save_file, resume=True)
-        assert again.engine.state is State.ANSWERING
-        assert again.codes.export() != old
-        assert again.codes.export() == load_or_create_codes(again.engine, codes_file).export()
 
     def test_idle_with_inactive_team_is_resumable(self):
         app = make_app()
@@ -310,5 +259,5 @@ class TestReviewFixes:
         call(base, "/api/host/command", {"type": "next"})
         app.controller._last_advance = None
         call(base, "/api/host/command", {"type": "next"})
-        status, _ = call(base, "/api/player/answer", {"code": app.codes.for_team(1), "value": "50", "question_id": 201})
+        status, _ = call(base, "/api/player/answer", {"team": 1, "value": "50", "question_id": 201})
         assert status == 400

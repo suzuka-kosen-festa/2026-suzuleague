@@ -3,24 +3,22 @@
 高専祭本番の host.py と同じ中継（HostRelay）に載せる。状態の形と操作の種類が違うので、
 host.py に分岐を足さずにこちらへ分けた（docs/furikaeri/design.md「既存のコードとの分け方」）。
 
-- build_host_state: 司会者画面に出す状態。合言葉と、締め切り前の予想も入る（Render は合言葉付きでしか返さない）
+- build_host_state: 司会者画面に出す状態。正解と締め切り前の予想も入る（Render は司会の合言葉付きでしか返さない）
 - build_player_state: 回答ページと大画面に出す公開用の状態。誰でも読めるので、
   予想は予想オープンから、正解は正解発表から入れる
 - execute_command: 司会者画面と回答ページから届いた操作を1つ実行する
-- load_or_create_codes: 部門ごとの6桁の合言葉。カードに印刷するので、ファイルに残して使い回す
+
+回答ページに合言葉はない。部門はボタンで選び、回答には部門番号を付けて送る（2026-11-13 決定。
+参加者は全員どこかの部門の人なので、ほかの部門として答えるいたずらは起きないとみなした）。
 """
 
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
 from typing import Any
 
 from .battle import BattleEngine, BattleTeam
 from .controller import GameController
 from .engine import GameError, State
-from .host import TeamCodes
 from .labels import STATE_LABELS
 
 # 予想を公開してよい状態（予想オープンから最終順位まで）
@@ -30,45 +28,6 @@ REVEALED_STATES = (State.REVEAL, State.ROUND_RESULT, State.FINISHED)
 
 # 正解発表の数え下げ演出（board.html の REVEAL_COUNT_MS と合わせる）のあいだ「次へ」を止める秒数
 BATTLE_REVEAL_HOLD = 4.0
-# 部門の合言葉の桁数。10部門ぶんが当日ずっと有効なので、高専祭本番（4桁）より長くする
-BATTLE_CODE_DIGITS = 6
-
-
-# ---- 合言葉 ---------------------------------------------------------
-
-
-def load_or_create_codes(engine: BattleEngine, path: Path | None) -> TeamCodes:
-    """部門ごとの合言葉を読む。なければ作ってファイルに残す。
-
-    高専祭本番の合言葉は起動のたびに作り直していたが、部門対抗モードでは事前にカードへ
-    印刷するので、作り直されるとカードが使えなくなる。作り直したいときはファイルを消す。
-    """
-    numbers = [t.number for t in engine.teams]
-    codes = TeamCodes(numbers, digits=BATTLE_CODE_DIGITS)
-    if path is None:
-        return codes
-    if path.exists():
-        try:
-            codes.restore(json.loads(path.read_text(encoding="utf-8")))
-            if any(len(codes.for_team(n) or "") != BATTLE_CODE_DIGITS for n in numbers):
-                raise ValueError(f"合言葉が{BATTLE_CODE_DIGITS}桁ではありません")
-            return codes
-        except (OSError, ValueError) as e:
-            raise ValueError(
-                f"合言葉のファイル {path} を読めません（{e}）。部門を変えたなら、このファイルを消してから起動してください"
-            ) from e
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(codes.export(), indent=1) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
-    return codes
-
-
-def team_for_code(engine: BattleEngine, codes: TeamCodes, code: Any) -> BattleTeam | None:
-    for team in engine.teams:
-        if code is not None and codes.for_team(team.number) == code:
-            return team
-    return None
 
 
 # ---- 画面に出す状態 ------------------------------------------------
@@ -153,11 +112,10 @@ def build_player_state(engine: BattleEngine) -> dict[str, Any]:
 
 def build_host_state(
     engine: BattleEngine,
-    codes: TeamCodes,
     last_command: dict[str, Any] | None = None,
     hold_remaining: float = 0.0,
 ) -> dict[str, Any]:
-    """司会者画面に出す状態。正解・締め切り前の予想・合言葉も入る。"""
+    """司会者画面に出す状態。正解と締め切り前の予想も入る。"""
     ranks = _ranks(engine)
     teams = []
     for team in engine.teams:
@@ -173,7 +131,6 @@ def build_host_state(
         entry["answer"] = (
             engine.answers.get(team.number) if engine.state is State.ANSWERING else entry.get("answer")
         )
-        entry["code"] = codes.for_team(team.number)
         teams.append(entry)
     missing = [t.name for t in engine.missing_teams()] if engine.state is State.ANSWERING else []
     return {
@@ -192,10 +149,7 @@ def build_host_state(
         "winners": [{"number": t.number, "name": t.name} for t in engine.winners()],
         "last_command": last_command,
         "hold": int(-(-hold_remaining // 1)),  # 切り上げ
-        # cloud-server は回答の合言葉をこの一覧から探し、どの部門の回答かを付けて預かる
-        # 最終順位でも残す（回答ページを開き直したときに、合言葉の確かめ直しで弾かれないように）。
-        # 回答そのものは accepting_answer で弾かれる
-        "player_codes": codes.export(),
+        # 部門対抗モードに合言葉はない。cloud-server は player.mode を見て、部門番号で回答を受け付ける
         "player_code": None,
         "player": build_player_state(engine),
     }
@@ -216,9 +170,7 @@ def _check_expect(engine: BattleEngine, command: dict[str, Any]) -> None:
         raise GameError("画面の表示が古いため操作を取り消しました（もう進んでいます）")
 
 
-def execute_command(
-    controller: GameController, codes: TeamCodes, command: dict[str, Any]
-) -> dict[str, Any]:
+def execute_command(controller: GameController, command: dict[str, Any]) -> dict[str, Any]:
     """司会者画面・回答ページから届いた操作を1つ実行し、結果を返す（例外は投げない）。"""
     engine: BattleEngine = controller.engine  # type: ignore[assignment]
     seq = command.get("seq")
@@ -251,17 +203,11 @@ def execute_command(
             value = _int(command.get("value"), "回答")
 
             def answer() -> str:
+                team = engine.team(_int(command.get("team"), "部門"))
                 if from_player:
-                    team = team_for_code(engine, codes, command.get("code"))
-                    if team is None or (
-                        command.get("team") is not None and command.get("team") != team.number
-                    ):
-                        raise GameError("合言葉が違うため、回答を受け付けませんでした")
                     question = engine.current_question
                     if question is None or command.get("question_id") != question.id:
                         raise GameError("前の問題への回答が遅れて届いたため、受け付けませんでした")
-                else:
-                    team = engine.team(_int(command.get("team"), "部門"))
                 engine.submit_answer(team.number, value)
                 return team.name
 

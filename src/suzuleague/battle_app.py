@@ -23,7 +23,6 @@ from .battle_host import (
     BATTLE_REVEAL_HOLD,
     build_host_state,
     execute_command,
-    load_or_create_codes,
     next_action_label,
 )
 from .cloud import resolve_cloud_host
@@ -34,7 +33,6 @@ from .labels import STATE_LABELS
 from .questions import FURIKAERI_QUESTIONS, FURIKAERI_REHEARSAL_QUESTIONS
 from .teams import resolve_teams
 
-DEFAULT_CODES_FILE = Path("launcher/furikaeri-codes.json")
 
 HELP_TEXT = """\
 コマンド:
@@ -42,7 +40,6 @@ HELP_TEXT = """\
   answer <部門> <0-100>  部門の回答を代理で入れる（例: answer 3 45）
   close                 未回答の部門を残したまま締め切る（予想50とみなす）
   status (s)            今の状態と順位
-  codes                 部門ごとの合言葉
   quit                  終了
 """
 
@@ -54,16 +51,17 @@ def make_engine(teams_path: str | None, rehearsal: bool) -> BattleEngine:
 
 
 class BattleApp:
-    def __init__(self, engine: BattleEngine, codes: TeamCodes, reveal_hold: float = BATTLE_REVEAL_HOLD) -> None:
+    def __init__(self, engine: BattleEngine, reveal_hold: float = BATTLE_REVEAL_HOLD) -> None:
         self.engine = engine
-        self.codes = codes
+        # 部門対抗モードに合言葉はない。保存ファイルの形を高専祭本番と共通にするため、空のまま持つ
+        self.codes = TeamCodes([])
         self.controller = GameController(engine, None, reveal_hold=reveal_hold, min_advance_interval=1.0)
 
     def build_state(self, last_command: dict[str, Any] | None, hold: float) -> dict[str, Any]:
-        return build_host_state(self.engine, self.codes, last_command, hold)
+        return build_host_state(self.engine, last_command, hold)
 
     def execute(self, command: dict[str, Any]) -> dict[str, Any]:
-        return execute_command(self.controller, self.codes, command)
+        return execute_command(self.controller, command)
 
     # ---- 表示 ----------------------------------------------------
 
@@ -84,10 +82,10 @@ class BattleApp:
                 f"{s.rank}位 {s.team.name} {s.team.balloons}" for s in self.engine.standings()
             ))
 
-    def print_codes(self) -> None:
+    def print_teams(self) -> None:
         for team in self.engine.teams:
             mark = "" if team.active else "（不参加）"
-            print(f"  {team.number:>2} {team.name}{mark}: {self.codes.for_team(team.number)}")
+            print(f"  {team.number:>2} {team.name}{mark}")
 
     def on_command(self, command: dict[str, Any], result: dict[str, Any]) -> None:
         where = "回答ページ" if command.get("source") == "player" else "司会者画面"
@@ -124,8 +122,6 @@ class BattleApp:
                 print(self.execute({"type": "close"})["message"])
             elif cmd in ("status", "s"):
                 self.print_status()
-            elif cmd == "codes":
-                self.print_codes()
             elif cmd in ("help", "h"):
                 print(HELP_TEXT)
             elif cmd:
@@ -165,9 +161,7 @@ def setup_save(app: BattleApp, path: Path, resume: bool) -> None:
         if not savefile.check(data, app.engine):
             data = None
     if data is not None:
-        # 合言葉は保存のものを使わず、ファイル（カードに刷ったもの）のままにする。
-        # 合言葉を作り直してから「続きから」で起動しても、カードと食い違わないように
-        savefile.restore(data, app.engine, TeamCodes([t.number for t in app.engine.teams]))
+        savefile.restore(data, app.engine, app.codes)
         print(f"前回の続きから再開します: {savefile.describe(app.engine, str(data.get('saved_at', '')))}")
     else:
         prev = savefile.back_up(path)
@@ -186,11 +180,10 @@ def setup_save(app: BattleApp, path: Path, resume: bool) -> None:
 def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
     try:
         engine = make_engine(args.teams, args.rehearsal)
-        codes = load_or_create_codes(engine, args.codes_file)
     except ValueError as e:
         parser.error(str(e))
     hold = args.reveal_hold if args.reveal_hold is not None else BATTLE_REVEAL_HOLD
-    app = BattleApp(engine, codes, reveal_hold=hold)
+    app = BattleApp(engine, reveal_hold=hold)
 
     if args.save_file is not None:
         try:
@@ -211,7 +204,6 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
             HttpTransport(base_url, token),
             on_command=app.on_command,
             on_status=app.on_relay_status,
-            player_codes=codes,
             build_state=app.build_state,
             execute=app.execute,
         )
@@ -224,15 +216,14 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
             app.controller,
             port=args.web_port,
             on_command=app.on_command,
-            player_codes=codes,
             build_state=app.build_state,
             execute=app.execute,
         )
         print(f"司会者画面（予備）: http://localhost:{args.web_port}/host")
         print(f"回答ページ（手元）: http://localhost:{args.web_port}/player.html")
         print(f"大画面（手元）:     http://localhost:{args.web_port}/board.html")
-    print("部門ごとの合言葉:")
-    app.print_codes()
+    print("参加する部門:")
+    app.print_teams()
 
     try:
         if args.headless:

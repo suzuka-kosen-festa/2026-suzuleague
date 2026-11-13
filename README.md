@@ -13,7 +13,7 @@
 | 画面 | URL | 使う人 |
 |---|---|---|
 | 大画面 | <https://suzuleague-cloud.onrender.com/board.html> | 会場の全員（プロジェクターに映す。入力なし） |
-| 部門の回答ページ | <https://suzuleague-cloud.onrender.com/furikaeri.html> | 各部門の入力係（6桁の合言葉が要る） |
+| 部門の回答ページ | <https://suzuleague-cloud.onrender.com/furikaeri.html> | 各部門の入力係（部門はボタンで選ぶ。待機中の大画面に QR が出る） |
 | 司会者画面 | <https://suzuleague-cloud.onrender.com/host.html> | 司会（部門対抗モードのときは自動で部門対抗用の画面に移る） |
 
 ### 高専祭本番（1チームずつ5問）の画面
