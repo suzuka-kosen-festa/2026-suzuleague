@@ -276,8 +276,19 @@ class TestSaveRestore:
 
 
 class TestQuestions:
-    def test_six_questions(self):
-        assert len(FURIKAERI_QUESTIONS) == FURIKAERI_ROUNDS == 6
+    def test_seven_questions(self):
+        assert len(FURIKAERI_QUESTIONS) == FURIKAERI_ROUNDS == 7
+
+    def test_not_used_at_festival(self):
+        """高専祭本番の問題と、同じ正解・同じ問題文の問題がないこと（使い回し防止の目安）。"""
+        festival = {q.text for q in PRODUCTION_QUESTIONS}
+        assert not festival & {q.text for q in FURIKAERI_QUESTIONS}
+
+    def test_answers_spread(self):
+        """正解がばらけていて、続く2問の正解が10以上離れていること。"""
+        corrects = [q.correct for q in FURIKAERI_QUESTIONS]
+        assert len(set(corrects)) == len(corrects)
+        assert all(abs(a - b) >= 10 for a, b in zip(corrects, corrects[1:]))
 
     def test_ids_do_not_collide(self):
         groups = [
