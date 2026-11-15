@@ -6,7 +6,7 @@
 司会と観客は自分のスマホ、出演者は手元の iPad のステージ画面（Scratch）で見る。**同じステージ画面を、入力なしで壇上の電子黒板にも映す**（2026-10-13〜。スタッフの Windows PC をつなぐ）。
 進行の中心は裏方PCで動く Python で、どの画面とも Render 上の cloud サーバを介してやり取りする。裏方PCはふだん Jetson Orin Nano で、Jetson が使えないときは Mac に移す（2026-10-24〜）。
 
-> **2026-11-12 時点**：高専祭本番は 11/1 に終わった（優勝はスシタベタイ）。次は **12/3 の高専祭振り返り会**で、アイスブレイクとして**部門対抗モード**を行う。最大10部門が同じ7問に同時に答え、プロジェクターの大画面に全部門の予想と残りバルーンを並べる。計画と作りは [docs/furikaeri/](docs/furikaeri/)。
+> **2026-11-15 時点**：高専祭本番は 11/1 に終わった（優勝はスシタベタイ）。次は **12/3 の高専祭振り返り会**で、アイスブレイクとして**部門対抗モード**を行う。最大10部門が同じ7問に同時に答え、プロジェクターの大画面に全部門の予想と残りバルーンを並べる。計画と作りは [docs/furikaeri/](docs/furikaeri/)。
 
 ### 部門対抗モード（振り返り会）の画面
 
@@ -101,7 +101,7 @@ uv run suzuleague --offline --web
 | `tools/stage_check.py` | 書き出したステージ画面を、手元のサーバと自動操作のブラウザで通しに動かして確かめる（Playwright） |
 | `tools/system_check.py` | 全部の画面（司会者画面・観客ページ・予備の回答画面・ステージ画面）を開き、4チーム20問を通して確かめる |
 | `src/suzuleague/battle.py` | 部門対抗モードの進行・採点・順位（全部門が同じ問題に同時に答える） |
-| `src/suzuleague/battle_host.py` | 部門対抗モードの、画面に渡す状態と操作の実行・部門の合言葉 |
+| `src/suzuleague/battle_host.py` | 部門対抗モードの、画面に渡す状態と操作の実行 |
 | `src/suzuleague/battle_app.py` | 部門対抗モードの起動（`uv run suzuleague --battle`） |
 | `src/suzuleague/board.html` / `furikaeri.html` / `furikaeri-host.html` | 部門対抗モードの大画面・部門の回答ページ・司会者画面 |
 | `src/suzuleague/savefile.py` | 進行の保存と、裏方PCを起動し直したときの途中からの再開 |

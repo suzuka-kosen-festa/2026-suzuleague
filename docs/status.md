@@ -1,4 +1,4 @@
-# 進捗状況（2026-11-12 時点）
+# 進捗状況（2026-11-15 時点）
 
 このドキュメントは**今どこまで進んでいて、次に何をすべきか**を1枚で把握するためのもの。
 設計の説明は [architecture.md](./architecture.md)、開発手順は [development.md](./development.md)、
@@ -13,9 +13,9 @@
 [しくみの図解](https://htmlpreview.github.io/?https://github.com/suzuka-kosen-festa/2026-suzuleague/blob/main/docs/explainer.html)
 （[docs/explainer.html](./explainer.html)）を先に渡すとよい。
 
-## いまの状況（11/12）
+## いまの状況（11/15）
 
-**高専祭本番は 11/1（日）に終わった。次は 12/3（木）の高専祭振り返り会で、アイスブレイクとして部門対抗モードを行う。** 部門対抗モードは 11/12 に作り、Render にも反映した。残りは本番の Render での通し試験。11/13 に合言葉をやめ、部門はボタンで選ぶ形にした。
+**高専祭本番は 11/1（日）に終わった。次は 12/3（木）の高専祭振り返り会で、アイスブレイクとして部門対抗モードを行う。** 部門対抗モードは 11/12 に作って Render に反映し、11/13 に合言葉をやめて部門をボタンで選ぶ形にした。問題も 11/13 に7問で確定した。残りは本番の Render での通し試験と、当日の準備。
 
 ### 高専祭本番の結果（11/1）
 
@@ -35,8 +35,8 @@
 | 期日の目安 | Issue | 内容 |
 |---|---|---|
 | 11/24〜11/27 | [#63](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/63) | 本番の Render で部門対抗モードを通す。スマホ数台で答え、1問の所要時間を計る |
-| できれば | [#65](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/65) | 検品で残した細かい2点 |
-| 12/2 | — | コード凍結。`publish --check` で本番の画面を照合する |
+| 11/28〜12/2 | [#67](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/67) | 当日の準備。会場の機材で大画面と QR を確かめる、司会はだれかを確かめる、12/2 にコードを凍結して照合する |
+| できれば | [#65](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/65) | 細かい残り1点（司会の操作の失敗が、通知に出ないことがある） |
 
 [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45)（cloud-server をこのリポジトリにまとめる）は、振り返り会には要らないので優先度を下げて残してある。
 
