@@ -112,7 +112,7 @@
 
 - 裏方PCは Render を郵便受けにして、司会の操作・出演者の回答を取り出す（スマホから裏方PCへは直接つながない）
 - 司会者画面は合言葉（`HOST_TOKEN`）、出演者の回答はチームごとの4桁の合言葉で守る
-- 画面の書き出しと本番との照合は `uv run python -m suzuleague.publish`（[手順](./development.md#観客用ページを更新する)）
+- 画面の書き出しと本番との照合は `uv run python -m suzuleague.publish`（[手順](./development.md#観客用ページを更新する)）。2026-11-15 からは、main に push すると cloud-server の GitHub Actions が10分おきに書き出し・push・照合まで行う
 
 ## 高専祭本番前に残っていたこと（10/29 時点の記録）
 
@@ -254,6 +254,7 @@ Issue は6件（2026-10-24 時点）。10/24 に、Jetson で動かす形の残�
 - 問題を差し替えたら、`questions.py`・Scratchの問題の画像（スプライト「問題」）・観客ページ（`publish` で書き出してデプロイ）の**3か所を同時に更新**する
 - **Scratch担当がプロジェクトを直したら、ステージ画面を作り直す**（`uv run python -m suzuleague.stage`）。作り直すまで本番の画面には出ない。`--check` で本番が最新かどうかを確かめられる
 - **main（cloud-server は master）に直接コミットして push する**（2026-10-04〜）。cloud-server の push はそのまま本番デプロイなので、push 後は `publish --check` で照合する。10/21 には自動デプロイが走らなかったので、照合が合わなければ Render の管理画面から手動でデプロイする
+- 画面（board.html など）は、main に push すれば cloud-server へ自動で反映される（2026-11-15〜。最大15分ほど）。ただしサーバ側の変更が要る画面は、先に cloud-server のサーバの変更をデプロイしてから suzuleague に push する
 - 本番投入前の確認事項は
   [リリースチェックリスト](./development.md#リリース本番投入チェックリスト) を参照
 

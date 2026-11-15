@@ -412,6 +412,21 @@ uv run python -m suzuleague.loadtest --cloud-host ws://localhost:9080 --ramp 10,
 
 書き出しと本番との照合は `publish` コマンドにまとめてある。手でコピーしない。
 
+**2026-11-15 からは自動で反映される。** main に push すれば、手元で `publish` を実行しなくてよい。
+cloud-server の GitHub Actions（[`sync-suzuleague-pages.yml`](https://github.com/inouekoshi/cloud-server/blob/master/.github/workflows/sync-suzuleague-pages.yml)）が
+10分おきにこのリポジトリの main を取ってきて `publish` で書き出し、変わったファイルがあればコミットして master に push する。
+そのあと Render のデプロイを待ち、`publish --check` で本番と照合する（最大8分ほど試し直す）。
+
+- 反映まで最大で15分ほどかかる。GitHub の定期実行は混んでいると数分遅れるためで、急ぐときは cloud-server の Actions の画面で「Run workflow」を押す
+- 差分がなければコミットも push もしない。docs だけを変えた push では何も起きない
+- 照合が合わないまま終わると、その実行が失敗になる（GitHub から通知が届く）。Render の管理画面から手動でデプロイする
+- この方式にしたのは、suzuleague の Secrets を登録できる権限（admin）が手元にないため。cloud-server 側なら、そのリポジトリの `GITHUB_TOKEN` で push できる
+- suzuleague のコードを動かすジョブには書き込み権限を渡さない。push するジョブは、書き出された6ファイルを受け取ってコミットするだけにしてある。`publish.py` で配る画面を増やしたら、ワークフローの `PAGES` にも足す（足し忘れると実行が失敗して知らせる）
+- cloud-server は TurboWarp/cloud-server のフォークなので、Actions は最初は止まっていた。2026-11-15 に Actions の画面で有効にした。Render の Auto-Deploy は「On Commit」で、bot の push でもデプロイされる
+- **サーバ側（`hostApi.js` など）の変更が要る画面は、順番に気をつける。** 先に cloud-server へサーバの変更を push してデプロイを確かめ、それから suzuleague の main に push する。逆にすると、自動の書き出しが先に画面を出してしまい、回答がすべて弾かれる
+
+自動の反映が止まっているときや急ぐときは、従来どおり手元から反映する。
+
 ```bash
 # 1. 書き出す（隣に cloud-server がクローンしてある前提。場所が違えば --server-dir）
 uv run python -m suzuleague.publish --room-id 1364239598
