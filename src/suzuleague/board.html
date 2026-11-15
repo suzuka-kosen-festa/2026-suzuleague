@@ -393,6 +393,8 @@
     });
   }
 
+  function setConn(kind, text) { var c = el("conn"); c.dataset.kind = kind; c.textContent = text; }
+
   var polling = 0, pollSeq = 0;  // 読み込み中なら始めた時刻／何回目の読み込みか
   function poll() {
     // 前の読み込みが終わるまで次を出さない（遅れて届いた古い状態で画面が巻き戻らないように）。
@@ -404,13 +406,12 @@
       .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
       .then(function (data) {
         if (id !== pollSeq) return;
-        var c = el("conn");
-        if (!data.state) { c.dataset.kind = "ng"; c.textContent = "進行を管理するPCを待っています"; }
-        else if (data.age > STALE_SEC) { c.dataset.kind = "ng"; c.textContent = "進行が止まっています（" + Math.round(data.age) + "秒）"; }
-        else { c.dataset.kind = "ok"; c.textContent = "接続中"; }
+        if (!data.state) setConn("ng", "進行を管理するPCを待っています");
+        else if (data.age > STALE_SEC) setConn("ng", "進行が止まっています（" + Math.round(data.age) + "秒）");
+        else setConn("ok", "接続中");
         render(data.state);
       })
-      .catch(function () { if (id !== pollSeq) return; var c = el("conn"); c.dataset.kind = "ng"; c.textContent = "サーバにつながりません"; })
+      .catch(function () { if (id === pollSeq) setConn("ng", "サーバにつながりません"); })
       .then(function () { if (id === pollSeq) polling = 0; });
   }
 
@@ -468,9 +469,12 @@
 
   // ---- 部門のカード ----------------------------------------------------
 
+  // 途中順位と最終結果は順位で並べ、順位を出す
+  function isRanked(s) { return s.state === STATE.ROUND_RESULT || s.state === STATE.FINISHED; }
+
   function ordered(s) {
     var teams = s.teams.slice();
-    if (s.state === STATE.ROUND_RESULT || s.state === STATE.FINISHED) {
+    if (isRanked(s)) {
       teams.sort(function (a, b) { return (a.rank - b.rank) || (a.number - b.number); });
     }
     return teams;
@@ -483,16 +487,16 @@
     }
     var opened = s.state === STATE.OPEN || s.state === STATE.REVEAL;
     var damageShown = s.state === STATE.REVEAL && !stagePhase;  // 前半のあいだは減る数も出さない
-    if ((s.state === STATE.ROUND_RESULT || s.state === STATE.FINISHED) && t.damage !== null && t.damage !== undefined) {
+    if (isRanked(s) && t.damage != null) {
       return '<div class="slot"><span class="note">第' + s.round + "問 " +
         (t.damage > 0 ? "<b>−" + t.damage + "</b>" : (t.error === 0 ? "ぴったり" : "±0")) + "</span></div>";
     }
     if (!opened) return '<div class="slot"></div>';
-    var guess = t.answer === null || t.answer === undefined
+    var guess = t.answer == null
       ? '<span class="guess">―</span>'
       : '<span class="guess">' + t.answer + "<small>%</small></span>";
     var dmg = "";
-    if (damageShown && t.damage !== null && t.damage !== undefined) {
+    if (damageShown && t.damage != null) {
       if (t.damage > 0) dmg = '<span class="dmg tape">−' + t.damage + "</span>";
       else if (t.error === 0) dmg = '<span class="dmg tape zero">ぴったり!</span>';
       else dmg = '<span class="dmg tape zero">±0</span>';  // 脱落済みで減らない
@@ -506,7 +510,7 @@
     // この問題で脱落する部門は、正解発表の数え下げが0に届いたときに灰色にする（tick）。前の問題までに脱落した部門は最初から灰色
     var outNow = t.eliminated && (s.state !== STATE.REVEAL || !(t.damage > 0));
     if (outNow) cls.push("out");
-    var ranked = s.state === STATE.ROUND_RESULT || s.state === STATE.FINISHED;
+    var ranked = isRanked(s);
     if (ranked && t.rank === 1) cls.push("top1");
     var start = displayedBalloons(s, t);
     return '<div class="' + cls.join(" ") + '" data-team="' + t.number + '">' +

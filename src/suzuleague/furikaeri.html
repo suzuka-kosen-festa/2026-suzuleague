@@ -298,25 +298,26 @@
     el("send").disabled = typed === "" || sending || !s || s.state !== STATE.ANSWERING;
   }
 
+  // 回答欄の下の一言（kind: "" ふつう／"ok" 届いた／"ng" 失敗）
+  function setStatus(kind, text) { var a = el("a-status"); a.dataset.kind = kind; a.textContent = text; }
+
   el("send").addEventListener("click", function () {
     var s = current;
     if (!s || !s.question || typed === "") return;
     var value = Number(typed), qid = s.question.id;
     sending = true; drawReadout();
-    el("a-status").textContent = "送っています…"; el("a-status").dataset.kind = "";
+    setStatus("", "送っています…");
     postJson("api/player/answer", { team: teamNo, value: value, question_id: qid })
       .then(function () {
         // サーバは預かった時点で返事をする。進行のPCが受け付けたかは、次の状態で確かめる
         sent = { qid: qid, value: value, at: Date.now() };
-        el("a-status").dataset.kind = "";
-        el("a-status").textContent = value + "% を送りました。届いたか確かめています…";
+        setStatus("", value + "% を送りました。届いたか確かめています…");
       })
       .catch(function (e) {
-        el("a-status").dataset.kind = "ng";
         // 電波が切れたときの fetch の失敗は英語の文（Failed to fetch など）なので、日本語に置き換える
-        el("a-status").textContent = e instanceof TypeError
+        setStatus("ng", e instanceof TypeError
           ? "送れませんでした。電波を確かめて、もう一度「この数字で回答する」を押してください"
-          : e.message;
+          : e.message);
       })
       .then(function () { sending = false; drawReadout(); });
   });
@@ -362,7 +363,7 @@
 
     var q = s.question ? s.question.text : "";
     var qid = s.question ? s.question.id : null;
-    if (typedFor !== qid) { typed = ""; typedFor = qid; el("a-status").textContent = ""; }
+    if (typedFor !== qid) { typed = ""; typedFor = qid; setStatus("", ""); }
     if (sent && sent.qid !== qid) sent = null;
 
     if (s.state === STATE.IDLE) {
@@ -375,16 +376,14 @@
       el("a-question").textContent = q;
       if (sent && !sending) {
         if (mine.answered && Date.now() - sent.at > 1500) {
-          el("a-status").dataset.kind = "ok";
-          el("a-status").textContent = sent.value + "% で回答しました（締め切りまでは直せます）";
+          setStatus("ok", sent.value + "% で回答しました（締め切りまでは直せます）");
         } else if (Date.now() - sent.at > 8000) {
-          el("a-status").dataset.kind = "ng";
-          el("a-status").textContent = "回答が届いていないかもしれません。もう一度送るか、司会に伝えてください";
+          setStatus("ng", "回答が届いていないかもしれません。もう一度送るか、司会に伝えてください");
         }
       }
       drawReadout();
     } else if (s.state === STATE.OPEN) {
-      var body = mine.answer === null ? "この問題は未回答でした（予想50とみなします）" : "あなたの部門の予想は " + mine.answer + "%。大画面を見てください。";
+      var body = mine.answer == null ? "この問題は未回答でした（予想50とみなします）" : "あなたの部門の予想は " + mine.answer + "%。大画面を見てください。";
       if (sent && sent.qid === qid && mine.answer !== sent.value) {
         body += "（最後に送った " + sent.value + "% は締め切りに間に合いませんでした）";
       }
@@ -397,10 +396,10 @@
         var won = s.winners.some(function (w) { return w.number === teamNo; });
         message(won ? "優勝おめでとうございます！" : "最終結果", "あなたの部門は " + mine.rank + " 位でした。");
       }
-      if (mine.error !== null && mine.error !== undefined) {
+      if (mine.error != null) {
         show("result-card", true);
         el("r-title").textContent = "第" + s.round + "問の結果";
-        el("r-answer").textContent = mine.answer === null ? "―" : mine.answer + "%";
+        el("r-answer").textContent = mine.answer == null ? "―" : mine.answer + "%";
         el("r-correct").textContent = s.correct + "%";
         el("r-damage").textContent = mine.damage;
       }
