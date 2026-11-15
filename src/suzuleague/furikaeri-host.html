@@ -329,7 +329,7 @@
         pending = { seq: data.seq, at: Date.now() };
         if (data.result) { lastShownSeq = data.seq; toast(data.result.ok ? "ok" : "ng", data.result.message); pending = null; poll(); }
       })
-      .catch(function (err) { pending = null; toast("ng", "送れませんでした（" + err.message + "）"); updateButtons(); });
+      .catch(function (err) { pending = null; toast("ng", err instanceof TypeError ? "送れませんでした。電波を確かめて、もう一度押してください" : "送れませんでした（" + err.message + "）"); updateButtons(); });
   }
 
   el("next-btn").addEventListener("click", function () {
