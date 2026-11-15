@@ -44,6 +44,18 @@ BOARD_PAGE_PATH = Path(__file__).parent / "board.html"
 FURIKAERI_PAGE_PATH = Path(__file__).parent / "furikaeri.html"
 FURIKAERI_HOST_PAGE_PATH = Path(__file__).parent / "furikaeri-host.html"
 TOKEN_HEADER = "X-Host-Token"
+# 書き出してある Scratch のステージ画面（cloud-server の public/stage/）。部門対抗モードの大画面が
+# 正解発表で重ねて出すので、手元で配るとき（serve_local）もここから配る。publish.DEFAULT_SERVER_DIR と同じ場所
+LOCAL_STAGE_DIR = Path(__file__).resolve().parents[2].parent / "cloud-server" / "public" / "stage"
+STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+}
 
 # 司会者画面に出す状態を作る関数（直前の操作の結果, 正解発表の待ちの残り秒数）→ 状態。
 # 部門対抗モードは battle_host.py の関数を渡す
@@ -485,6 +497,26 @@ class HostRelay:
 # ---- 予備：裏方PC上で直接開く -------------------------------------
 
 
+class _LocalServer(ThreadingHTTPServer):
+    # Scratch のステージ画面は素材（150ほど）を一度に読みに来る。既定の待ち行列（5）では断られるものが出る
+    request_queue_size = 128
+    daemon_threads = True
+
+
+def _stage_file(stage_dir: Path | None, path: str) -> Path | None:
+    """/stage/... に当たる書き出し済みのファイル。外へ出るパスと、配らない種類のファイルは None。"""
+    if stage_dir is None:
+        return None
+    relative = path.removeprefix("/stage/")
+    if relative == "" or relative.endswith("/"):
+        relative += "index.html"
+    root = stage_dir.resolve()
+    target = (root / relative).resolve()
+    if not target.is_relative_to(root) or not target.is_file() or target.suffix not in STATIC_TYPES:
+        return None
+    return target
+
+
 def serve_local(
     controller: GameController,
     *,
@@ -494,12 +526,15 @@ def serve_local(
     player_codes: TeamCodes | None = None,
     build_state: StateBuilder | None = None,
     execute: Executor | None = None,
+    stage_dir: Path | None = LOCAL_STAGE_DIR,
 ) -> ThreadingHTTPServer:
     """司会者画面を裏方PC上で配信する（Render に届かないときの予備）。
 
     操作はその場で実行する。合言葉は要らない（127.0.0.1 でしか待ち受けないため）。
     回答ページ（/player.html）と大画面（/board.html）も同じように開ける。Render を通さずに
     手元で通し試験をするためのもので、回答の受け付けは cloud-server と同じ照合をここでまねる。
+    大画面が正解発表で重ねる Scratch のステージ画面（/stage/view/）は、stage_dir（隣の cloud-server に
+    書き出してあるもの）から配る。なければ大画面は Scratch の演出を飛ばす。
     """
     session: dict[str, Any] = {"seq": 0, "last_command": None}
     session_lock = threading.Lock()
@@ -572,6 +607,8 @@ def serve_local(
             }
             if path in pages:
                 self._send(200, "text/html; charset=utf-8", pages[path].read_bytes())
+            elif path.startswith("/stage/") and (found := _stage_file(stage_dir, path)) is not None:
+                self._send(200, STATIC_TYPES[found.suffix], found.read_bytes())
             elif path == "/api/host/state":
                 self._send_json(200, {"state": current_state(), "age": 0})
             elif path == "/api/player/state":
@@ -615,6 +652,6 @@ def serve_local(
             response = run_command(command, "player")
             self._send_json(200, {"seq": response["seq"]})
 
-    server = ThreadingHTTPServer((host, port), Handler)
+    server = _LocalServer((host, port), Handler)
     threading.Thread(target=server.serve_forever, name="host-local", daemon=True).start()
     return server

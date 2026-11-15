@@ -26,8 +26,14 @@ OPEN_STATES = (State.OPEN, State.REVEAL, State.ROUND_RESULT, State.FINISHED)
 # 正解を公開してよい状態
 REVEALED_STATES = (State.REVEAL, State.ROUND_RESULT, State.FINISHED)
 
-# 正解発表の数え下げ演出（board.html の REVEAL_COUNT_MS と合わせる）のあいだ「次へ」を止める秒数
-BATTLE_REVEAL_HOLD = 4.0
+# 正解発表の演出のあいだ「次へ」を止める秒数。大画面（board.html）は正解発表を2段で見せる。
+#   前半: Scratch のステージ画面を重ね、ゲージが伸びて正解が出るまで（約14秒）＋見せておく2.5秒＋消す0.5秒
+#   後半: 大画面に戻り、各部門のカードで風船が割れながら数え下がる（REVEAL_COUNT_MS = 3秒）
+# 手元の通し（2026-11-15）では、正解発表に進めてから後半が終わるまで約20.5秒（大画面が状態を読む1秒の遅れを含む）。
+# Render を通すと大画面に届くのがもう1〜2秒遅れるので、少し長めにする（Scratch の組み立てを待ったうえに
+# 正解が出たと分からないときも、打ち切り STAGE_TIMEOUT_MS = 18.5秒で 1 + 18.5 + 0.5 + 3 = 23秒で終わる）。
+# Scratch の画面がない・間に合わないときは後半だけになる（約4秒）が、止める秒数は変えない
+BATTLE_REVEAL_HOLD = 23.0
 
 
 # ---- 画面に出す状態 ------------------------------------------------

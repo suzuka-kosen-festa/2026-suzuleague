@@ -261,3 +261,40 @@ class TestReviewFixes:
         call(base, "/api/host/command", {"type": "next"})
         status, _ = call(base, "/api/player/answer", {"team": 1, "value": "50", "question_id": 201})
         assert status == 400
+
+
+class TestLocalStage:
+    """大画面が正解発表で重ねる Scratch のステージ画面を、手元のサーバからも配る。"""
+
+    @pytest.fixture
+    def stage_server(self, tmp_path):
+        stage = tmp_path / "public" / "stage"
+        (stage / "view" / "assets").mkdir(parents=True)
+        (stage / "view" / "index.html").write_text("<p>stage</p>", encoding="utf-8")
+        (stage / "view" / "assets" / "a.svg").write_text("<svg/>", encoding="utf-8")
+        (stage / "view" / "secret.txt").write_text("x", encoding="utf-8")
+        (tmp_path / "public" / "outside.svg").write_text("<svg/>", encoding="utf-8")
+        app = make_app(corrects=(40,))
+        server = serve_local(app.controller, port=0, build_state=app.build_state, execute=app.execute, stage_dir=stage)
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+        server.shutdown()
+
+    def test_serves_stage_files(self, stage_server):
+        with urllib.request.urlopen(stage_server + "/stage/view/", timeout=5) as res:
+            assert res.read() == b"<p>stage</p>"
+        with urllib.request.urlopen(stage_server + "/stage/view/assets/a.svg", timeout=5) as res:
+            assert res.headers["Content-Type"] == "image/svg+xml"
+
+    @pytest.mark.parametrize("path", ["/stage/view/secret.txt", "/stage/../outside.svg", "/stage/view/../../outside.svg", "/stage/view/none.svg"])
+    def test_rejects_other_files(self, stage_server, path):
+        status, _ = call(stage_server, path)
+        assert status == 404
+
+    def test_without_stage_dir(self):
+        app = make_app(corrects=(40,))
+        server = serve_local(app.controller, port=0, build_state=app.build_state, execute=app.execute, stage_dir=None)
+        try:
+            status, _ = call(f"http://127.0.0.1:{server.server_address[1]}", "/stage/view/")
+            assert status == 404
+        finally:
+            server.shutdown()
