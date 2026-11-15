@@ -124,8 +124,8 @@
   .slot .note b { color: var(--damage); font-size: 3vh; }
   .slot.flip { animation: flip .5s ease-out backwards; }
   .badge {
-    position: absolute; inset: auto 0 0 0; text-align: center; padding: .4vh 0;
-    font-size: 2vh; font-weight: 800; background: #2b2f3f; color: #c7cbe0; letter-spacing: .2em;
+    flex: none; font-size: 1.9vh; font-weight: 800; padding: .2vh .5vw; border-radius: .6vh;
+    background: #2b2f3f; color: #c7cbe0;
   }
 
   .conn {
@@ -276,11 +276,12 @@
     var start = displayedBalloons(s, t);
     return '<div class="' + cls.join(" ") + '" data-team="' + t.number + '">' +
       '<div class="head"><div class="name">' + esc(t.name) + "</div>" +
+      // 脱落は部門名の横に小さく出す（下の欄に重ねると文字が隠れる。正解発表では数え下げが0に届いてから灰色にする）
+      (t.eliminated && s.state !== STATE.REVEAL ? '<div class="badge">脱落</div>' : "") +
       (ranked ? '<div class="rank">' + t.rank + "位</div>" : "") + "</div>" +
       '<div class="count"><span class="n">' + start + "</span><small>個</small></div>" +
       '<div class="meter"><i style="width:' + start + '%"></i></div>' +
       slot(s, t) +
-      (t.eliminated && s.state !== STATE.REVEAL ? '<div class="badge">脱落</div>' : "") +
       "</div>";
   }
 
