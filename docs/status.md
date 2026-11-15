@@ -36,7 +36,7 @@
 |---|---|---|
 | 11/24〜11/27 | [#63](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/63) | 本番の Render で部門対抗モードを通す。スマホ数台で答え、1問の所要時間を計る |
 | 11/28〜12/2 | [#67](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/67) | 当日の準備。会場の機材で大画面と QR を確かめる、司会はだれかを確かめる、12/2 にコードを凍結して照合する |
-| できれば | [#65](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/65) | 細かい残り1点（司会の操作の失敗が、通知に出ないことがある） |
+| できれば | [#65](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/65) | 細かい残り（司会の操作の失敗が通知に出ないことがある、大画面で「クリックすると音が出ます」と風船が少し重なる、など4点） |
 
 [#45](https://github.com/suzuka-kosen-festa/2026-suzuleague/issues/45)（cloud-server をこのリポジトリにまとめる）は、振り返り会には要らないので優先度を下げて残してある。
 
