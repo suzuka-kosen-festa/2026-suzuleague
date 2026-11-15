@@ -1,32 +1,32 @@
 [
   {
     "number": 1,
-    "name": "システム",
+    "name": "委員長＆執行部",
     "members": []
   },
   {
     "number": 2,
-    "name": "ステージイベント",
+    "name": "システム",
     "members": []
   },
   {
     "number": 3,
-    "name": "音響",
+    "name": "ステージイベント",
     "members": []
   },
   {
     "number": 4,
-    "name": "美術大工",
+    "name": "音響",
     "members": []
   },
   {
     "number": 5,
-    "name": "ライブ",
+    "name": "美術大工",
     "members": []
   },
   {
     "number": 6,
-    "name": "設営",
+    "name": "ライブ",
     "members": []
   },
   {

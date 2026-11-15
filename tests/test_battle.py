@@ -305,4 +305,4 @@ class TestQuestions:
     def test_teams_file(self):
         teams = load_teams("teams-furikaeri.json")
         assert len(teams) == 10
-        assert teams[0].name == "システム"
+        assert teams[0].name == "委員長＆執行部"
