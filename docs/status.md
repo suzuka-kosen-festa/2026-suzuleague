@@ -112,7 +112,7 @@
 
 - 裏方PCは Render を郵便受けにして、司会の操作・出演者の回答を取り出す（スマホから裏方PCへは直接つながない）
 - 司会者画面は合言葉（`HOST_TOKEN`）、出演者の回答はチームごとの4桁の合言葉で守る
-- 画面の書き出しと本番との照合は `uv run python -m suzuleague.publish`（[手順](./development.md#観客用ページを更新する)）。2026-11-15 からは、main に push すると cloud-server の GitHub Actions が10分おきに書き出し・push・照合まで行う
+- 画面の書き出しと本番との照合は `uv run python -m suzuleague.publish`（[手順](./development.md#観客用ページを更新する)）。2026-11-15 からは、cloud-server の GitHub Actions が書き出し・push・照合まで行う。2026-11-18 からは main への push のたびに、このリポジトリの Actions がそれを起動する（反映まで3〜4分。起動用のトークンは 12/18 に期限切れ）
 
 ## 高専祭本番前に残っていたこと（10/29 時点の記録）
 

@@ -413,14 +413,20 @@ uv run python -m suzuleague.loadtest --cloud-host ws://localhost:9080 --ramp 10,
 書き出しと本番との照合は `publish` コマンドにまとめてある。手でコピーしない。
 
 **2026-11-15 からは自動で反映される。** main に push すれば、手元で `publish` を実行しなくてよい。
-cloud-server の GitHub Actions（[`sync-suzuleague-pages.yml`](https://github.com/inouekoshi/cloud-server/blob/master/.github/workflows/sync-suzuleague-pages.yml)）が
-10分おきにこのリポジトリの main を取ってきて `publish` で書き出し、変わったファイルがあればコミットして master に push する。
+取り込みは cloud-server の GitHub Actions（[`sync-suzuleague-pages.yml`](https://github.com/inouekoshi/cloud-server/blob/master/.github/workflows/sync-suzuleague-pages.yml)）が行う。
+このリポジトリの main を取ってきて `publish` で書き出し、変わったファイルがあればコミットして master に push する。
 そのあと Render のデプロイを待ち、`publish --check` で本番と照合する（最大8分ほど試し直す）。
 
-- 反映まで最大で15分ほどかかる。GitHub の定期実行は混んでいると数分遅れるためで、急ぐときは cloud-server の Actions の画面で「Run workflow」を押す
+取り込みを起こすのは、このリポジトリの [`publish-pages.yml`](../.github/workflows/publish-pages.yml) である（2026-11-18 から）。
+`src/suzuleague/`・`pyproject.toml`・`uv.lock` が変わる push が main に入ると、cloud-server の取り込みをすぐ起動する。
+cloud-server 側にも10分おきの定期実行を残してあるが、GitHub に間引かれて実際は数時間おきにしか動かないので、予備と考える。
+
+- 反映まではおよそ3〜4分（取り込み約1分半、Render のデプロイ約90秒）。結果は cloud-server の Actions の画面で見る
+- 起動には Secrets の `CLOUD_SERVER_DISPATCH_TOKEN` を使う。cloud-server だけを対象に Actions の読み書きだけを許した fine-grained PAT で、**2026-12-18 に期限が切れる**。切れたら GitHub の設定画面で作り直し、`pbpaste | gh secret set CLOUD_SERVER_DISPATCH_TOKEN -R suzuka-kosen-festa/2026-suzuleague` で登録し直す
+- 起動が失敗したとき（トークン切れなど）は、cloud-server の Actions の画面で「Run workflow」を押すか、`gh workflow run sync-suzuleague-pages.yml -R inouekoshi/cloud-server --ref master` を実行する
 - 差分がなければコミットも push もしない。docs だけを変えた push では何も起きない
 - 照合が合わないまま終わると、その実行が失敗になる（GitHub から通知が届く）。Render の管理画面から手動でデプロイする
-- この方式にしたのは、suzuleague の Secrets を登録できる権限（admin）が手元にないため。cloud-server 側なら、そのリポジトリの `GITHUB_TOKEN` で push できる
+- 書き出しと push を cloud-server 側に置いたのは、cloud-server へ書き込む鍵をこのリポジトリに持たせないため。cloud-server のジョブなら、そのリポジトリの `GITHUB_TOKEN` で push できる。このリポジトリに置くトークンは起動しかできない
 - suzuleague のコードを動かすジョブには書き込み権限を渡さない。push するジョブは、書き出された6ファイルを受け取ってコミットするだけにしてある。`publish.py` で配る画面を増やしたら、ワークフローの `PAGES` にも足す（足し忘れると実行が失敗して知らせる）
 - cloud-server は TurboWarp/cloud-server のフォークなので、Actions は最初は止まっていた。2026-11-15 に Actions の画面で有効にした。Render の Auto-Deploy は「On Commit」で、bot の push でもデプロイされる
 - **サーバ側（`hostApi.js` など）の変更が要る画面は、順番に気をつける。** 先に cloud-server へサーバの変更を push してデプロイを確かめ、それから suzuleague の main に push する。逆にすると、自動の書き出しが先に画面を出してしまい、回答がすべて弾かれる
