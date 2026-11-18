@@ -1,0 +1,36 @@
+# main に画面の変更が push されたら、cloud-server の「スズリーグの画面を取り込む」を起動する。
+#
+# 取り込み（publish・cloud-server への push・本番との照合）は cloud-server 側のワークフローが行う。
+# 向こうの10分おきの定期実行は GitHub に間引かれて数時間おきにしか動かないので、ここから直接起こす。
+#
+# - Secrets の CLOUD_SERVER_DISPATCH_TOKEN が要る（inouekoshi/cloud-server だけに絞った
+#   fine-grained PAT。権限は Actions: Read and write だけ）
+# - このワークフローは suzuleague のコードを動かさない。起動の合図を送るだけ
+name: 本番の画面を更新する
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/suzuleague/**"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: cloud-server の取り込みを起動する
+        env:
+          GH_TOKEN: ${{ secrets.CLOUD_SERVER_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Secrets に CLOUD_SERVER_DISPATCH_TOKEN がありません"
+            exit 1
+          fi
+          gh workflow run sync-suzuleague-pages.yml --repo inouekoshi/cloud-server --ref master
+          echo "起動しました。結果は https://github.com/inouekoshi/cloud-server/actions で見られます"
